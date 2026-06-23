@@ -1,0 +1,2 @@
+DROP INDEX "payments_one_live_per_booking";--> statement-breakpoint
+CREATE UNIQUE INDEX "payments_one_pending_per_booking" ON "payments" USING btree ("booking_id") WHERE "payments"."status" = 'pending';

@@ -1,0 +1,62 @@
+/* FleetDesk public booking flow — brand-aligned, clean. */
+:root {
+  --blue: #2348c7; --blue-dark: #152c7a; --orange: #f15f2c; --navy: #15192f;
+  --ink: #15192f; --ink-soft: #4a5170; --line: #e6e9f2; --surface: #f7f8fc;
+  --danger: #c81e1e; --ok: #0f7b4d;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Inter, sans-serif; color: var(--ink); background: var(--surface); }
+a { color: var(--blue); }
+
+.pub-header { background: var(--navy); color: #fff; padding: 1rem 1.5rem; }
+.pub-header .wrap { max-width: 1040px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+.pub-header .logo { font-weight: 800; letter-spacing: .03em; }
+.pub-header .logo b { color: var(--orange); }
+.pub-header .tag { font-size: .82rem; opacity: .8; }
+
+.wrap { max-width: 1040px; margin: 0 auto; padding: 1.5rem; }
+.book-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+@media (max-width: 860px) { .book-grid { grid-template-columns: 1fr; } }
+
+.card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 1.3rem 1.4rem; margin-bottom: 1.2rem; }
+.card h2 { margin: 0 0 1rem; font-size: 1.05rem; }
+.step-n { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--blue); color: #fff; font-size: .8rem; font-weight: 700; margin-right: .5rem; }
+
+label.fld { display: grid; gap: .3rem; font-size: .82rem; font-weight: 600; color: var(--navy); margin-bottom: .8rem; }
+label.fld input, label.fld select { padding: .6rem .7rem; border: 1.5px solid var(--line); border-radius: 9px; font: inherit; background: var(--surface); }
+label.fld input:focus, label.fld select:focus { outline: none; border-color: var(--blue); background: #fff; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+.veh-list { display: grid; gap: .6rem; }
+.veh { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .8rem 1rem; border: 1.5px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff; text-align: left; font: inherit; }
+.veh:hover { border-color: var(--blue); }
+.veh.sel { border-color: var(--blue); background: #eff3fc; }
+.veh .nm { font-weight: 700; }
+.veh .meta { font-size: .8rem; color: var(--ink-soft); }
+.veh .price b { color: var(--blue); }
+
+.opt { display: flex; align-items: center; gap: .6rem; padding: .55rem .2rem; }
+.opt input { width: auto; }
+.opt .grow { flex: 1; }
+.opt .price { font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: .9rem; }
+
+.summary { position: sticky; top: 1.5rem; }
+.summary .line { display: flex; justify-content: space-between; padding: .35rem 0; font-size: .92rem; }
+.summary .line.total { border-top: 1px solid var(--line); margin-top: .5rem; padding-top: .7rem; font-weight: 800; font-size: 1.05rem; }
+.summary .muted { color: var(--ink-soft); font-size: .82rem; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: .85rem 1rem; border: 0; border-radius: 10px; background: var(--orange); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.btn:hover { background: #d84e1f; }
+.btn:disabled { opacity: .5; cursor: default; }
+.note { font-size: .82rem; color: var(--ink-soft); margin-top: .6rem; }
+.msg { font-size: .88rem; min-height: 1.2em; }
+.msg.err { color: var(--danger); }
+.avail { font-size: .85rem; font-weight: 700; }
+.avail.ok { color: var(--ok); } .avail.no { color: var(--danger); }
+.terms { display: flex; gap: .5rem; align-items: flex-start; font-size: .9rem; }
+.terms input { margin-top: .25rem; }
+
+.confirm { max-width: 560px; margin: 3rem auto; text-align: center; }
+.confirm .big { font-size: 2.4rem; }
+.policy-doc { max-width: 760px; }
+.policy-doc pre { white-space: pre-wrap; font: inherit; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1.4rem; }

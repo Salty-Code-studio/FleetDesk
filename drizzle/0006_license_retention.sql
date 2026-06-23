@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN "license_retention_days" integer DEFAULT 90 NOT NULL;
