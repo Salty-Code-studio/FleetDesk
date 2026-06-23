@@ -8,6 +8,7 @@ import { getDb } from "@/lib/db/client";
 import { adminUsers } from "@/lib/db/schema";
 import { LogoutButton } from "./logout-button";
 import { NotificationBell } from "./notification-bell";
+import { SideNav } from "./side-nav";
 import "../admin.css";
 
 export const metadata = { title: "FleetDesk Admin", robots: { index: false, follow: false } };
@@ -33,15 +34,11 @@ export default async function ShellLayout({ children }: { children: ReactNode })
     <div className="shell">
       <aside className="side">
         <div className="logo">FLEET<b>DESK</b> Admin</div>
-        <a href="/admin">Dashboard</a>
-        <a href="/admin/reports">Reports</a>
-        <a href="/admin/fleet">Fleet &amp; pricing</a>
-        <a href="/admin/catalog">Add-ons &amp; insurance</a>
-        <a href="/admin/settings">Settings</a>
-        <a href="/admin/policies">Policies</a>
-        <a href="/admin/audit">Audit log</a>
-        <a href="#" className="soon">Bookings (Plan 04)</a>
-        <div className="foot">{admin.email} · {admin.role}</div>
+        <SideNav />
+        <div className="foot">
+          <span className="foot-acct">{admin.email} · {admin.role}</span>
+          <span className="foot-by">a saltycodestudio product</span>
+        </div>
       </aside>
       <main className="main">
         <div className="topbar">
