@@ -1,62 +1,799 @@
-/* FleetDesk public booking flow — brand-aligned, clean. */
-:root {
-  --blue: #2348c7; --blue-dark: #152c7a; --orange: #f15f2c; --navy: #15192f;
-  --ink: #15192f; --ink-soft: #4a5170; --line: #e6e9f2; --surface: #f7f8fc;
-  --danger: #c81e1e; --ok: #0f7b4d;
+/* FleetDesk public booking flow. Sand and Surf palette.
+   Everything is scoped under .pub so nothing bleeds into /admin or /marketing.
+   One Surf Coral accent per view. Sand and Teal carry the weight. */
+
+.pub {
+  /* canvas + surfaces */
+  --sand: #f2ebdd;
+  --sand-2: #eae0cd;
+  --panel: #fcfaf4;
+
+  /* ink + structure */
+  --teal: #0e3a40;
+  --teal-700: #0a2c31;
+  --ink: #1c2b2e;
+  --ink-soft: #586a6d;
+  --line: #e3dac8;
+
+  /* accents */
+  --coral: #ff6f59;
+  --coral-lift: #ff7d68;
+  --sky: #4fa8c9;
+
+  /* status (kept legible on warm surfaces) */
+  --ok: #0f7b4d;
+  --danger: #b3402f;
+
+  /* type */
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+
+  --shadow-sm: 0 1px 2px rgba(14, 58, 64, 0.06);
+  --shadow-md: 0 18px 40px -24px rgba(14, 58, 64, 0.32);
+
+  min-height: 100vh;
+  color: var(--ink);
+  background: var(--sand);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-* { box-sizing: border-box; }
-body { margin: 0; font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Inter, sans-serif; color: var(--ink); background: var(--surface); }
-a { color: var(--blue); }
 
-.pub-header { background: var(--navy); color: #fff; padding: 1rem 1.5rem; }
-.pub-header .wrap { max-width: 1040px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
-.pub-header .logo { font-weight: 800; letter-spacing: .03em; }
-.pub-header .logo b { color: var(--orange); }
-.pub-header .tag { font-size: .82rem; opacity: .8; }
+.pub *,
+.pub *::before,
+.pub *::after {
+  box-sizing: border-box;
+}
+.pub a {
+  color: var(--teal);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--line);
+  transition: text-decoration-color 0.15s ease, color 0.15s ease;
+}
+.pub a:hover {
+  text-decoration-color: var(--coral);
+}
+.pub p {
+  margin: 0;
+}
+.pub h1,
+.pub h2,
+.pub h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--teal);
+}
+.pub :focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 
-.wrap { max-width: 1040px; margin: 0 auto; padding: 1.5rem; }
-.book-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
-@media (max-width: 860px) { .book-grid { grid-template-columns: 1fr; } }
+/* ---------- header ---------- */
+.pub-header {
+  background: var(--teal);
+  color: var(--panel);
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(252, 250, 244, 0.08);
+}
+.pub-header-inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.pub-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: var(--panel);
+}
+.pub-brand:hover {
+  text-decoration: none;
+}
+.pub-brand-mark {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.2rem;
+  letter-spacing: -0.05em;
+  /* The header is on every view, so the mark stays Warm Sand here. Coral is
+     reserved as the single accent inside each page body. */
+  color: var(--sand);
+}
+.pub-brand-word {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+  color: var(--panel);
+}
+.pub-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(252, 250, 244, 0.72);
+}
+@media (max-width: 560px) {
+  .pub-tag {
+    display: none;
+  }
+}
 
-.card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 1.3rem 1.4rem; margin-bottom: 1.2rem; }
-.card h2 { margin: 0 0 1rem; font-size: 1.05rem; }
-.step-n { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--blue); color: #fff; font-size: .8rem; font-weight: 700; margin-right: .5rem; }
+/* ---------- layout ---------- */
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2rem) 1.5rem 3.5rem;
+}
+.book-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .book-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
-label.fld { display: grid; gap: .3rem; font-size: .82rem; font-weight: 600; color: var(--navy); margin-bottom: .8rem; }
-label.fld input, label.fld select { padding: .6rem .7rem; border: 1.5px solid var(--line); border-radius: 9px; font: inherit; background: var(--surface); }
-label.fld input:focus, label.fld select:focus { outline: none; border-color: var(--blue); background: #fff; }
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+/* ---------- cards / steps ---------- */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.5rem;
+  margin-bottom: 1.2rem;
+  box-shadow: var(--shadow-sm);
+}
+.card h2 {
+  margin: 0 0 1.1rem;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--teal);
+  color: var(--sand);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
 
-.veh-list { display: grid; gap: .6rem; }
-.veh { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .8rem 1rem; border: 1.5px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff; text-align: left; font: inherit; }
-.veh:hover { border-color: var(--blue); }
-.veh.sel { border-color: var(--blue); background: #eff3fc; }
-.veh .nm { font-weight: 700; }
-.veh .meta { font-size: .8rem; color: var(--ink-soft); }
-.veh .price b { color: var(--blue); }
+/* ---------- form fields ---------- */
+label.fld {
+  display: grid;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: 0.9rem;
+}
+label.fld input,
+label.fld select {
+  padding: 0.65rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+  background: var(--sand);
+  transition: border-color 0.15s ease, background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+label.fld input::placeholder {
+  color: var(--ink-soft);
+}
+label.fld input:focus,
+label.fld select:focus {
+  outline: none;
+  border-color: var(--teal);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(14, 58, 64, 0.08);
+}
+/* date inputs: keep the native picker but tone its indicator to match */
+.pub input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}
+.pub input[type="date"]:focus::-webkit-calendar-picker-indicator {
+  opacity: 0.85;
+}
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 460px) {
+  .two {
+    grid-template-columns: 1fr;
+  }
+}
 
-.opt { display: flex; align-items: center; gap: .6rem; padding: .55rem .2rem; }
-.opt input { width: auto; }
-.opt .grow { flex: 1; }
-.opt .price { font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: .9rem; }
+/* ---------- car-class rows ---------- */
+.veh-list {
+  display: grid;
+  gap: 0.65rem;
+}
+.veh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--sand);
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  transition: border-color 0.15s ease, background 0.15s ease,
+    transform 0.15s ease;
+}
+.veh:hover:not(:disabled) {
+  border-color: var(--teal);
+  transform: translateY(-1px);
+}
+.veh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* selected row is the single coral accent on the booking view */
+.veh.sel {
+  border-color: var(--coral);
+  background: #fff;
+  box-shadow: inset 3px 0 0 var(--coral);
+}
+.veh .nm {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.02rem;
+  color: var(--teal);
+}
+.veh .meta {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.veh .price {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.veh .price b {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--teal);
+}
 
-.summary { position: sticky; top: 1.5rem; }
-.summary .line { display: flex; justify-content: space-between; padding: .35rem 0; font-size: .92rem; }
-.summary .line.total { border-top: 1px solid var(--line); margin-top: .5rem; padding-top: .7rem; font-weight: 800; font-size: 1.05rem; }
-.summary .muted { color: var(--ink-soft); font-size: .82rem; }
+/* ---------- insurance radios + extras checkboxes ---------- */
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.2rem;
+  border-bottom: 1px solid var(--line);
+}
+.opt:last-child {
+  border-bottom: 0;
+}
+.opt input[type="radio"],
+.opt input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  accent-color: var(--teal);
+  cursor: pointer;
+}
+.opt input[type="number"] {
+  padding: 0.4rem 0.45rem;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--sand);
+  color: var(--ink);
+}
+.opt input[type="number"]:focus {
+  outline: none;
+  border-color: var(--teal);
+  background: #fff;
+}
+.opt .grow {
+  flex: 1;
+}
+.opt .grow b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.opt .meta {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.opt .price {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
 
-.btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: .85rem 1rem; border: 0; border-radius: 10px; background: var(--orange); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
-.btn:hover { background: #d84e1f; }
-.btn:disabled { opacity: .5; cursor: default; }
-.note { font-size: .82rem; color: var(--ink-soft); margin-top: .6rem; }
-.msg { font-size: .88rem; min-height: 1.2em; }
-.msg.err { color: var(--danger); }
-.avail { font-size: .85rem; font-weight: 700; }
-.avail.ok { color: var(--ok); } .avail.no { color: var(--danger); }
-.terms { display: flex; gap: .5rem; align-items: flex-start; font-size: .9rem; }
-.terms input { margin-top: .25rem; }
+/* ========================================================================== */
+/* WIZARD: progress stepper, animated step panel, navigation. Scoped to .pub.   */
+/* One coral accent per view = the active stepper dot OR the Continue button.    */
+/* ========================================================================== */
 
-.confirm { max-width: 560px; margin: 3rem auto; text-align: center; }
-.confirm .big { font-size: 2.4rem; }
-.policy-doc { max-width: 760px; }
-.policy-doc pre { white-space: pre-wrap; font: inherit; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 1.4rem; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- progress stepper ---------- */
+.stepper {
+  margin-bottom: 1.2rem;
+}
+.stepper-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+  /* horizontal scroll on narrow screens so all 7 steps stay reachable */
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+.stepper-list::-webkit-scrollbar {
+  display: none;
+}
+.stepper-item {
+  flex: 1 1 auto;
+  min-width: max-content;
+}
+.stepper-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  font: inherit;
+  color: var(--ink-soft);
+  cursor: default;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.stepper-item.done .stepper-btn {
+  cursor: pointer;
+  color: var(--teal);
+}
+.stepper-item.done .stepper-btn:hover {
+  border-color: var(--teal);
+  background: var(--sand);
+}
+.stepper-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--sand-2);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.stepper-item.done .stepper-dot {
+  background: var(--teal);
+  color: var(--sand);
+}
+/* Active step marked in teal with a soft ring, so the single coral accent on
+   each wizard view is reserved for the Continue / Reserve CTA (the action). */
+.stepper-item.current .stepper-btn {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+.stepper-item.current .stepper-dot {
+  background: var(--teal);
+  color: var(--sand);
+  box-shadow: 0 0 0 4px rgba(14, 58, 64, 0.14);
+}
+.stepper-label {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+/* on small screens, only show the label for the active step to save room */
+@media (max-width: 720px) {
+  .stepper-item:not(.current) .stepper-label {
+    display: none;
+  }
+  .stepper-item:not(.current) {
+    flex: 0 0 auto;
+  }
+}
+
+/* ---------- animated step panel ---------- */
+.wiz-panel {
+  /* direction-aware slide + fade; re-keyed per step so the animation replays */
+  animation: wiz-in 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.wiz-panel.from-right {
+  --wiz-from: 26px;
+}
+.wiz-panel.from-left {
+  --wiz-from: -26px;
+}
+@keyframes wiz-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--wiz-from, 26px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wiz-panel {
+    animation: none;
+  }
+}
+
+/* ---------- navigation row ---------- */
+.wiz-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.2rem;
+}
+.wiz-next {
+  width: auto;
+  min-width: 11rem;
+  margin-top: 0;
+}
+.wiz-back {
+  width: auto;
+  margin-top: 0;
+}
+.wiz-error:empty {
+  display: none;
+}
+.wiz-error {
+  margin: 0.4rem 0 0.2rem;
+}
+
+/* ---------- review-step recap ---------- */
+.recap {
+  margin: 0 0 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.recap-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92rem;
+}
+.recap-row:last-child {
+  border-bottom: 0;
+}
+.recap-row dt {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0;
+  flex: 0 0 auto;
+}
+.recap-row dd {
+  margin: 0;
+  text-align: right;
+  color: var(--ink);
+}
+.recap-row.total {
+  background: var(--sand);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.recap-row.total dt,
+.recap-row.total dd {
+  color: var(--teal);
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+.recap-row.total dt {
+  text-transform: none;
+}
+.pay-options {
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- summary sidebar ---------- */
+.summary {
+  position: sticky;
+  top: 1.5rem;
+}
+.summary h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.9rem;
+}
+.summary .line {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+.summary .line.total {
+  border-top: 1px solid var(--line);
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--teal);
+}
+.summary .muted {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+/* On mobile the summary becomes a compact sticky bottom bar. Below the grid
+   breakpoint it pins to the bottom and shows only the running total + deposit,
+   so the wizard stays the focus while the price stays glanceable. */
+@media (max-width: 860px) {
+  .summary {
+    position: sticky;
+    bottom: 0;
+    top: auto;
+    z-index: 20;
+    margin: 1rem 0 0;
+    padding: 0.75rem 1.1rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: 0 -10px 30px -20px rgba(14, 58, 64, 0.45);
+  }
+  .summary h2 {
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 0.35rem;
+  }
+  /* keep only the total (and deposit) visible in the bar; hide line items */
+  .summary .line:not(.total):not(.muted) {
+    display: none;
+  }
+  .summary .line.total {
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0.2rem;
+  }
+}
+
+/* ---------- primary CTA: deep-teal text on coral ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.9rem 1.2rem;
+  margin-top: 1rem;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background: var(--coral);
+  color: var(--teal);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -12px rgba(255, 111, 89, 0.7);
+  transition: background 0.15s ease, transform 0.15s ease,
+    border-color 0.15s ease, color 0.15s ease;
+}
+.btn:hover:not(:disabled) {
+  background: var(--coral-lift);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ---------- helpers ---------- */
+.note {
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+  margin-top: 0.6rem;
+}
+.msg {
+  font-size: 0.88rem;
+  min-height: 1.2em;
+}
+.msg.err {
+  color: var(--danger);
+}
+.avail {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+.avail.ok {
+  color: var(--ok);
+}
+.avail.no {
+  color: var(--danger);
+}
+.terms {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+.terms input {
+  margin-top: 0.25rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  accent-color: var(--teal);
+}
+
+/* ---------- confirmation ---------- */
+.confirm {
+  max-width: 560px;
+  margin: 3rem auto;
+  text-align: center;
+}
+.confirm .card {
+  text-align: center;
+  padding: 2.5rem 2rem;
+}
+.confirm .big {
+  font-size: 2.6rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+}
+.confirm h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  margin-bottom: 0.75rem;
+}
+
+/* ---------- policy docs ---------- */
+.policy-doc {
+  max-width: 760px;
+}
+.policy-doc h1 {
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  margin-bottom: 0.4rem;
+}
+.policy-doc pre {
+  white-space: pre-wrap;
+  font-family: var(--font-body);
+  font-size: 0.96rem;
+  line-height: 1.7;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.6rem;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- account ---------- */
+.acct-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+.acct-head h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+/* secondary actions: quiet, teal text, no coral (coral stays the single accent) */
+.btn-quiet {
+  width: auto;
+  margin-top: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  border-color: var(--line);
+  box-shadow: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+.btn-quiet:hover:not(:disabled) {
+  background: var(--sand-2);
+  color: var(--teal);
+  border-color: var(--line);
+}
+.btn-danger {
+  width: auto;
+  margin-top: 0.5rem;
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--line);
+  box-shadow: none;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.9rem;
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(179, 64, 47, 0.08);
+  border-color: var(--danger);
+}
+.acct-booking {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.acct-booking strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--teal);
+}
+.acct-status {
+  text-align: right;
+}
+.status-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.status-tag.ok {
+  color: var(--ok);
+}
+.status-tag.no {
+  color: var(--danger);
+}
+.status-tag.neutral {
+  color: var(--ink-soft);
+}

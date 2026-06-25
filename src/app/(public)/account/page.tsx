@@ -42,24 +42,24 @@ export default function AccountPage() {
 
   return (
     <div className="wrap" style={{ maxWidth: 720 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <div className="acct-head">
         <h1>My bookings</h1>
-        <button className="btn" style={{ width: "auto", background: "transparent", color: "var(--ink-soft)" }} onClick={logout}>Sign out</button>
+        <button className="btn btn-quiet" onClick={logout}>Sign out</button>
       </div>
       <p className="note">{me?.email}</p>
       {bookings.length === 0 ? (
         <div className="card"><p className="note">No bookings yet. <a href="/book">Book a car</a></p></div>
       ) : bookings.map((b) => (
         <div className="card" key={b.id}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+          <div className="acct-booking">
             <div>
               <strong>{b.vehicleName}</strong><br />
               <span className="note">{b.startDate} to {b.endDate} · {money(b.breakdown.subtotalCents, b.breakdown.currency)}</span>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <span className="avail" style={{ color: b.status === "confirmed" ? "var(--ok)" : b.status === "cancelled" ? "var(--danger)" : "var(--ink-soft)" }}>{STATUS[b.status] ?? b.status}</span>
+            <div className="acct-status">
+              <span className={`status-tag ${b.status === "confirmed" ? "ok" : b.status === "cancelled" ? "no" : "neutral"}`}>{STATUS[b.status] ?? b.status}</span>
               {(b.status === "pending" || b.status === "confirmed") && (
-                <div><button className="btn" style={{ width: "auto", marginTop: ".5rem", background: "transparent", color: "var(--danger)", border: "1px solid var(--line)" }} onClick={() => cancel(b.id)}>Cancel</button></div>
+                <div><button className="btn btn-danger" onClick={() => cancel(b.id)}>Cancel</button></div>
               )}
             </div>
           </div>

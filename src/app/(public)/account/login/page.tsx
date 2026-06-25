@@ -14,7 +14,7 @@ export default function CustomerLoginPage() {
     setError(""); setBusy(true);
     try {
       await fetch("/api/auth/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
-      setSent(true); // always generic — we never reveal whether the email is known
+      setSent(true); // always generic so we never reveal whether the email is known
     } catch { setError("Network error. Please try again."); }
     finally { setBusy(false); }
   }
@@ -44,7 +44,7 @@ export default function CustomerLoginPage() {
             <p className="note" style={{ marginBottom: "1rem" }}>We sent a code to <strong>{email}</strong>. Enter it below.</p>
             <label className="fld">6-digit code<input inputMode="numeric" pattern="[0-9]*" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value)} /></label>
             <button className="btn" disabled={busy}>{busy ? "Checking…" : "Sign in"}</button>
-            <button type="button" className="btn" style={{ background: "transparent", color: "var(--ink-soft)", marginTop: ".5rem" }} onClick={() => { setSent(false); setCode(""); }}>Use a different email</button>
+            <button type="button" className="btn btn-quiet" style={{ width: "100%", marginTop: ".5rem" }} onClick={() => { setSent(false); setCode(""); }}>Use a different email</button>
           </form>
         )}
         <p className="msg err" style={{ marginTop: ".75rem" }}>{error}</p>

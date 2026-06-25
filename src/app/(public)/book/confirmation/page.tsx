@@ -27,20 +27,22 @@ export default function ConfirmationPage() {
 
   return (
     <div className="wrap confirm">
-      <div className="big">{confirmed ? "✅" : "🚗"}</div>
-      <h1>{confirmed ? "Booking confirmed" : "Your car is reserved"}</h1>
-      {loading ? (
-        <p className="note">Checking your booking…</p>
-      ) : !booking ? (
-        <p>We&apos;ve received your request. Our team will be in touch shortly.</p>
-      ) : confirmed ? (
-        <p>Payment received and your booking for {booking.startDate} to {booking.endDate} is confirmed.
-          We&apos;ll arrange delivery on WhatsApp. See you soon!</p>
-      ) : (
-        <p>Your booking for {booking.startDate} to {booking.endDate} is held. If you just paid, the
-          confirmation lands in a moment. Our team will also reach out on WhatsApp.</p>
-      )}
-      <p style={{ marginTop: "2rem" }}><a href="https://fleetdesk.app">← Back to fleetdesk.app</a></p>
+      <div className="card">
+        <div className="big" aria-hidden="true">{confirmed ? "✅" : "🚗"}</div>
+        <h1>{confirmed ? "Booking confirmed" : "Your car is reserved"}</h1>
+        {loading ? (
+          <p className="note">Checking your booking…</p>
+        ) : !booking ? (
+          <p>We&apos;ve received your request. Our team will be in touch shortly.</p>
+        ) : confirmed ? (
+          <p>Payment received and your booking for {booking.startDate} to {booking.endDate} is confirmed.
+            We&apos;ll arrange delivery on WhatsApp. See you soon.</p>
+        ) : (
+          <p>Your booking for {booking.startDate} to {booking.endDate} is held. If you just paid, the
+            confirmation lands in a moment. Our team will also reach out on WhatsApp.</p>
+        )}
+        <p style={{ marginTop: "1.75rem" }}><a href="https://fleetdesk.app">Back to fleetdesk.app</a></p>
+      </div>
     </div>
   );
 }
