@@ -1,0 +1,52 @@
+/* Early access page only. Scoped under .mkt so it cannot bleed into /admin or
+   /book. Composes on top of marketing.css (.split, .form-card, .note-list,
+   .form-trust). No palette redefinition, no new tokens, no external assets. */
+
+.mkt .ea-split {
+  align-items: start;
+  gap: clamp(2rem, 5vw, 4.5rem);
+}
+
+/* Left column: reassuring "what you get" notes, sticky on wide screens so the
+   form and the value props stay paired as you scroll. */
+.mkt .ea-aside {
+  position: sticky;
+  top: 96px;
+}
+.mkt .ea-aside-head {
+  margin-top: 1rem;
+  margin-bottom: 1.4rem;
+  max-width: 22ch;
+}
+.mkt .ea-notes {
+  max-width: 42ch;
+}
+
+/* "Optional" hint sits to the right of the label, quiet and mono. */
+.mkt .ea-optional {
+  margin-left: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--sky-blue);
+}
+
+/* Keep the trust line tucked just under the form card. */
+.mkt .ea-form-col .form-trust {
+  margin-top: 0.9rem;
+}
+
+/* Tablet and down: single column. Put the form first so the call to action is
+   reachable without scrolling past every value prop, and release the sticky. */
+@media (max-width: 920px) {
+  .mkt .ea-aside {
+    position: static;
+    top: auto;
+    order: 2;
+  }
+  .mkt .ea-form-col {
+    order: 1;
+  }
+  .mkt .ea-aside-head {
+    max-width: none;
+  }
+}

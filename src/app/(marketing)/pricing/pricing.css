@@ -1,0 +1,52 @@
+/* Pricing page only. Scoped under .mkt so nothing bleeds into /admin or /book.
+   Composes against the shared Sand and Surf tokens. The one coral accent on
+   this page lives on the featured price card and its badge (in marketing.css);
+   the roadmap flags below stay teal and sky-blue so the view keeps a single
+   coral emphasis. */
+
+.mkt .roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(1rem, 2.5vw, 1.6rem);
+  align-items: stretch;
+}
+.mkt .roadmap-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.mkt .roadmap-card p {
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.55;
+  max-width: 44ch;
+}
+.mkt .roadmap-flag {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+}
+.mkt .roadmap-flag.live {
+  background: rgba(79, 168, 201, 0.16);
+  color: var(--deep-teal);
+}
+.mkt .roadmap-flag.soon {
+  background: var(--sand-2);
+  color: var(--ink-soft);
+  border: 1px dashed var(--line);
+}
+
+@media (max-width: 920px) {
+  .mkt .roadmap-grid {
+    grid-template-columns: 1fr;
+  }
+}

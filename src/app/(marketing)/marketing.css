@@ -1,0 +1,1366 @@
+/* FleetDesk marketing kit. Sand and Surf palette.
+   Everything is scoped under .mkt so nothing bleeds into /admin or /book.
+   One Surf Coral accent per view. Sand and Teal carry the weight. */
+
+.mkt {
+  /* canvas + surfaces */
+  --warm-sand: #f2ebdd;
+  --sand-2: #eae0cd;
+  --panel: #fcfaf4;
+
+  /* ink + structure */
+  --deep-teal: #0e3a40;
+  --teal-700: #0a2c31;
+  --ink: #1c2b2e;
+  --ink-soft: #586a6d;
+  --line: #e3dac8;
+
+  /* accents */
+  --surf-coral: #ff6f59;
+  --coral-600: #f2563f;
+  --sky-blue: #4fa8c9;
+
+  /* type */
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  /* rhythm */
+  --shell: 1140px;
+  --gutter: clamp(1.25rem, 4vw, 2.5rem);
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-sm: 10px;
+  --section-y: clamp(4rem, 9vw, 7.5rem);
+
+  /* shadows kept soft and warm */
+  --shadow-sm: 0 1px 2px rgba(14, 58, 64, 0.06);
+  --shadow-md: 0 18px 40px -24px rgba(14, 58, 64, 0.32);
+  --shadow-lg: 0 40px 80px -40px rgba(14, 58, 64, 0.4);
+
+  color: var(--ink);
+  background: var(--warm-sand);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* reset/base, scoped */
+.mkt *,
+.mkt *::before,
+.mkt *::after {
+  box-sizing: border-box;
+}
+.mkt img,
+.mkt svg {
+  display: block;
+  max-width: 100%;
+}
+/* Plain links inherit their surrounding text color. Buttons are excluded so
+   their .btn-* variant colors win (otherwise a button on a teal surface would
+   inherit Warm Sand and its label would vanish, e.g. .btn-on-teal). */
+.mkt a:not(.btn) {
+  color: inherit;
+  text-decoration: none;
+}
+.mkt a.btn {
+  text-decoration: none;
+}
+.mkt p {
+  margin: 0;
+}
+.mkt h1,
+.mkt h2,
+.mkt h3,
+.mkt h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--deep-teal);
+}
+.mkt ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mkt :focus-visible {
+  outline: 3px solid var(--sky-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--deep-teal);
+  color: var(--warm-sand);
+  padding: 0.7rem 1rem;
+  border-radius: 0 0 var(--radius-sm) 0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+.skip-link:focus {
+  left: 0;
+}
+
+/* layout primitives */
+.shell {
+  width: 100%;
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+.section {
+  padding-block: var(--section-y);
+}
+.section-tight {
+  padding-block: clamp(2.5rem, 6vw, 4.5rem);
+}
+.surface-sand {
+  background: var(--warm-sand);
+}
+.surface-panel {
+  background: var(--panel);
+}
+.surface-teal {
+  background: var(--deep-teal);
+  color: var(--warm-sand);
+}
+.surface-teal h1,
+.surface-teal h2,
+.surface-teal h3,
+.surface-teal h4 {
+  color: var(--panel);
+}
+
+/* type scale */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.eyebrow::before {
+  content: "";
+  width: 1.6rem;
+  height: 1px;
+  background: var(--line);
+}
+.eyebrow.eyebrow-plain::before {
+  display: none;
+}
+.eyebrow.on-teal {
+  color: var(--sky-blue);
+}
+
+.display-xl {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  font-size: clamp(2.6rem, 6.5vw, 4.6rem);
+  color: var(--deep-teal);
+}
+.display-lg {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-size: clamp(2rem, 4.6vw, 3.1rem);
+  color: var(--deep-teal);
+}
+.display-md {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+  color: var(--deep-teal);
+}
+.lead {
+  font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 46ch;
+}
+.muted {
+  color: var(--ink-soft);
+}
+/* Inline text link. Coral-600 text on sand (2.87:1) and panel (3.26:1) both
+   failed AA, so the readable text is Deep Teal (10:1+) and coral lives only in
+   the underline accent. The underline also gives a non-color affordance. */
+.text-link {
+  color: var(--deep-teal);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--surf-coral);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease, color 0.15s ease;
+}
+.text-link:hover {
+  /* Text stays Deep Teal so the link keeps AA on hover too. Only the coral
+     underline deepens to signal the interaction. */
+  text-decoration-color: var(--coral-600);
+  text-underline-offset: 4px;
+}
+.section-head {
+  max-width: 60ch;
+  margin-bottom: clamp(2rem, 4vw, 3rem);
+}
+.section-head .eyebrow {
+  margin-bottom: 1.1rem;
+}
+.section-head p {
+  margin-top: 1rem;
+  font-size: 1.08rem;
+  color: var(--ink-soft);
+}
+
+/* buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  padding: 0.95rem 1.6rem;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease, color 0.15s ease;
+  text-align: center;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-sm {
+  padding: 0.6rem 1.1rem;
+  font-size: 0.92rem;
+}
+.btn-lg {
+  padding: 1.1rem 2rem;
+  font-size: 1.08rem;
+}
+.btn-block {
+  width: 100%;
+}
+.btn-primary {
+  background: var(--surf-coral);
+  /* Deep teal on surf coral measures 4.52:1, clears WCAG AA for normal text.
+     White on surf coral was only 2.74:1, so it failed. Teal also reads more
+     brand native than pure white. */
+  color: var(--deep-teal);
+  box-shadow: 0 10px 24px -12px rgba(255, 111, 89, 0.7);
+}
+.btn-primary:hover {
+  /* A lighter coral lift keeps deep teal above AA on hover (4.94:1). Going to
+     coral-600 would have dropped the label to 3.64:1, so we lift instead. */
+  background: #ff7d68;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--deep-teal);
+  border-color: var(--line);
+}
+.btn-ghost:hover {
+  border-color: var(--deep-teal);
+  background: var(--sand-2);
+}
+.btn-teal {
+  background: var(--deep-teal);
+  color: var(--warm-sand);
+}
+.btn-teal:hover {
+  background: var(--teal-700);
+}
+.btn-on-teal {
+  background: var(--panel);
+  color: var(--deep-teal);
+}
+.btn-on-teal:hover {
+  background: #fff;
+}
+.btn-ghost-on-teal {
+  background: transparent;
+  color: var(--panel);
+  border-color: rgba(252, 250, 244, 0.3);
+}
+.btn-ghost-on-teal:hover {
+  border-color: var(--panel);
+  background: rgba(252, 250, 244, 0.08);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* site header */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(242, 235, 221, 0.82);
+  backdrop-filter: saturate(1.2) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  min-height: 70px;
+}
+.brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+}
+.brand-mark {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.25rem;
+  letter-spacing: -0.05em;
+  /* Deep teal on sand. The sticky header is on screen in every view, so a coral
+     mark here would break the one-accent-per-view rule everywhere. */
+  color: var(--deep-teal);
+}
+.brand-word {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.3rem;
+  letter-spacing: -0.03em;
+  color: var(--deep-teal);
+}
+.brand-on-teal .brand-mark {
+  /* On teal surfaces the mark is Warm Sand, per the brand spec. Keeps coral out
+     of the footer view so it is not a sprinkled theme color. */
+  color: var(--warm-sand);
+}
+.brand-on-teal .brand-word {
+  color: var(--panel);
+}
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2.5vw, 2rem);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+.site-nav a:not(.btn) {
+  font-size: 0.98rem;
+  color: var(--deep-teal);
+  padding: 0.4rem 0;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.site-nav a:not(.btn):hover {
+  border-bottom-color: var(--surf-coral);
+}
+
+/* hero */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding-top: clamp(3rem, 7vw, 5.5rem);
+  padding-bottom: clamp(3.5rem, 8vw, 6rem);
+}
+.hero::after {
+  /* warm light wash, sand only, no image */
+  content: "";
+  position: absolute;
+  inset: -40% 0 auto auto;
+  width: 60vw;
+  height: 60vw;
+  max-width: 760px;
+  max-height: 760px;
+  background: radial-gradient(
+    circle at 70% 30%,
+    rgba(79, 168, 201, 0.18),
+    transparent 62%
+  );
+  pointer-events: none;
+}
+.hero-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 4rem);
+}
+.hero-copy .eyebrow {
+  margin-bottom: 1.5rem;
+}
+.hero-copy h1 {
+  margin-bottom: 1.4rem;
+}
+.hero-copy .lead {
+  max-width: 40ch;
+  margin-bottom: 2.2rem;
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  align-items: center;
+}
+.hero-note {
+  margin-top: 1.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+/* product frame mock (hero + product peek), pure CSS */
+.product-frame {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.pf-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--deep-teal);
+  border-bottom: 1px solid var(--teal-700);
+}
+.pf-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: rgba(242, 235, 221, 0.35);
+}
+.pf-dot.coral {
+  background: var(--surf-coral);
+}
+.pf-title {
+  margin-left: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(242, 235, 221, 0.78);
+}
+.pf-body {
+  padding: 1.1rem 1.1rem 1.3rem;
+  display: grid;
+  gap: 0.9rem;
+}
+.pf-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.85rem 1rem;
+  background: var(--warm-sand);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.pf-row.is-active {
+  /* Selected row reads via teal, not coral. The single coral signal in this
+     frame is the "Booked" tag, so the one-accent-per-view rule holds. */
+  border-color: var(--deep-teal);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--deep-teal) inset;
+}
+.pf-car {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+.pf-thumb {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--sky-blue), var(--deep-teal));
+  flex: none;
+}
+.pf-thumb.sand {
+  background: linear-gradient(135deg, var(--sand-2), #cbb994);
+}
+.pf-thumb.coral {
+  background: linear-gradient(135deg, var(--surf-coral), var(--coral-600));
+}
+.pf-car-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--deep-teal);
+  line-height: 1.2;
+}
+.pf-car-meta {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.pf-tag {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.pf-tag.ok {
+  background: rgba(79, 168, 201, 0.16);
+  color: var(--deep-teal);
+}
+.pf-tag.hot {
+  background: var(--surf-coral);
+  /* Deep teal on surf coral clears AA (4.52:1). Same treatment as .btn-primary
+     and .price-badge for a consistent coral-on-light pairing. */
+  color: var(--deep-teal);
+}
+.pf-tag.muted {
+  background: var(--sand-2);
+  color: var(--ink-soft);
+}
+.pf-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 0.2rem;
+}
+.pf-cell {
+  height: 0.55rem;
+  border-radius: 3px;
+  background: var(--sand-2);
+}
+.pf-cell.book {
+  background: var(--sky-blue);
+}
+.pf-cell.hot {
+  background: var(--surf-coral);
+}
+.pf-cell.maint {
+  background: var(--deep-teal);
+}
+.pf-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+}
+.pf-stat {
+  background: var(--warm-sand);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.8rem;
+}
+.pf-stat .n {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--deep-teal);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.pf-stat .k {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* trust strip + value chips */
+.trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: clamp(1.4rem, 3vw, 2rem) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.trust-line {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  color: var(--deep-teal);
+  max-width: 40ch;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--deep-teal);
+}
+.chip::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--sky-blue);
+}
+.chip.chip-coral::before {
+  background: var(--surf-coral);
+}
+
+/* problem -> solution */
+.ps-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: stretch;
+}
+.ps-card {
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+}
+.ps-card.problem {
+  background: var(--sand-2);
+}
+.ps-card.solution {
+  background: var(--deep-teal);
+  color: var(--warm-sand);
+}
+.ps-card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.2rem;
+}
+.ps-card.solution h3 {
+  color: var(--panel);
+}
+.ps-list {
+  display: grid;
+  gap: 0.85rem;
+}
+.ps-list li {
+  display: flex;
+  gap: 0.7rem;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.ps-card.problem .ps-list li {
+  color: var(--ink);
+}
+.ps-card.solution .ps-list li {
+  color: rgba(242, 235, 221, 0.92);
+}
+.ps-mark {
+  flex: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-top: 0.1rem;
+}
+.ps-card.problem .ps-mark {
+  /* The single coral focal point in this view is the .ps-arrow hinge, so the
+     problem markers stay teal rather than scattering coral across the list. */
+  color: var(--deep-teal);
+}
+.ps-card.solution .ps-mark {
+  color: var(--sky-blue);
+}
+.ps-arrow {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  color: var(--surf-coral);
+  font-weight: 600;
+}
+
+/* feature bento (gapless feel, varied sizes) */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.bento-tile {
+  background: var(--panel);
+  padding: clamp(1.5rem, 2.6vw, 2.2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-height: 200px;
+}
+.bento-tile h3 {
+  font-size: 1.25rem;
+}
+.bento-tile p {
+  color: var(--ink-soft);
+  font-size: 0.97rem;
+  line-height: 1.5;
+}
+.bento-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+/* tile sizing variants */
+.tile-wide {
+  grid-column: span 4;
+}
+.tile-half {
+  grid-column: span 3;
+}
+.tile-third {
+  grid-column: span 2;
+}
+.tile-feature {
+  grid-column: span 2;
+  background: var(--deep-teal);
+  color: var(--warm-sand);
+}
+.tile-feature h3 {
+  color: var(--panel);
+}
+.tile-feature p {
+  color: rgba(242, 235, 221, 0.85);
+}
+.tile-feature .bento-num {
+  color: var(--sky-blue);
+}
+.tile-accent {
+  border-top: 3px solid var(--surf-coral);
+}
+
+/* how it works (steps) */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1.2rem, 3vw, 2rem);
+  counter-reset: step;
+}
+.step {
+  position: relative;
+  padding: 1.8rem 1.6rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: var(--warm-sand);
+  border: 1.5px solid var(--line);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--deep-teal);
+  margin-bottom: 1.2rem;
+}
+.step:first-child .step-n {
+  background: var(--surf-coral);
+  border-color: var(--surf-coral);
+  /* Deep teal on surf coral (4.52:1) keeps the step number readable at AA, the
+     same coral-on-light treatment used on the primary button. */
+  color: var(--deep-teal);
+}
+.step h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.6rem;
+}
+.step p {
+  color: var(--ink-soft);
+  font-size: 0.98rem;
+}
+
+/* product peek band */
+.peek-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+.peek-grid .product-frame {
+  box-shadow: var(--shadow-md);
+}
+
+/* pricing teaser + cards */
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1rem, 2.5vw, 1.6rem);
+  align-items: stretch;
+}
+.price-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.6rem, 3vw, 2.2rem);
+}
+.price-card.featured {
+  border-color: var(--surf-coral);
+  box-shadow: 0 0 0 1px var(--surf-coral) inset, var(--shadow-md);
+  position: relative;
+}
+.price-badge {
+  position: absolute;
+  top: -0.85rem;
+  left: clamp(1.6rem, 3vw, 2.2rem);
+  background: var(--surf-coral);
+  /* Deep teal on surf coral clears AA (4.52:1), consistent with the button. */
+  color: var(--deep-teal);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+}
+.price-name {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.price-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0.7rem 0 0.3rem;
+}
+.price-amount .n {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 4vw, 2.8rem);
+  letter-spacing: -0.03em;
+  color: var(--deep-teal);
+}
+.price-amount .per {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.price-cap {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-bottom: 1.3rem;
+}
+.price-feats {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 1.6rem;
+  flex: 1;
+}
+.price-feats li {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.price-feats li::before {
+  content: "+";
+  flex: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--sky-blue);
+}
+.price-card.featured .price-feats li::before {
+  /* Keep the feature plus markers sky-blue like the other cards. Coral on the
+     featured card stays on its border and badge, one cohesive focal point. */
+  color: var(--sky-blue);
+}
+.price-note {
+  margin-top: clamp(2rem, 4vw, 3rem);
+  display: grid;
+  gap: 0.5rem;
+  text-align: center;
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+.price-note strong {
+  color: var(--deep-teal);
+  font-weight: 600;
+}
+
+/* faq */
+.faq {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+  max-width: 760px;
+}
+.faq-item {
+  border-bottom: 1px solid var(--line);
+  padding: clamp(1.2rem, 2.5vw, 1.6rem) 0;
+}
+.faq-q {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12rem;
+  color: var(--deep-teal);
+  letter-spacing: -0.01em;
+  margin-bottom: 0.5rem;
+}
+.faq-a {
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.55;
+  max-width: 62ch;
+}
+/* native disclosure variant (used where interactivity wanted, no JS) */
+.faq-item details summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12rem;
+  color: var(--deep-teal);
+}
+.faq-item details summary::-webkit-details-marker {
+  display: none;
+}
+.faq-item details summary::after {
+  content: "+";
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  /* Teal marker. Coral on every FAQ row repeated the accent across the view. */
+  color: var(--deep-teal);
+  transition: transform 0.2s ease;
+}
+.faq-item details[open] summary::after {
+  content: "\2013";
+}
+.faq-item details[open] .faq-a {
+  margin-top: 0.7rem;
+}
+
+/* final CTA band */
+.cta-band {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+.cta-band .shell {
+  position: relative;
+  z-index: 1;
+}
+.cta-band::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -60% auto;
+  width: 50vw;
+  height: 50vw;
+  max-width: 600px;
+  max-height: 600px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 111, 89, 0.22),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+.cta-band h2 {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  max-width: 18ch;
+  margin: 0 auto 1.4rem;
+}
+.cta-band p {
+  color: rgba(242, 235, 221, 0.85);
+  font-size: 1.1rem;
+  max-width: 44ch;
+  margin: 0 auto 2.2rem;
+}
+.cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  justify-content: center;
+}
+
+/* footer */
+.site-footer {
+  background: var(--deep-teal);
+  color: var(--warm-sand);
+  padding-block: clamp(3rem, 6vw, 4.5rem);
+}
+.site-footer-inner {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 2rem 3rem;
+  align-items: start;
+}
+.footer-lead {
+  max-width: 38ch;
+}
+.footer-pitch {
+  margin-top: 1rem;
+  color: rgba(242, 235, 221, 0.78);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+.footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.6rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+.footer-nav a {
+  color: rgba(242, 235, 221, 0.85);
+  transition: color 0.15s ease;
+}
+.footer-nav a:hover {
+  color: var(--surf-coral);
+}
+.footer-fine {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(242, 235, 221, 0.16);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: rgba(242, 235, 221, 0.6);
+}
+
+/* forms (early access + any marketing form) */
+.form-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.6rem, 3.5vw, 2.6rem);
+  box-shadow: var(--shadow-sm);
+}
+.field {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+.field-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.field-label .req {
+  /* Required marker stays teal so the coral emphasis on the early access view
+     belongs to the submit button alone. */
+  color: var(--deep-teal);
+}
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--warm-sand);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: #9aa6a3;
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--deep-teal);
+  background: #fff;
+}
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  outline: 3px solid var(--sky-blue);
+  outline-offset: 1px;
+}
+.textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.field-error {
+  font-size: 0.82rem;
+  color: var(--coral-600);
+  font-weight: 500;
+}
+.input.has-error,
+.select.has-error,
+.textarea.has-error {
+  border-color: var(--coral-600);
+}
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.form-trust {
+  margin-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  text-align: center;
+}
+.form-success {
+  text-align: center;
+  padding: clamp(2rem, 5vw, 3rem) 1rem;
+}
+.form-success .tick {
+  width: 3.4rem;
+  height: 3.4rem;
+  margin: 0 auto 1.2rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surf-coral);
+  color: var(--deep-teal);
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+.form-success h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.7rem;
+}
+.form-success p {
+  color: var(--ink-soft);
+  max-width: 40ch;
+  margin: 0 auto;
+}
+.form-alert {
+  margin-bottom: 1.1rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(242, 86, 63, 0.1);
+  border: 1px solid rgba(242, 86, 63, 0.3);
+  color: var(--coral-600);
+  font-size: 0.92rem;
+}
+
+/* generic page intro (used by /pricing, /early-access) */
+.page-intro {
+  padding-top: clamp(3rem, 6vw, 4.5rem);
+  padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
+  text-align: center;
+}
+.page-intro .eyebrow {
+  margin-bottom: 1.2rem;
+}
+.page-intro h1 {
+  margin-bottom: 1.2rem;
+}
+.page-intro .lead {
+  margin: 0 auto;
+  max-width: 52ch;
+  text-align: center;
+}
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: start;
+}
+.stack-sm {
+  display: grid;
+  gap: 1rem;
+}
+.note-list {
+  display: grid;
+  gap: 0.9rem;
+}
+.note-list li {
+  display: flex;
+  gap: 0.7rem;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.note-list li::before {
+  content: "";
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.5rem;
+  border-radius: 50%;
+  background: var(--sky-blue);
+}
+
+/* Scroll reveal — JS-gated so it is a pure enhancement. Without the .mkt-js flag
+   (no-JS, search crawlers, social scrapers, and the pre-hydration paint) every
+   [data-reveal] block stays fully visible. The flag is set synchronously by a
+   tiny inline script in the layout, so JS users get the animation with no flash. */
+.mkt-js [data-reveal] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.mkt-js [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+.mkt-js [data-reveal][data-reveal-delay="1"] {
+  transition-delay: 0.08s;
+}
+.mkt-js [data-reveal][data-reveal-delay="2"] {
+  transition-delay: 0.16s;
+}
+.mkt-js [data-reveal][data-reveal-delay="3"] {
+  transition-delay: 0.24s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mkt * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+  .mkt-js [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* responsive: tablet */
+@media (max-width: 920px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-visual {
+    order: -1;
+  }
+  .ps-grid {
+    grid-template-columns: 1fr;
+  }
+  .ps-arrow {
+    transform: rotate(90deg);
+  }
+  .peek-grid,
+  .split {
+    grid-template-columns: 1fr;
+  }
+  .steps {
+    grid-template-columns: 1fr;
+  }
+  .price-grid {
+    grid-template-columns: 1fr;
+    max-width: 460px;
+    margin-inline: auto;
+  }
+  .price-card.featured {
+    order: -1;
+  }
+  .bento-tile {
+    grid-column: span 3 !important;
+  }
+  .site-footer-inner {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* responsive: mobile (~375px) */
+@media (max-width: 600px) {
+  /* Header collapses to brand + Pricing + the Request access pill. Features is
+     on the home page itself and Log in lives in the footer, so hiding them
+     keeps the row from overflowing on a real small phone. The inner can wrap as
+     a safety net under ~340px. */
+  .site-header-inner {
+    flex-wrap: wrap;
+    gap: 0.6rem 0.85rem;
+    min-height: 64px;
+  }
+  .brand-word {
+    font-size: 1.15rem;
+  }
+  .site-nav {
+    gap: 0.85rem;
+  }
+  .nav-features,
+  .nav-login {
+    display: none;
+  }
+  .btn-sm {
+    padding: 0.55rem 0.95rem;
+  }
+  .trust {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .bento {
+    grid-template-columns: 1fr;
+  }
+  .bento-tile {
+    grid-column: span 1 !important;
+    min-height: auto;
+  }
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+  .hero-actions .btn,
+  .cta-actions .btn {
+    width: 100%;
+  }
+  .pf-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
