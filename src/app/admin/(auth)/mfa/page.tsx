@@ -56,12 +56,13 @@ export default function AdminMfaPage() {
     }
   }
 
-  if (!me) return <div className="auth-card"><p className="sub">Loading…</p></div>;
+  if (!me) return <div className="auth-card"><p className="auth-brand">FleetDesk</p><p className="sub">Loading…</p></div>;
 
   // Enrollment path: mandatory before first use (spec: TOTP is not optional).
   if (!me.mfaEnabled) {
     return (
       <form className="auth-card" onSubmit={onSubmit}>
+        <p className="auth-brand">FleetDesk</p>
         <h1>Set up two-step verification</h1>
         <p className="sub">
           Required before you can use the dashboard. Scan the code with Google
@@ -99,6 +100,7 @@ export default function AdminMfaPage() {
   // Verification path: second factor at login.
   return (
     <form className="auth-card" onSubmit={onSubmit}>
+      <p className="auth-brand">FleetDesk</p>
       <h1>Two-step verification</h1>
       <p className="sub">{me.email}</p>
       {!useRecovery ? (

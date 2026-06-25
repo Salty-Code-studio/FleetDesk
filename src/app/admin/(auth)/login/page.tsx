@@ -34,10 +34,9 @@ export default function AdminLoginPage() {
 
   return (
     <form className="auth-card" onSubmit={onSubmit}>
-      <h1>
-        FLEET<b style={{ color: "var(--orange)" }}>DESK</b> Admin<span className="brand-dot" />
-      </h1>
-      <p className="sub">Sign in to the operations dashboard.</p>
+      <p className="auth-brand">FleetDesk</p>
+      <h1>Sign in</h1>
+      <p className="sub">Welcome back to the operations dashboard.</p>
       <div className="field">
         <label htmlFor="email">Email</label>
         <input id="email" type="email" autoComplete="username" required

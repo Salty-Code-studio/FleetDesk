@@ -1,0 +1,58 @@
+/* Reports page-specific polish (Sand & Surf). Page-scoped only; the shared
+   .rp-* chart styles live in admin.css. No external loads, no @import, no
+   fonts here. Display-only section: KPI cards, bar charts, ranking lists. */
+
+/* Lift KPI cards a touch on hover so the board feels alive without stealing
+   the single coral accent (which stays on the "Revenue this month" tile). */
+.rp-kpi {
+  transition: transform .18s var(--ease), box-shadow .2s var(--ease), border-color .2s var(--ease);
+}
+.rp-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--line-soft);
+}
+.rp-kpi--accent:hover {
+  border-color: var(--teal);
+}
+
+/* Charts grow from the baseline on first paint, motion via CSS only and
+   reduced-motion safe. The horizontal bars share the same calm reveal. */
+@keyframes rp-rise {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes rp-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.rp-bar__fill {
+  transform-origin: bottom;
+  animation: rp-rise .55s var(--ease) both;
+}
+.rp-hbar__fill {
+  transform-origin: left;
+  animation: rp-grow .55s var(--ease) both;
+}
+
+/* Highlight the bar under the pointer so the value reads clearly. */
+.rp-bar { transition: transform .15s var(--ease); }
+.rp-bar:hover { transform: translateY(-2px); }
+.rp-bar:hover .rp-bar__val { color: var(--teal); }
+.rp-bar:hover .rp-bar__fill { filter: saturate(1.12); }
+
+.rp-hbar { transition: background .15s var(--ease); border-radius: 8px; }
+.rp-hbar:hover { background: var(--fill); }
+.rp-hbar:hover .rp-hbar__val { color: var(--teal); }
+
+/* Skeleton bars: no rise/grow animation (the shimmer carries the motion) and
+   a flat baseline so the loading shape mirrors the real chart. */
+.rp-bar--skel .rp-bar__track { align-items: flex-end; }
+.rp-bar--skel .ui-skel { align-self: flex-end; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-bar__fill,
+  .rp-hbar__fill { animation: none; }
+  .rp-kpi:hover,
+  .rp-bar:hover { transform: none; }
+}

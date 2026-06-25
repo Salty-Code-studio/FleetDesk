@@ -3,8 +3,14 @@
    Coastal × tech: Warm Sand canvas, Deep Teal ink, one Surf Coral accent.
    Space Grotesk display · JetBrains Mono labels/numbers · Inter body.
    Legacy token names are repointed so existing markup restyles in place.
+
+   Fonts self-host via next/font/google (wired in the admin shell + auth
+   layouts). They set --font-display / --font-mono / --font-body to the hashed
+   self-hosted family names; the literal fallbacks below cover any surface that
+   has not (yet) applied the next/font variables. No external @import: a Google
+   Fonts @import is blocked by the strict CSP (font-src 'self'), which is why
+   the display + mono faces never actually rendered before.
    ============================================================ */
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
   /* Sand & Surf */
@@ -37,9 +43,14 @@
   --navy: var(--teal);
   --surface: var(--fill);
 
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
-  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* next/font sets --font-display/-mono/-body on the wrappers; these declare the
+     literal fallback fonts in the same family stack so var() resolves either way. */
+  --font-display-fallback: "Space Grotesk", system-ui, sans-serif;
+  --font-mono-fallback: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-body-fallback: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-display-fallback);
+  --font-mono: var(--font-mono-fallback);
+  --font-body: var(--font-body-fallback);
 
   --shadow-sm: 0 1px 2px rgba(14,58,64,.06), 0 1px 8px rgba(14,58,64,.05);
   --shadow-md: 0 12px 30px -14px rgba(14,58,64,.22);
@@ -73,9 +84,10 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 /* ---------- auth card pages ---------- */
 .auth-wrap { min-height: 100dvh; display: grid; place-items: center; padding: 1.5rem; }
 .auth-card { width: 100%; max-width: 410px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 2.1rem; box-shadow: var(--shadow-lg); }
-.auth-card h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 .3rem; display: flex; align-items: baseline; gap: .15rem; }
-.auth-card h1::before { content: "~<"; font-family: var(--font-mono); font-weight: 600; color: var(--coral); margin-right: .5rem; font-size: .9em; }
-.auth-card h1 b { color: var(--coral); font-weight: 700; }
+.auth-card h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 .3rem; }
+/* Clean "~< FleetDesk" brand lockup, matching the shell sidebar logo. */
+.auth-brand { display: flex; align-items: baseline; gap: .45rem; margin: 0 0 1.25rem; font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; color: var(--ink); }
+.auth-brand::before { content: "~<"; font-family: var(--font-mono); font-weight: 600; color: var(--coral); font-size: .92em; }
 .auth-card .sub { color: var(--ink-soft); font-size: .92rem; margin: 0 0 1.4rem; }
 .brand-dot { display: inline-block; width: .42em; height: .42em; border-radius: 50%; background: var(--coral); margin-left: .1em; align-self: center; }
 
@@ -95,7 +107,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .btn:hover { background: var(--teal-700); transform: translateY(-1px); box-shadow: 0 12px 22px -10px rgba(14,58,64,.55); }
 .btn:active { transform: translateY(0) scale(.99); }
 .btn:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
-.btn--accent { background: var(--coral); color: #2a0f0a; box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
+.btn--accent { background: var(--coral); color: var(--teal); box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
 .btn--accent:hover { background: var(--coral-600); }
 .btn--quiet { background: transparent; color: var(--ink-soft); font-weight: 600; width: auto; padding: .45rem .65rem; box-shadow: none; }
 .btn--quiet:hover { background: var(--fill); color: var(--teal); transform: none; }
@@ -121,8 +133,11 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100dvh; }
 .side { background: var(--teal); color: #AFC2C0; padding: 1.4rem 1rem; display: flex; flex-direction: column; gap: .12rem; position: relative; }
 .side::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: linear-gradient(180deg, transparent, rgba(255,111,89,.35), transparent); }
-.side .logo { font-family: var(--font-display); color: var(--sand); font-weight: 700; letter-spacing: -0.02em; padding: .2rem .55rem 1.4rem; font-size: 1rem; display: flex; align-items: baseline; gap: .12rem; white-space: nowrap; }
-.side .logo::before { content: "~<"; font-family: var(--font-mono); font-weight: 600; color: var(--coral); margin-right: .45rem; font-size: .9em; white-space: nowrap; }
+.side .logo { font-family: var(--font-display); color: var(--sand); font-weight: 700; letter-spacing: -0.02em; padding: .2rem .55rem 1.4rem; font-size: 1.02rem; display: flex; align-items: baseline; gap: .12rem; white-space: nowrap; }
+.side .logo .logo-mark { font-family: var(--font-mono); font-weight: 600; color: var(--coral); margin-right: .45rem; font-size: .9em; white-space: nowrap; }
+.side .logo .logo-word { color: var(--sand); font-weight: 700; }
+.side .logo .logo-tag { color: #8FA3A1; font-family: var(--font-mono); font-weight: 500; font-size: .64em; letter-spacing: .1em; text-transform: uppercase; margin-left: .5rem; align-self: center; }
+/* legacy <b> inside the logo still picks up the coral accent if present */
 .side .logo b { color: var(--coral); font-weight: 700; }
 .side-nav { display: flex; flex-direction: column; gap: .14rem; }
 .side a { color: #AFC2C0; text-decoration: none; padding: .55rem .65rem; border-radius: 9px; font-size: .92rem; font-weight: 500; position: relative; transition: background .18s var(--ease), color .18s var(--ease); }
@@ -170,7 +185,13 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { outline: none; border-color: var(--teal); background: var(--panel); box-shadow: 0 0 0 3px rgba(14,58,64,.1); }
 .form-grid textarea { min-height: 160px; resize: vertical; font-family: var(--font-mono); font-size: .82rem; line-height: 1.6; }
 .check { flex-direction: row !important; align-items: center; gap: .45rem !important; text-transform: none !important; }
-.check input { width: auto; accent-color: var(--coral); }
+.check input { width: auto; }
+/* Brand every native form-control highlight Deep Teal, including the <select>
+   dropdown option highlight. Without this, selects fall back to the OS accent
+   color (which was showing through as the user's system pink). Matches the
+   booking flow, which already sets accent-color teal on its controls. */
+.shell input, .shell select, .shell textarea,
+.auth-wrap input, .auth-wrap select { accent-color: var(--teal); }
 .actions { display: flex; gap: .7rem; align-items: center; margin-top: 1.2rem; }
 .actions .btn { width: auto; padding: .58rem 1.2rem; }
 .muted { color: var(--ink-soft); font-size: .85rem; }
@@ -293,4 +314,191 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .nbell__body { font-size: .82rem; color: var(--ink-soft); margin-top: .15rem; }
 .nbell__time { font-size: .7rem; color: var(--ink-mute); margin-top: .3rem; font-family: var(--font-mono); }
 
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* ============================================================
+   MODERN-UI KIT  (src/app/admin/_ui)  ::  BEGIN
+   Shared, token-driven, scoped under ui-* class names. Owned by the kit.
+   Components: overlay, modal, drawer, toast, confirm, skeleton, empty,
+   command palette. Motion is CSS-only and reduced-motion safe.
+   ============================================================ */
+
+/* ---- shared overlay backdrop (modal, drawer, palette) ---- */
+.ui-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+  background: rgba(14, 58, 64, .42);
+  backdrop-filter: blur(2px);
+  opacity: 0; transition: opacity .2s var(--ease);
+}
+.ui-overlay.is-in { opacity: 1; }
+.ui-overlay--drawer { justify-content: flex-end; align-items: stretch; padding: 0; }
+.ui-overlay--palette { align-items: flex-start; padding-top: 14vh; }
+
+/* ---- modal ---- */
+.ui-modal {
+  width: 100%; max-width: 520px; max-height: calc(100dvh - 3rem);
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  opacity: 0; transform: translateY(10px) scale(.985);
+  transition: opacity .2s var(--ease), transform .2s var(--ease);
+}
+.ui-modal.is-in { opacity: 1; transform: translateY(0) scale(1); }
+.ui-modal--sm { max-width: 420px; }
+.ui-modal--md { max-width: 560px; }
+.ui-modal--lg { max-width: 760px; }
+.ui-modal__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  padding: 1.25rem 1.4rem 1rem; border-bottom: 1px solid var(--line-soft);
+}
+.ui-modal__title { font-family: var(--font-display); font-size: 1.18rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+.ui-modal__desc { margin: .3rem 0 0; color: var(--ink-soft); font-size: .88rem; }
+.ui-modal__body { padding: 1.25rem 1.4rem; overflow-y: auto; }
+.ui-modal__foot {
+  display: flex; justify-content: flex-end; gap: .7rem; flex-wrap: wrap;
+  padding: 1rem 1.4rem 1.2rem; border-top: 1px solid var(--line-soft); background: var(--fill);
+}
+.ui-modal__foot .btn { width: auto; padding: .58rem 1.2rem; }
+
+/* close button shared by modal + drawer */
+.ui-iconbtn {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--panel); color: var(--ink-soft); font-size: 1.2rem; line-height: 1; cursor: pointer;
+  transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+}
+.ui-iconbtn:hover { border-color: var(--teal); color: var(--teal); background: var(--fill); }
+
+/* ---- drawer (right slide) ---- */
+.ui-drawer {
+  width: 100%; max-width: 460px; height: 100dvh;
+  display: flex; flex-direction: column;
+  background: var(--panel); border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(100%); transition: transform .26s var(--ease);
+}
+.ui-drawer.is-in { transform: translateX(0); }
+.ui-drawer--lg { max-width: 620px; }
+.ui-drawer__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  padding: 1.3rem 1.5rem 1.1rem; border-bottom: 1px solid var(--line-soft);
+}
+.ui-drawer__title { font-family: var(--font-display); font-size: 1.22rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+.ui-drawer__desc { margin: .3rem 0 0; color: var(--ink-soft); font-size: .88rem; }
+.ui-drawer__body { padding: 1.4rem 1.5rem; overflow-y: auto; flex: 1; }
+.ui-drawer__foot {
+  display: flex; justify-content: flex-end; gap: .7rem; flex-wrap: wrap;
+  padding: 1rem 1.5rem 1.2rem; border-top: 1px solid var(--line-soft); background: var(--fill);
+}
+.ui-drawer__foot .btn { width: auto; padding: .58rem 1.2rem; }
+
+/* ---- confirm dialog body ---- */
+.ui-confirm__lead { margin: 0; color: var(--ink-soft); font-size: .92rem; line-height: 1.55; }
+
+/* ---- toasts ---- */
+.ui-toaster {
+  position: fixed; right: 1.2rem; bottom: 1.2rem; z-index: 80;
+  display: flex; flex-direction: column; gap: .6rem;
+  width: min(360px, calc(100vw - 2.4rem)); pointer-events: none;
+}
+.ui-toast {
+  pointer-events: auto;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: .7rem;
+  padding: .8rem .9rem; border-radius: 13px;
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-md);
+  animation: ui-toast-in .24s var(--ease);
+}
+.ui-toast.is-leaving { animation: ui-toast-out .2s var(--ease) forwards; }
+.ui-toast__mark { width: 9px; height: 9px; border-radius: 50%; margin-top: .35rem; background: var(--sky); }
+.ui-toast--success .ui-toast__mark { background: var(--ok); }
+.ui-toast--error .ui-toast__mark { background: var(--danger); }
+.ui-toast--info .ui-toast__mark { background: var(--sky); }
+.ui-toast__body { display: flex; flex-direction: column; gap: .12rem; min-width: 0; }
+.ui-toast__label { font-family: var(--font-mono); font-size: .64rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-mute); }
+.ui-toast--success .ui-toast__label { color: var(--ok); }
+.ui-toast--error .ui-toast__label { color: var(--danger); }
+.ui-toast--info .ui-toast__label { color: #2E7A96; }
+.ui-toast__msg { font-size: .88rem; color: var(--ink); line-height: 1.45; word-break: break-word; }
+.ui-toast__close {
+  flex: 0 0 auto; border: 0; background: none; color: var(--ink-mute);
+  font-size: 1.05rem; line-height: 1; cursor: pointer; padding: 0 .1rem; transition: color .15s var(--ease);
+}
+.ui-toast__close:hover { color: var(--ink); }
+@keyframes ui-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ui-toast-out { to { opacity: 0; transform: translateY(8px); } }
+
+/* ---- skeleton ---- */
+.ui-skel {
+  display: block; background: var(--fill); position: relative; overflow: hidden;
+}
+.ui-skel::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(252, 250, 244, .85), transparent);
+  transform: translateX(-100%); animation: ui-shimmer 1.4s var(--ease) infinite;
+}
+@keyframes ui-shimmer { 100% { transform: translateX(100%); } }
+.ui-skel-rows { display: flex; flex-direction: column; gap: .85rem; padding: .4rem 0; }
+.ui-skel-row { display: flex; gap: 1.2rem; align-items: center; }
+.ui-skel-row > .ui-skel { flex: 1; }
+
+/* ---- empty state ---- */
+.ui-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: .55rem; padding: 3rem 1.5rem;
+}
+.ui-empty__mark { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 600; color: var(--teal); line-height: 1; }
+.ui-empty__title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin: .2rem 0 0; }
+.ui-empty__hint { margin: 0; color: var(--ink-soft); font-size: .9rem; max-width: 42ch; }
+.ui-empty__action { margin-top: .7rem; }
+.ui-empty__action .btn { width: auto; padding: .58rem 1.2rem; }
+
+/* ---- command palette ---- */
+.ui-palette {
+  width: 100%; max-width: 560px; max-height: 64vh;
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  opacity: 0; transform: translateY(-8px) scale(.99);
+  transition: opacity .18s var(--ease), transform .18s var(--ease);
+}
+.ui-palette.is-in { opacity: 1; transform: translateY(0) scale(1); }
+.ui-palette__search { display: flex; align-items: center; gap: .65rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line-soft); }
+.ui-palette__icon { font-family: var(--font-mono); font-weight: 600; color: var(--coral); font-size: 1rem; }
+.ui-palette__input { flex: 1; border: 0; background: none; font: inherit; font-size: 1rem; color: var(--ink); outline: none; }
+.ui-palette__input::placeholder { color: var(--ink-mute); }
+.ui-palette__kbd, .ui-palette__foot kbd {
+  font-family: var(--font-mono); font-size: .64rem; color: var(--ink-soft);
+  background: var(--fill); border: 1px solid var(--line); border-radius: 6px; padding: .12rem .4rem;
+}
+.ui-palette__list { list-style: none; margin: 0; padding: .4rem; overflow-y: auto; flex: 1; }
+.ui-palette__item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  padding: .6rem .7rem; border-radius: 10px; cursor: pointer;
+  transition: background .12s var(--ease);
+}
+.ui-palette__item.is-active { background: var(--fill); }
+.ui-palette__item.is-active .ui-palette__label { color: var(--teal); }
+.ui-palette__label { font-weight: 600; font-size: .94rem; color: var(--ink); }
+.ui-palette__hint { font-family: var(--font-mono); font-size: .72rem; color: var(--ink-mute); white-space: nowrap; }
+.ui-palette__empty { padding: 1.4rem .7rem; text-align: center; color: var(--ink-soft); font-size: .9rem; }
+.ui-palette__foot {
+  display: flex; gap: 1.1rem; padding: .6rem 1rem; border-top: 1px solid var(--line-soft);
+  font-size: .72rem; color: var(--ink-soft); font-family: var(--font-mono);
+}
+.ui-palette__foot span { display: inline-flex; align-items: center; gap: .3rem; }
+
+@media (max-width: 560px) {
+  .ui-drawer, .ui-drawer--lg { max-width: 100%; }
+  .ui-overlay--palette { padding-top: 8vh; }
+}
+
+/* ============================================================
+   MODERN-UI KIT  ::  END
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+  .ui-skel::after,
+  .ui-toast { animation: none !important; }
+  .ui-skel::after { display: none; }
+}

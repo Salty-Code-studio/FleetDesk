@@ -1,0 +1,106 @@
+/* Audit page-specific layout (Sand & Surf). Page-scoped only; shared component
+   styles stay in admin.css. No external loads, no @import, no fonts here. */
+
+/* Section header: title block left, room for future controls right. */
+.audit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.audit-head__lead { min-width: 0; }
+.audit-head__lead h1 { margin: 0 0 .3rem; }
+.audit-head__lead .sub { margin: 0; }
+
+/* Panel header row inside the Activity panel: heading left, count + filters
+   right (search + action filter live here, tied to the table). */
+.audit-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .9rem;
+  margin-bottom: 1.1rem;
+  flex-wrap: wrap;
+}
+.audit-panel-head h2 { margin: 0; }
+.audit-panel-head__right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.audit-panel-head .audit-count {
+  font-size: .68rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+/* Filter controls: a search box and an action dropdown. */
+.audit-filters {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  flex-wrap: wrap;
+}
+.audit-search,
+.audit-action-filter {
+  padding: .48rem .65rem;
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  background: var(--panel);
+  color: var(--ink);
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+}
+.audit-search { min-width: 15rem; max-width: 100%; }
+.audit-search::placeholder { color: var(--ink-mute); }
+.audit-search:focus-visible,
+.audit-action-filter:focus-visible {
+  outline: none;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px rgba(255, 111, 89, .18);
+}
+.audit-search:disabled,
+.audit-action-filter:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* Table polish: steady column widths and quiet, monospace metadata so the
+   action tag is the only thing that draws the eye per row. */
+.audit-grid .audit-when {
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.audit-grid .audit-actor {
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  color: var(--ink);
+}
+.audit-grid .audit-entity-id {
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  color: var(--ink-mute);
+}
+
+/* Action tag reuses the shared .tag look, kept neutral (one coral accent per
+   view lives in the focus ring), with mono casing for the action verb. */
+.audit-grid .tag.audit-action {
+  text-transform: none;
+  letter-spacing: .01em;
+}
+
+@media (max-width: 640px) {
+  .audit-search { min-width: 0; width: 100%; }
+  .audit-filters { width: 100%; }
+}

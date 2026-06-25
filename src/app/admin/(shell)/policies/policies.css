@@ -1,0 +1,83 @@
+/* Policies page-specific layout (Sand & Surf). Page-scoped only; shared
+   component styles stay in admin.css. No external loads, no @import, no fonts. */
+
+/* Section header: title block left (room for a future action on the right). */
+.pol-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.pol-head__lead { min-width: 0; }
+.pol-head__lead h1 { margin: 0 0 .3rem; }
+.pol-head__lead .sub { margin: 0; }
+
+/* Stack of policy cards. */
+.pol-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.pol-list .panel { margin-bottom: 0; }
+
+/* Each policy card: title + status tag on the left, edit action on the right. */
+.pol-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: .65rem;
+}
+.pol-card__title {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.pol-card__title h2 { margin: 0; }
+
+.pol-card .pol-edit-btn {
+  width: auto;
+  padding: .5rem 1.05rem;
+  white-space: nowrap;
+}
+
+/* Helper line describing what the policy is for. */
+.pol-card__hint {
+  margin: 0 0 .8rem;
+  font-size: .82rem;
+  color: var(--ink-soft);
+}
+
+/* Single-line preview of the published body. */
+.pol-card__preview {
+  margin: 0;
+  padding: .85rem 1rem;
+  background: var(--fill);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  font-size: .85rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.pol-card__preview--empty {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+/* Drawer editor: give the body textarea more room to breathe. */
+.pol-textarea {
+  min-height: 360px;
+}
+
+/* Inline error surfaced in the drawer footer (alongside the toast). */
+.pol-error {
+  margin-right: auto;
+  font-size: .8rem;
+  color: var(--danger);
+  font-family: var(--font-mono);
+}

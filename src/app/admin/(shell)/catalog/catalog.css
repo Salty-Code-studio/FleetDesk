@@ -1,0 +1,69 @@
+/* Catalog page-specific layout (Sand & Surf). Page-scoped only; shared component
+   styles stay in admin.css. No external loads, no @import, no fonts here. */
+
+/* Section header: title block left, room for actions right. */
+.cat-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.cat-head__lead { min-width: 0; }
+.cat-head__lead h1 { margin: 0 0 .3rem; }
+.cat-head__lead .sub { margin: 0; }
+
+/* Panel header row: heading left, count + primary action right (the Add button
+   lives here, tied to its table, mirroring the Fleet pattern). */
+.cat-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .9rem;
+  margin-bottom: 1.1rem;
+  flex-wrap: wrap;
+}
+.cat-panel-head h2 { margin: 0; }
+.cat-panel-head__right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.cat-panel-head .cat-count {
+  font-size: .68rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+}
+.cat-panel-head .btn {
+  width: auto;
+  padding: .55rem 1.05rem;
+  white-space: nowrap;
+}
+
+/* Keep the action column tidy and right-aligned. */
+.cat-grid td.cat-actions { white-space: nowrap; }
+.cat-grid td.cat-actions .row-actions { justify-content: flex-end; }
+
+/* Secondary helper line under a primary cell (e.g. add-on description). */
+.cat-grid .cat-sub {
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+  margin-top: .15rem;
+  max-width: 38ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Muted placeholder token in cells that have no value (no dash characters). */
+.cat-grid .cat-dash {
+  color: var(--ink-mute);
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}

@@ -1,0 +1,55 @@
+/* Settings page-specific layout (Sand & Surf). Page-scoped only; shared
+   component styles stay in admin.css. No external loads, no @import, no fonts. */
+
+/* Section header: title block left. */
+.set-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.set-head__lead { min-width: 0; }
+.set-head__lead h1 { margin: 0 0 .3rem; }
+.set-head__lead .sub { margin: 0; }
+
+/* Panel header row: heading + hint left, count + primary action right. The
+   Add blackout button lives here, tied to its table. */
+.set-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .9rem;
+  margin-bottom: 1.1rem;
+  flex-wrap: wrap;
+}
+.set-panel-head h2 { margin: 0; }
+.set-panel-head__hint {
+  margin: .3rem 0 0;
+  font-size: .82rem;
+  color: var(--ink-soft);
+  max-width: 56ch;
+}
+.set-panel-head__right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+.set-panel-head .set-count {
+  font-size: .68rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+}
+.set-panel-head .btn {
+  width: auto;
+  padding: .55rem 1.05rem;
+  white-space: nowrap;
+}
+
+/* Keep the blackout action column tidy and right-aligned. */
+.grid td.set-actions { white-space: nowrap; }
+.grid td.set-actions .row-actions { justify-content: flex-end; }

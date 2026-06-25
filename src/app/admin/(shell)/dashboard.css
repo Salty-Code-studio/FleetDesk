@@ -1,0 +1,69 @@
+/* Planning board page-specific layout (Sand & Surf). Page-scoped only; shared
+   component styles stay in admin.css. No external loads, no @import, no fonts. */
+
+/* Page header: title block left, primary action (Schedule service) right, tied
+   to the board instead of floating loose in the toolbar. */
+.pl-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+.pl-page-head__lead { min-width: 0; }
+.pl-page-head__lead h1 { margin: 0 0 .3rem; }
+.pl-page-head__lead .sub { margin: 0; max-width: 62ch; }
+.pl-head-action.btn {
+  width: auto;
+  padding: .58rem 1.1rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* Coral as the single accent on the board: only the primary "Schedule service"
+   and the create-rental confirm buttons carry it; everything else is teal/quiet. */
+
+/* ---- loading skeleton: mirrors the real board grid so layout does not jump ---- */
+.pl-skel { pointer-events: none; }
+.pl-skel-track {
+  cursor: default;
+  touch-action: auto;
+}
+.pl-skel .pl-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  justify-content: center;
+}
+.pl-skel-days { width: 100%; }
+
+/* ---- Schedule service form inside the kit Modal ---- */
+.pl-service-form { gap: .7rem; }
+.pl-service-form input,
+.pl-service-form select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.pl-service-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .7rem;
+}
+.pl-service-dates label { margin: 0; }
+
+/* Focus polish: keep date inputs and selects on-brand when focused. */
+.pl-toolbar input[type="date"]:focus-visible,
+.pl-service-form input:focus-visible,
+.pl-service-form select:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 1px;
+  border-color: var(--coral);
+}
+
+@media (max-width: 640px) {
+  .pl-page-head { gap: .65rem; }
+  .pl-head-action.btn { width: 100%; }
+  .pl-service-dates { grid-template-columns: 1fr; }
+}

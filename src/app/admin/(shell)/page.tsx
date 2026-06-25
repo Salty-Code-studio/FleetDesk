@@ -2,6 +2,17 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { apiGet, api, apiPatch, apiDelete, type ApiError } from "../client";
+import {
+  Modal,
+  Skeleton,
+  EmptyState,
+  useToast,
+  useConfirm,
+  registerPaletteAction,
+  type ConfirmFn,
+} from "@/app/admin/_ui";
+import { DatePicker, Select } from "@/components/ui";
+import "./dashboard.css";
 
 interface Bar { id: string; start: string; end: string; status: string; source: string; label: string; notes: string | null }
 interface Block { id: string; start: string; end: string; type: string; reason: string }
@@ -35,12 +46,14 @@ export default function AdminDashboard() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("");
   const [popover, setPopover] = useState<Popover | null>(null);
   const [showService, setShowService] = useState(false);
   // live drag previews (re-rendered): a selection rectangle, or a moving booking ghost
   const [sel, setSel] = useState<{ vehicleId: string; startDate: string; endDate: string } | null>(null);
   const [moveCand, setMoveCand] = useState<{ bookingId: string; vehicleId: string; startDate: string; endDate: string } | null>(null);
+
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const today = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(new Date()), []);
   const gestureRef = useRef<Gesture | null>(null);
@@ -52,10 +65,23 @@ export default function AdminDashboard() {
     try {
       const d = await apiGet<Planning>(`/api/admin/planning${qs}`);
       setData(d); setFrom(d.from); setTo(d.to);
-    } catch (e) { setMsg((e as ApiError).message); }
+    } catch (e) { toast.show({ type: "error", message: (e as ApiError).message }); }
     setLoading(false);
   }
   useEffect(() => { void load(); }, []);
+
+  // Page-scoped command-palette action: "Schedule service".
+  useEffect(
+    () =>
+      registerPaletteAction({
+        id: "planning-service",
+        label: "Schedule service",
+        hint: "Planning",
+        keywords: "service maintenance carwash cleaning block off road planning",
+        run: () => setShowService(true),
+      }),
+    [],
+  );
 
   const N = data?.days.length ?? 0;
   const flatVehicles = useMemo(() => data ? data.categories.flatMap((c) => c.vehicles) : [], [data]);
@@ -145,10 +171,10 @@ export default function AdminDashboard() {
       if (veh !== g.originVehicleId) body.vehicleId = veh;
       try {
         await apiPatch(`/api/admin/bookings/${g.bookingId}/move`, body);
-        setMsg("Moved.");
+        toast.show({ type: "success", message: "Moved." });
         await load(from, to);
       } catch (e) {
-        setMsg((e as ApiError).message); // 409 → "Those dates overlap…"; board reloads to the true state
+        toast.show({ type: "error", message: (e as ApiError).message }); // 409 → "Those dates overlap…"; board reloads to the true state
         await load(from, to);
       }
     }
@@ -190,8 +216,13 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <h1>Planning board</h1>
-      <p className="sub">Drag an empty stretch to add a rental or block. Drag a booking to move its dates or drop it on another car. Click a booking to see details or cancel.</p>
+      <header className="pl-page-head">
+        <div className="pl-page-head__lead">
+          <h1>Planning board</h1>
+          <p className="sub">Drag an empty stretch to add a rental or block. Drag a booking to move its dates or drop it on another car. Click a booking to see details or cancel.</p>
+        </div>
+        <button type="button" className="btn btn--accent pl-head-action" onClick={() => setShowService(true)}>Schedule service</button>
+      </header>
 
       <div className="stat-strip">
         <div className="s"><b>{stats.vehicles}</b><span>active vehicles</span></div>
@@ -201,15 +232,13 @@ export default function AdminDashboard() {
       </div>
 
       <div className="pl-toolbar">
-        <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <label>From <DatePicker value={from} onChange={setFrom} /></label>
+        <label>To <DatePicker value={to} onChange={setTo} /></label>
         <button className="btn" onClick={() => load(from, to)}>Apply</button>
         <button className="btn btn--quiet" onClick={() => load(today, addDays(today, 13))}>Next 2 weeks</button>
         <button className="btn btn--quiet" onClick={() => load(today, addDays(today, 29))}>Next month</button>
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, -7), addDays(data.to, -7))}>◀ back</button>
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, 7), addDays(data.to, 7))}>forward ▶</button>
-        <button className="btn btn--service" onClick={() => setShowService(true)}>+ Schedule service</button>
-        {msg && <span className="pl-msg" role="status">{msg}</span>}
         <div className="pl-legend">
           <span><i className="pl-swatch" style={{ background: "#0E3A40" }} /> confirmed</span>
           <span><i className="pl-swatch" style={{ background: "#C98A33" }} /> pending</span>
@@ -218,7 +247,34 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {loading || !data ? <p className="muted">Loading the fleet…</p> : (
+      {loading || !data ? (
+        <div className="pl-wrap" aria-busy="true" aria-label="Loading the fleet">
+          <div className="pl pl-skel">
+            <div className="pl-head">
+              <div className="pl-corner">Vehicle</div>
+              <div className="pl-days pl-skel-days">
+                {Array.from({ length: 14 }).map((_, i) => (
+                  <div key={i} className="pl-day"><Skeleton width="60%" height={10} /><Skeleton width="42%" height={12} style={{ marginTop: 4 }} /></div>
+                ))}
+              </div>
+            </div>
+            {Array.from({ length: 5 }).map((_, r) => (
+              <div className="pl-row" key={r}>
+                <div className="pl-label"><Skeleton width="60%" height={12} /><Skeleton width="80%" height={9} style={{ marginTop: 5 }} /></div>
+                <div className="pl-track pl-skel-track">
+                  <Skeleton width={`${28 + (r % 3) * 14}%`} height={30} radius={8} style={{ position: "absolute", top: 8, left: `${(r * 11) % 40}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : data.categories.length === 0 ? (
+        <EmptyState
+          title="No vehicles yet"
+          hint="Add cars under Fleet and pricing, then they show up here ready to schedule."
+          action={<a className="btn btn--accent" href="/admin/fleet">Go to Fleet</a>}
+        />
+      ) : (
         <div className="pl-wrap">
           <div className="pl">
             <div className="pl-head">
@@ -233,7 +289,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {data.categories.length === 0 && <div className="pl-empty">No vehicles yet. Add some under Fleet &amp; pricing.</div>}
             {data.categories.map((cat) => (
               <div key={cat.class}>
                 <div className="pl-cat">{cat.class}</div>
@@ -291,30 +346,31 @@ export default function AdminDashboard() {
         <BoardPopover
           popover={popover}
           vehicles={flatVehicles}
+          confirm={confirm}
           onClose={() => setPopover(null)}
-          onDone={async (m) => { setPopover(null); if (m) setMsg(m); await load(from, to); }}
-          onError={(m) => setMsg(m)}
+          onDone={async (m) => { setPopover(null); if (m) toast.show({ type: "success", message: m }); await load(from, to); }}
+          onError={(m) => toast.show({ type: "error", message: m })}
         />
       )}
 
-      {showService && (
-        <ServiceModal
-          vehicles={flatVehicles}
-          defaultDate={today}
-          onClose={() => setShowService(false)}
-          onDone={async (m) => { setShowService(false); if (m) setMsg(m); await load(from, to); }}
-          onError={(m) => setMsg(m)}
-        />
-      )}
+      <ServiceModal
+        open={showService}
+        vehicles={flatVehicles}
+        defaultDate={today}
+        onClose={() => setShowService(false)}
+        onDone={async (m) => { setShowService(false); if (m) toast.show({ type: "success", message: m }); await load(from, to); }}
+        onError={(m) => toast.show({ type: "error", message: m })}
+      />
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
 
-function BoardPopover({ popover, vehicles, onClose, onDone, onError }: {
+function BoardPopover({ popover, vehicles, confirm, onClose, onDone, onError }: {
   popover: Popover;
   vehicles: Vehicle[];
+  confirm: ConfirmFn;
   onClose: () => void;
   onDone: (msg?: string) => Promise<void> | void;
   onError: (msg: string) => void;
@@ -356,8 +412,8 @@ function BoardPopover({ popover, vehicles, onClose, onDone, onError }: {
       <div className="pl-backdrop" onClick={onClose} />
       <div ref={ref} className="pl-pop" style={style} role="dialog">
         {popover.kind === "create" && <CreatePanel p={popover} onDone={onDone} onError={onError} onClose={onClose} />}
-        {popover.kind === "booking" && <BookingPanel p={popover} vehicles={vehicles} onDone={onDone} onError={onError} onClose={onClose} />}
-        {popover.kind === "block" && <BlockPanel p={popover} onDone={onDone} onError={onError} />}
+        {popover.kind === "booking" && <BookingPanel p={popover} vehicles={vehicles} confirm={confirm} onDone={onDone} onError={onError} onClose={onClose} />}
+        {popover.kind === "block" && <BlockPanel p={popover} confirm={confirm} onDone={onDone} onError={onError} />}
       </div>
     </>
   );
@@ -401,7 +457,7 @@ function CreatePanel({ p, onDone, onError, onClose }: {
       <div className="pl-pop-head"><b>{p.plate}</b> <small>{p.name}</small><span className="pl-pop-range">{range}</span></div>
       {tab === "choose" && (
         <div className="pl-pop-actions">
-          <button className="btn" onClick={() => setTab("rental")}>New rental</button>
+          <button className="btn btn--quiet" onClick={() => setTab("rental")}>New rental</button>
           <button className="btn btn--quiet" onClick={() => setTab("block")}>Block car</button>
           <button className="btn btn--quiet" onClick={onClose}>Cancel</button>
         </div>
@@ -414,17 +470,17 @@ function CreatePanel({ p, onDone, onError, onClose }: {
           <label>Price (USD, optional)<input type="number" step="0.01" min="0" value={r.price} onChange={(e) => setR({ ...r, price: e.target.value })} /></label>
           <label>Note (optional)<input value={r.notes} onChange={(e) => setR({ ...r, notes: e.target.value })} placeholder="paid cash at desk" /></label>
           <div className="pl-pop-actions">
-            <button className="btn" disabled={busy}>{busy ? "Saving…" : "Add rental"}</button>
+            <button className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Add rental"}</button>
             <button type="button" className="btn btn--quiet" onClick={() => setTab("choose")}>Back</button>
           </div>
         </form>
       )}
       {tab === "block" && (
         <form className="pl-form" onSubmit={submitBlock}>
-          <label>Type<select value={b.type} onChange={(e) => setB({ ...b, type: e.target.value })}>{BLOCK_TYPES.map((t) => <option key={t} value={t}>{niceType(t)}</option>)}</select></label>
+          <label>Type<Select value={b.type} onChange={(v) => setB({ ...b, type: v })} options={BLOCK_TYPES.map((t) => ({ value: t, label: niceType(t) }))} /></label>
           <label>Note (optional)<input value={b.reason} onChange={(e) => setB({ ...b, reason: e.target.value })} /></label>
           <div className="pl-pop-actions">
-            <button className="btn" disabled={busy}>{busy ? "Saving…" : "Block car"}</button>
+            <button className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Block car"}</button>
             <button type="button" className="btn btn--quiet" onClick={() => setTab("choose")}>Back</button>
           </div>
         </form>
@@ -433,9 +489,10 @@ function CreatePanel({ p, onDone, onError, onClose }: {
   );
 }
 
-function BookingPanel({ p, vehicles, onDone, onError, onClose }: {
+function BookingPanel({ p, vehicles, confirm, onDone, onError, onClose }: {
   p: Extract<Popover, { kind: "booking" }>;
   vehicles: Vehicle[];
+  confirm: ConfirmFn;
   onDone: (msg?: string) => Promise<void> | void;
   onError: (msg: string) => void;
   onClose: () => void;
@@ -445,7 +502,16 @@ function BookingPanel({ p, vehicles, onDone, onError, onClose }: {
   const [showMove, setShowMove] = useState(false);
 
   async function cancel() {
-    if (busy) return; setBusy(true);
+    if (busy) return;
+    const ok = await confirm({
+      title: "Cancel this rental?",
+      message: `${p.bar.label} (${p.bar.start} to ${p.bar.end}) will be cancelled and its dates open back up.`,
+      confirmLabel: "Cancel rental",
+      cancelLabel: "Keep rental",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
     try { await api(`/api/admin/bookings/${p.bar.id}/cancel`, {}); await onDone("Booking cancelled."); }
     catch (err) { onError((err as ApiError).message); setBusy(false); }
   }
@@ -469,11 +535,11 @@ function BookingPanel({ p, vehicles, onDone, onError, onClose }: {
         </div>
       ) : (
         <form className="pl-form" onSubmit={move}>
-          <label>Car<select value={mv.vehicleId} onChange={(e) => setMv({ ...mv, vehicleId: e.target.value })}>{vehicles.map((v) => <option key={v.id} value={v.id}>{v.plate} — {v.name}</option>)}</select></label>
-          <label>Pick-up<input type="date" required value={mv.startDate} onChange={(e) => setMv({ ...mv, startDate: e.target.value })} /></label>
-          <label>Return<input type="date" required value={mv.endDate} onChange={(e) => setMv({ ...mv, endDate: e.target.value })} /></label>
+          <label>Car<Select value={mv.vehicleId} onChange={(v) => setMv({ ...mv, vehicleId: v })} options={vehicles.map((v) => ({ value: v.id, label: `${v.plate} · ${v.name}` }))} /></label>
+          <label>Pick-up<DatePicker required value={mv.startDate} onChange={(iso) => setMv({ ...mv, startDate: iso })} /></label>
+          <label>Return<DatePicker required value={mv.endDate} onChange={(iso) => setMv({ ...mv, endDate: iso })} /></label>
           <div className="pl-pop-actions">
-            <button className="btn" disabled={busy}>{busy ? "Saving…" : "Save move"}</button>
+            <button className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Save move"}</button>
             <button type="button" className="btn btn--quiet" onClick={() => setShowMove(false)}>Back</button>
           </div>
         </form>
@@ -482,14 +548,23 @@ function BookingPanel({ p, vehicles, onDone, onError, onClose }: {
   );
 }
 
-function BlockPanel({ p, onDone, onError }: {
+function BlockPanel({ p, confirm, onDone, onError }: {
   p: Extract<Popover, { kind: "block" }>;
+  confirm: ConfirmFn;
   onDone: (msg?: string) => Promise<void> | void;
   onError: (msg: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   async function remove() {
-    if (busy) return; setBusy(true);
+    if (busy) return;
+    const ok = await confirm({
+      title: "Remove this block?",
+      message: `${niceType(p.block.type)} (${p.block.start} to ${p.block.end}) will be removed and the dates open back up for booking.`,
+      confirmLabel: "Remove block",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
     try { await apiDelete(`/api/admin/blocks/${p.block.id}`); await onDone("Block removed."); }
     catch (err) { onError((err as ApiError).message); setBusy(false); }
   }
@@ -507,7 +582,8 @@ function BlockPanel({ p, onDone, onError }: {
 // Button-driven way to take a car off the road for a carwash, maintenance,
 // cleaning or out-of-service window — no calendar dragging required. Writes the
 // same availability block the drag flow does, so it shows on the board instantly.
-function ServiceModal({ vehicles, defaultDate, onClose, onDone, onError }: {
+function ServiceModal({ open, vehicles, defaultDate, onClose, onDone, onError }: {
+  open: boolean;
   vehicles: Vehicle[];
   defaultDate: string;
   onClose: () => void;
@@ -523,6 +599,12 @@ function ServiceModal({ vehicles, defaultDate, onClose, onDone, onError }: {
     reason: "",
   });
 
+  // Refresh the default vehicle once the fleet loads (the form mounts before the
+  // first vehicle list arrives). Keeps the same submit/validation behavior.
+  useEffect(() => {
+    if (open) setF((prev) => (prev.vehicleId ? prev : { ...prev, vehicleId: vehicles[0]?.id ?? "" }));
+  }, [open, vehicles]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!f.vehicleId) { onError("Add a vehicle first."); return; }
@@ -537,25 +619,28 @@ function ServiceModal({ vehicles, defaultDate, onClose, onDone, onError }: {
   }
 
   return (
-    <>
-      <div className="pl-backdrop" onClick={onClose} />
-      <div className="pl-modal" role="dialog">
-        <div className="pl-pop-head"><b>Schedule service</b><span className="pl-pop-range">Carwash, maintenance, cleaning or out of service</span></div>
-        <form className="pl-form" onSubmit={submit}>
-          <label>Car<select required value={f.vehicleId} onChange={(e) => setF({ ...f, vehicleId: e.target.value })}>
-            {vehicles.length === 0 && <option value="">No cars yet</option>}
-            {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plate} — {v.name}</option>)}
-          </select></label>
-          <label>Type<select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>{BLOCK_TYPES.map((t) => <option key={t} value={t}>{niceType(t)}</option>)}</select></label>
-          <label>From<input type="date" required value={f.startDate} onChange={(e) => setF({ ...f, startDate: e.target.value })} /></label>
-          <label>Until<input type="date" required value={f.endDate} onChange={(e) => setF({ ...f, endDate: e.target.value })} /></label>
-          <label>Note (optional)<input value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="e.g. brake service at AutoFix" /></label>
-          <div className="pl-pop-actions">
-            <button className="btn" disabled={busy}>{busy ? "Saving…" : "Schedule"}</button>
-            <button type="button" className="btn btn--quiet" onClick={onClose}>Cancel</button>
-          </div>
-        </form>
-      </div>
-    </>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Schedule service"
+      description="Carwash, maintenance, cleaning or out of service. This blocks the dates on the board."
+      size="md"
+      footer={
+        <>
+          <button type="button" className="btn btn--quiet" onClick={onClose}>Cancel</button>
+          <button type="submit" form="service-form" className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Schedule"}</button>
+        </>
+      }
+    >
+      <form id="service-form" className="pl-form pl-service-form" onSubmit={submit}>
+        <label data-autofocus tabIndex={-1}>Car<Select required value={f.vehicleId} onChange={(v) => setF({ ...f, vehicleId: v })} placeholder="No cars yet" options={vehicles.map((v) => ({ value: v.id, label: `${v.plate} · ${v.name}` }))} /></label>
+        <label>Type<Select value={f.type} onChange={(v) => setF({ ...f, type: v })} options={BLOCK_TYPES.map((t) => ({ value: t, label: niceType(t) }))} /></label>
+        <div className="pl-service-dates">
+          <label>From<DatePicker required value={f.startDate} onChange={(iso) => setF({ ...f, startDate: iso })} /></label>
+          <label>Until<DatePicker required value={f.endDate} onChange={(iso) => setF({ ...f, endDate: iso })} /></label>
+        </div>
+        <label>Note (optional)<input value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="e.g. brake service at AutoFix" /></label>
+      </form>
+    </Modal>
   );
 }

@@ -1,0 +1,70 @@
+/* Fleet page-specific layout (Sand & Surf). Page-scoped only; shared component
+   styles stay in admin.css. No external loads, no @import, no fonts here. */
+
+/* Section header: title block left, primary action right. */
+.fleet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.fleet-head__lead { min-width: 0; }
+.fleet-head__lead h1 { margin: 0 0 .3rem; }
+.fleet-head__lead .sub { margin: 0; }
+.fleet-head__action .btn {
+  width: auto;
+  padding: .58rem 1.1rem;
+  white-space: nowrap;
+}
+
+/* Panel header row inside the Vehicles panel: heading left, count + primary
+   action right (the Add vehicle button lives here, tied to the table, instead
+   of floating in the page header near the topbar). */
+.fleet-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .9rem;
+  margin-bottom: 1.1rem;
+  flex-wrap: wrap;
+}
+.fleet-panel-head h2 { margin: 0; }
+.fleet-panel-head__right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.fleet-panel-head .fleet-count {
+  font-size: .68rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+}
+.fleet-panel-head .btn {
+  width: auto;
+  padding: .55rem 1.05rem;
+  white-space: nowrap;
+}
+
+/* Tidy the action column so Edit / Blocks / Retire stay aligned. */
+.fleet-grid td.fleet-actions { white-space: nowrap; }
+.fleet-grid td.fleet-actions .row-actions { justify-content: flex-end; }
+
+/* Slug helper line under the vehicle name. */
+.fleet-grid .fleet-slug {
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+  margin-top: .15rem;
+}
+
+/* Air-conditioning toggle uses teal so the modal's single coral accent stays on
+   the submit button. (Overrides the shared .check coral accent for this field.) */
+.fleet-check input { accent-color: var(--teal); }
+
+/* Availability blocks drawer: the add-block form sits below the table with a
+   little breathing room. */
+.fleet-block-form { margin-top: 1rem; }
