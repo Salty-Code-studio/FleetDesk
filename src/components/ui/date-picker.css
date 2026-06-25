@@ -1,0 +1,291 @@
+/* FleetDesk DatePicker - Sand & Surf, scds- namespaced, token + literal fallback.
+   Works in .pub / .shell / .mkt scopes regardless of how tokens are named. */
+
+.scds-dp {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+}
+
+/* Trigger button mirrors a native control's box. */
+.scds-dp__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid var(--line, #e3dac8);
+  border-radius: 10px;
+  background: var(--panel, #fcfaf4);
+  color: var(--ink, #1c2b2e);
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.scds-dp__trigger:hover:not(:disabled) {
+  border-color: var(--teal, #0e3a40);
+}
+
+/* Higher specificity (0,3,0) so the teal indicator beats scope-level
+   .pub/.mkt :focus-visible (0,2,0) regardless of bundle source order. */
+.scds-dp .scds-dp__trigger:focus-visible {
+  outline: 2px solid var(--teal, #0e3a40);
+  outline-offset: 1px;
+  border-color: var(--teal, #0e3a40);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal, #0e3a40) 22%, transparent);
+}
+
+.scds-dp__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.scds-dp__trigger--empty .scds-dp__value {
+  color: var(--ink-soft, #586a6d);
+}
+
+.scds-dp__value {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scds-dp__glyph {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-soft, #586a6d);
+  flex: 0 0 auto;
+}
+
+/* Anchored popover calendar. */
+.scds-dp__popover {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 18rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.75rem;
+  border: 1px solid var(--line, #e3dac8);
+  border-radius: 14px;
+  background: var(--panel, #fcfaf4);
+  box-shadow:
+    0 10px 30px rgba(28, 43, 46, 0.16),
+    0 2px 8px rgba(28, 43, 46, 0.08);
+  animation: scds-dp-in 0.14s ease;
+}
+
+@keyframes scds-dp-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scds-dp__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.scds-dp__title {
+  flex: 1 1 auto;
+  text-align: center;
+  font-family: var(--font-display, "Space Grotesk", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+  color: var(--teal, #0e3a40);
+}
+
+.scds-dp__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--line, #e3dac8);
+  border-radius: 8px;
+  background: var(--panel, #fcfaf4);
+  color: var(--ink, #1c2b2e);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.scds-dp__nav:hover {
+  border-color: var(--teal, #0e3a40);
+  background: var(--sand, #f2ebdd);
+  color: var(--teal, #0e3a40);
+}
+
+.scds-dp .scds-dp__nav:focus-visible {
+  outline: 2px solid var(--teal, #0e3a40);
+  outline-offset: 1px;
+  border-color: var(--teal, #0e3a40);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal, #0e3a40) 22%, transparent);
+}
+
+.scds-dp__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 0.25rem;
+}
+
+.scds-dp__weekday {
+  text-align: center;
+  font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft, #586a6d);
+  padding: 0.25rem 0;
+}
+
+.scds-dp__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.scds-dp__day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink, #1c2b2e);
+  font-family: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.scds-dp__day:hover:not(.scds-dp__day--disabled):not(.scds-dp__day--selected) {
+  background: var(--sand, #f2ebdd);
+}
+
+.scds-dp .scds-dp__day:focus-visible {
+  outline: 2px solid var(--teal, #0e3a40);
+  outline-offset: 1px;
+  border-color: var(--teal, #0e3a40);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal, #0e3a40) 30%, transparent);
+}
+
+.scds-dp__day--outside {
+  color: var(--ink-soft, #586a6d);
+  opacity: 0.55;
+}
+
+/* Today: subtle ring, not a fill. */
+.scds-dp__day--today:not(.scds-dp__day--selected) {
+  border-color: var(--teal, #0e3a40);
+  font-weight: 700;
+}
+
+/* Selected: filled teal with light text. Never coral. */
+.scds-dp__day--selected {
+  background: var(--teal, #0e3a40);
+  color: var(--panel, #fcfaf4);
+  font-weight: 700;
+  border-color: var(--teal, #0e3a40);
+}
+
+.scds-dp__day--selected:hover {
+  background: var(--teal-700, #0a2c31);
+}
+
+.scds-dp__day--disabled {
+  color: var(--ink-soft, #586a6d);
+  opacity: 0.35;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.scds-dp__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line, #e3dac8);
+}
+
+.scds-dp__action {
+  flex: 1 1 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line, #e3dac8);
+  border-radius: 8px;
+  background: var(--panel, #fcfaf4);
+  color: var(--teal, #0e3a40);
+  font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.scds-dp__action:hover:not(:disabled) {
+  border-color: var(--teal, #0e3a40);
+  background: var(--sand, #f2ebdd);
+}
+
+.scds-dp .scds-dp__action:focus-visible {
+  outline: 2px solid var(--teal, #0e3a40);
+  outline-offset: 1px;
+  border-color: var(--teal, #0e3a40);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal, #0e3a40) 22%, transparent);
+}
+
+.scds-dp__action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.scds-dp__action--ghost {
+  color: var(--ink-soft, #586a6d);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scds-dp__popover {
+    animation: none;
+  }
+  .scds-dp__trigger,
+  .scds-dp__nav,
+  .scds-dp__day,
+  .scds-dp__action {
+    transition: none;
+  }
+}

@@ -1,0 +1,164 @@
+/* FleetDesk Select - Sand & Surf, scds- namespaced, token + literal fallback.
+   Works in .pub / .shell / .mkt scopes regardless of how tokens are named. */
+
+.scds-sel {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+}
+
+/* Trigger button mirrors a native control's box. */
+.scds-sel__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid var(--line, #e3dac8);
+  border-radius: 10px;
+  background: var(--panel, #fcfaf4);
+  color: var(--ink, #1c2b2e);
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.scds-sel__trigger:hover:not(:disabled) {
+  border-color: var(--teal, #0e3a40);
+}
+
+/* Higher specificity (0,3,0) so the teal indicator beats scope-level
+   .pub/.mkt :focus-visible (0,2,0) regardless of bundle source order. */
+.scds-sel .scds-sel__trigger:focus-visible {
+  outline: 2px solid var(--teal, #0e3a40);
+  outline-offset: 1px;
+  border-color: var(--teal, #0e3a40);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal, #0e3a40) 22%, transparent);
+}
+
+.scds-sel__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.scds-sel__trigger--empty .scds-sel__value {
+  color: var(--ink-soft, #586a6d);
+}
+
+.scds-sel__value {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scds-sel__chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-soft, #586a6d);
+  flex: 0 0 auto;
+  transition: transform 0.15s ease;
+}
+
+.scds-sel__trigger[aria-expanded="true"] .scds-sel__chevron {
+  transform: rotate(180deg);
+}
+
+/* Anchored listbox popover. */
+.scds-sel__listbox {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: 16rem;
+  overflow-y: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--line, #e3dac8);
+  border-radius: 12px;
+  background: var(--panel, #fcfaf4);
+  box-shadow:
+    0 10px 30px rgba(28, 43, 46, 0.16),
+    0 2px 8px rgba(28, 43, 46, 0.08);
+  animation: scds-sel-in 0.14s ease;
+}
+
+@keyframes scds-sel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scds-sel__option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  color: var(--ink, #1c2b2e);
+  font-size: 0.92rem;
+  line-height: 1.3;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Active (keyboard / hover) descendant: sand tint. */
+.scds-sel__option--active {
+  background: var(--sand, #f2ebdd);
+}
+
+/* Selected option: teal tint + teal text + check. */
+.scds-sel__option--selected {
+  color: var(--teal, #0e3a40);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--teal, #0e3a40) 10%, transparent);
+}
+
+.scds-sel__option--selected.scds-sel__option--active {
+  background: color-mix(in srgb, var(--teal, #0e3a40) 16%, transparent);
+}
+
+.scds-sel__option--disabled {
+  color: var(--ink-soft, #586a6d);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.scds-sel__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  flex: 0 0 auto;
+  color: var(--teal, #0e3a40);
+}
+
+.scds-sel__label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scds-sel__listbox {
+    animation: none;
+  }
+  .scds-sel__trigger,
+  .scds-sel__chevron {
+    transition: none;
+  }
+}
