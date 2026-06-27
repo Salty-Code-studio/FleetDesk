@@ -51,12 +51,14 @@ function originOf(value: string | null): string | null {
 }
 
 /**
- * Defense #2: Origin/Referer allowlist for cookie-authenticated, state-changing
- * requests. Fail-CLOSED — if we cannot positively confirm the request came from
- * an allowed origin, we reject it. A forged cross-site request either carries a
- * disallowed Origin/Referer or (when neither header is present) is rejected.
+ * Defense #2: Origin/Referer allowlist for state-changing requests. Fail-CLOSED:
+ * if we cannot positively confirm the request came from an allowed origin, we
+ * reject it. A forged cross-site request either carries a disallowed
+ * Origin/Referer or (when neither header is present) is rejected. Exported so
+ * unauthenticated-but-state-changing guest endpoints (booking create, checkout)
+ * can get CSRF protection without a session/double-submit token.
  */
-function enforceOrigin(req: Request): void {
+export function enforceOrigin(req: Request): void {
   const origin = req.headers.get("origin");
   if (origin !== null) {
     if (!isAllowedOrigin(origin)) {

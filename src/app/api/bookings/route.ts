@@ -2,6 +2,7 @@ import { withRoute } from "@/lib/http/handler";
 import { json } from "@/lib/http/respond";
 import { parseJsonBody } from "@/lib/http/validate";
 import { enforceRateLimit } from "@/lib/http/rate-limit";
+import { enforceOrigin } from "@/lib/auth/csrf";
 import { createBooking, BookingCreateSchema } from "@/lib/booking/create";
 import { arubaToday } from "@/lib/booking/public";
 import { notifyNewBooking } from "@/lib/email/notifications";
@@ -15,6 +16,9 @@ export const runtime = "nodejs";
  * never echoed back.
  */
 export const POST = withRoute(async (req) => {
+  // CSRF: unauthenticated guest endpoint that writes a booking + licence PII, so
+  // guard with the Origin/Referer allowlist (fail-closed) against cross-site posts.
+  enforceOrigin(req);
   await enforceRateLimit(req, "global", "booking");
   const input = await parseJsonBody(req, BookingCreateSchema);
   const { booking, breakdown, replayed } = await createBooking(input, arubaToday());

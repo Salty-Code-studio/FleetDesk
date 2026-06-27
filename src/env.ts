@@ -166,6 +166,16 @@ const EnvSchema = z
       .default(""),
     EMAIL_FROM: z.string().optional().default("FleetDesk <bookings@fleetdesk.app>"),
 
+    // Local-dev ONLY: return the passwordless login OTP in the /api/auth/request
+    // response so local testing works without an email provider. Default false
+    // (fail-closed). The route ALSO requires non-production, so this can never
+    // leak the OTP from a production deploy even if mis-set. NEVER set true
+    // outside local development.
+    AUTH_DEV_RETURN_CODE: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
+
     // Upstash Redis (rate-limit store) — OPTIONAL. When both are set, the rate
     // limiter coordinates across all serverless instances (spec §11). Falls back
     // to the in-memory per-instance limiter when unset.
