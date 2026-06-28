@@ -3,6 +3,7 @@ import { withRoute } from "@/lib/http/handler";
 import { json } from "@/lib/http/respond";
 import { parseJsonBody } from "@/lib/http/validate";
 import { enforceRateLimit } from "@/lib/http/rate-limit";
+import { enforceOrigin } from "@/lib/auth/csrf";
 import { getDb } from "@/lib/db/client";
 import { earlyAccessLeads } from "@/lib/db/schema";
 
@@ -30,6 +31,9 @@ const BodySchema = z.object({
  * bot). Email is stored lowercased. Rate-limited before parsing.
  */
 export const POST = withRoute(async (req) => {
+  // CSRF: unauthenticated state-changing public POST (writes a lead), so guard
+  // with the Origin/Referer allowlist (fail-closed), matching /api/bookings.
+  enforceOrigin(req);
   await enforceRateLimit(req, "global", "public");
   const body = await parseJsonBody(req, BodySchema);
 

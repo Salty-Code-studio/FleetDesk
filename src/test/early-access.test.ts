@@ -7,11 +7,13 @@ import { POST } from "@/app/api/early-access/route";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 
-/** Build a JSON POST Request plus the Next route context withRoute expects. */
-function post(payload: unknown) {
+/** Build a JSON POST Request plus the Next route context withRoute expects.
+ *  Sends an allowed Origin so it passes the CSRF origin guard; pass a different
+ *  origin to exercise rejection. */
+function post(payload: unknown, origin = "http://localhost:3000") {
   const req = new Request("http://localhost:3000/api/early-access", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", origin },
     body: JSON.stringify(payload),
   });
   return POST(req, { params: Promise.resolve({}) });
@@ -74,6 +76,20 @@ describe("POST /api/early-access — funnel lead capture", () => {
 
     const rows = await db.select().from(earlyAccessLeads);
     expect(rows.some((r) => r.name === "Bad Email")).toBe(false);
+  });
+
+  it("rejects a cross-origin (CSRF) request with 403 and writes no row", async () => {
+    const res = await post(
+      { name: "Evil Origin", email: "evil-origin@example.com" },
+      "https://malicious-site.example",
+    );
+    expect(res.status).toBe(403);
+
+    const rows = await db
+      .select()
+      .from(earlyAccessLeads)
+      .where(eq(earlyAccessLeads.email, "evil-origin@example.com"));
+    expect(rows).toHaveLength(0);
   });
 
   it("accepts a tripped honeypot with 201 but inserts no row", async () => {
