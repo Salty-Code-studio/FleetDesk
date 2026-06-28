@@ -106,3 +106,12 @@ Run each relevant checklist in `~/Desktop/saltycodestudio-fort/checklists/`:
 - Pre-pickup reminder + low-stock email (scheduled jobs — add to vercel.json crons).
 - CSP hardening: move script-src to a per-request nonce + `strict-dynamic` (currently `'unsafe-inline'`).
 - Real fleet photos to private storage; automated ID verification (e.g. Stripe Identity) if desired.
+
+## Security hardening (from the 2026-06-27 red-team)
+
+A four-round authorized pentest found the app **HELD** at the network/auth boundary: no remote or app-level path to customer PII, driver licenses, bookings, payments, leads, or admin. Bugs found were fixed and regression-tested (the test suite covers them). Two residuals are deployment decisions, NOT app-code vulnerabilities:
+
+1. **Secrets at rest [owner].** `DATA_ENCRYPTION_KEY` and `SESSION_SECRET` must NOT live in a plaintext dotfile next to the database. With host read access, the license PII decrypts. In production: load these from a secret manager / KMS (envelope-encrypt the data key), never co-locate the key with the encrypted store, restrict the runtime user, and rotate any secret that ever sat in a dev `.env`.
+2. **Rate limiter needs a real client IP [owner].** With `TRUST_PROXY=false` and no Redis, the limiter keys on a spoofable request fingerprint (User-Agent), so per-IP global/auth limits can be evaded by rotating the header (DoS / abuse only; per-account lockout and per-email caps still hold). In production: run behind a trusted edge with `TRUST_PROXY=true` AND configure `UPSTASH_*` so it keys on the real IP across instances. The app logs a boot warning if neither is set.
+
+Fixed in code (verified live + tests): the login API no longer returns the OTP (was a critical account-takeover leak); a fail-closed CSRF Origin guard now covers all guest state-changing POSTs (`/api/bookings`, `/api/bookings/[id]/checkout`, `/api/early-access`); the per-email login limit is keyed independent of the spoofable fingerprint (stops email-bombing).
