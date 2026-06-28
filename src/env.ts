@@ -214,3 +214,19 @@ function loadEnv(): Env {
 export const env: Readonly<Env> = Object.freeze(loadEnv());
 
 export const isProd = env.NODE_ENV === "production";
+
+// Boot warning: in production without a trusted IP source (TRUST_PROXY) AND
+// without a shared Redis store, the rate limiter falls back to a best-effort
+// request fingerprint a client can rotate (User-Agent etc.) to evade the per-IP
+// tiers. Per-account lockout and per-scope caps (e.g. per-email) still hold, but
+// the global IP-based DoS protection is weak. Fix: TRUST_PROXY=true behind a
+// trusted edge and/or configure UPSTASH_*.
+if (isProd && !env.TRUST_PROXY && !(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN)) {
+  // eslint-disable-next-line no-console -- boot-time operational warning.
+  console.warn(
+    "[fleetdesk] WARNING: rate limiter is keyed on a spoofable request fingerprint " +
+      "(TRUST_PROXY=false and no Upstash Redis in production). Per-IP limits can be " +
+      "evaded by rotating the User-Agent. Set TRUST_PROXY=true behind a trusted edge " +
+      "and/or configure UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN.",
+  );
+}

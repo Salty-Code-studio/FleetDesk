@@ -170,15 +170,27 @@ async function hitRedis(id: string, max: number, windowSeconds: number): Promise
 }
 
 /** Enforce a tier's limit. Throws a 429 AppError when exceeded. Uses Upstash
- *  Redis across instances when configured, else the in-memory limiter. */
-export async function enforceRateLimit(req: Request, tier: LimitTier, scope = ""): Promise<RateLimitResult> {
-  const id = clientIdentifier(req);
+ *  Redis across instances when configured, else the in-memory limiter.
+ *
+ *  opts.perScope keys the bucket on the SCOPE ALONE (no client identifier), for
+ *  limits where the scope itself names the victim (e.g. a per-email login cap).
+ *  Without this, the bucket key includes clientIdentifier(), which falls back to
+ *  a spoofable request fingerprint when TRUST_PROXY is false — letting an
+ *  attacker reset a per-victim limit by rotating the User-Agent. A per-scope key
+ *  caps the victim globally regardless of the caller, closing email-bombing and
+ *  per-account abuse even on the weak fingerprint fallback. */
+export async function enforceRateLimit(
+  req: Request,
+  tier: LimitTier,
+  scope = "",
+  opts: { perScope?: boolean } = {},
+): Promise<RateLimitResult> {
   const [max, windowSeconds] =
     tier === "auth"
       ? [env.RATE_LIMIT_AUTH_MAX, env.RATE_LIMIT_AUTH_WINDOW_SECONDS]
       : [env.RATE_LIMIT_GLOBAL_MAX, env.RATE_LIMIT_GLOBAL_WINDOW_SECONDS];
 
-  const key = `${tier}:${scope}:${id}`;
+  const key = opts.perScope ? `${tier}:${scope}` : `${tier}:${scope}:${clientIdentifier(req)}`;
   const result = REDIS_CONFIGURED ? await hitRedis(key, max, windowSeconds) : hit(key, max, windowSeconds);
   if (!result.ok) {
     throw Errors.rateLimited(result.retryAfterSeconds);

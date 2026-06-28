@@ -20,7 +20,10 @@ const BodySchema = z.object({ email: z.string().trim().toLowerCase().email().max
 export const POST = withRoute(async (req) => {
   await enforceRateLimit(req, "auth", "login-request");
   const { email } = await parseJsonBody(req, BodySchema);
-  await enforceRateLimit(req, "auth", `login-request:${email}`);
+  // Per-email cap keyed on the email ALONE (perScope), so it cannot be reset by
+  // rotating the client fingerprint. This bounds login-email bombing of a single
+  // victim regardless of the attacker's IP/User-Agent.
+  await enforceRateLimit(req, "auth", `login-request:${email}`, { perScope: true });
 
   const { code } = await issueLoginToken(email);
   // Code travels in the URL FRAGMENT (#), which browsers never send to the
