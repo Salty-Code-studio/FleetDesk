@@ -41,6 +41,10 @@ export const metadata: Metadata = {
 
 const fontVars = `${display.variable} ${mono.variable} ${body.variable}`;
 
+// Show the "Live demo" entry only when the public demo is enabled. The server
+// door (POST /api/admin/auth/demo) is separately gated by DEMO_MODE.
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     // suppressHydrationWarning: the inline script below intentionally adds the
@@ -79,9 +83,15 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <a className="nav-link nav-login" href="/admin">
               Log in
             </a>
-            <Link className="btn btn-primary btn-sm" href="/early-access">
-              Request access
-            </Link>
+            {DEMO_MODE ? (
+              <Link className="btn btn-primary btn-sm" href="/admin/login">
+                Live demo
+              </Link>
+            ) : (
+              <Link className="btn btn-primary btn-sm" href="/early-access">
+                Request access
+              </Link>
+            )}
           </nav>
         </div>
       </header>

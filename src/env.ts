@@ -176,6 +176,18 @@ const EnvSchema = z
       .default("false")
       .transform((v) => v === "true"),
 
+    // Public product demo. When true, POST /api/admin/auth/demo issues a full
+    // admin session for the seeded demo admin (demo@fleetdesk.app) with NO
+    // password or MFA, so prospects can click straight into the ops dashboard.
+    // DEFAULT FALSE (fail-closed): a real customer deployment MUST leave this
+    // unset so the demo door 404s and admin access stays password + MFA only.
+    // Pair with NEXT_PUBLIC_DEMO_MODE=true to show the "Enter the live demo"
+    // button on the sign-in page (that public flag only controls the button).
+    DEMO_MODE: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
+
     // Upstash Redis (rate-limit store) — OPTIONAL. When both are set, the rate
     // limiter coordinates across all serverless instances (spec §11). Falls back
     // to the in-memory per-instance limiter when unset.

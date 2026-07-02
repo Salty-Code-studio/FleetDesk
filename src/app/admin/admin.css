@@ -113,6 +113,14 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .btn--quiet:hover { background: var(--fill); color: var(--teal); transform: none; }
 .btn.danger { background: var(--danger); color: #fff; box-shadow: 0 8px 18px -10px rgba(192,71,58,.7); }
 
+/* ---------- demo entry (sign-in page, DEMO_MODE only) ---------- */
+.demo-panel { margin: .25rem 0 1.1rem; }
+.btn-demo { background: var(--coral); color: var(--teal); box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
+.btn-demo:hover { background: var(--coral-600); }
+.demo-hint { margin: .55rem 0 0; font-size: .82rem; color: var(--ink-soft); text-align: center; }
+.demo-divider { display: flex; align-items: center; gap: .7rem; margin: 1.15rem 0 .2rem; color: var(--ink-soft); font-size: .78rem; }
+.demo-divider::before, .demo-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
 :focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 4px; }
 
 .msg { font-size: .85rem; min-height: 1.2em; margin: .3rem 0 0; }
