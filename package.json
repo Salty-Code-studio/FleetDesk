@@ -28,7 +28,7 @@
     "@upstash/redis": "^1.38.0",
     "argon2": "0.41.1",
     "drizzle-orm": "^0.45.2",
-    "next": "15.3.3",
+    "next": "^15.5.20",
     "postgres": "^3.4.9",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
@@ -46,7 +46,7 @@
     "@vitest/coverage-v8": "^4.1.8",
     "drizzle-kit": "^0.31.10",
     "eslint": "9.17.0",
-    "eslint-config-next": "15.3.3",
+    "eslint-config-next": "^15.5.20",
     "tsx": "4.19.2",
     "typescript": "5.7.2",
     "vitest": "^4.1.8"
