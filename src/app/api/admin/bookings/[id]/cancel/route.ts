@@ -23,9 +23,12 @@ export const POST = withRoute(async (req, { params }) => {
     return { result: row, entity: "booking", entityId: id, after: { status: row.status, refund } };
   });
 
-  // Best-effort notice (never blocks the cancellation).
+  // Best-effort notice (never blocks the cancellation). policySaysFree is
+  // forwarded so the email can tell "policy denied the refund" apart from
+  // "admin overrode policy and denied a refund it would otherwise have granted".
   await notifyBookingCancelled(cancelled.id, {
     refunded: cancelled.refunded, refundCents: cancelled.refundCents, refundError: cancelled.refundError,
+    policySaysFree: cancelled.policySaysFree,
   });
 
   return json({

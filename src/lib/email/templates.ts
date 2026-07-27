@@ -63,7 +63,7 @@ export function bookingConfirmedEmail(args: {
 
 export function bookingCancelledEmail(args: {
   vehicleName: string; startAt: string; endAt: string;
-  refund: { refunded: boolean; refundCents: number; refundError?: boolean };
+  refund: { refunded: boolean; refundCents: number; refundError?: boolean; policySaysFree?: boolean };
   cancellationWindowHours: number; currency: string;
 }): RenderedEmail {
   const { refund } = args;
@@ -71,6 +71,10 @@ export function bookingCancelledEmail(args: {
     ? "Your refund is being processed and will land on your card soon."
     : refund.refunded
     ? `Your payment of ${money(refund.refundCents, args.currency)} has been refunded to your card.`
+    // policySaysFree true here means the window would have allowed a refund,
+    // but it was explicitly denied (an admin override), not a policy outcome.
+    : refund.policySaysFree
+    ? "Your payment was not refunded for this cancellation."
     : `Cancelled within ${args.cancellationWindowHours} hours of pickup: the deposit is not refunded, as per the cancellation policy.`;
   return {
     subject: `Your ${args.vehicleName} booking was cancelled`,

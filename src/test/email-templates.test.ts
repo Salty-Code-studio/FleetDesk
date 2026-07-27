@@ -80,5 +80,14 @@ describe("email templates", () => {
       refund: { refunded: false, refundCents: 0, refundError: true }, cancellationWindowHours: 48, currency: "USD",
     });
     expect(errored.html).toContain("refund is being processed");
+
+    // Admin override: cancelled outside the window (policySaysFree true) but
+    // the admin explicitly denied the refund. Must not blame the window policy.
+    const overrideDenied = bookingCancelledEmail({
+      vehicleName: "Kia Picanto", startAt, endAt,
+      refund: { refunded: false, refundCents: 0, policySaysFree: true }, cancellationWindowHours: 48, currency: "USD",
+    });
+    expect(overrideDenied.html).toContain("not refunded");
+    expect(overrideDenied.html).not.toContain("Cancelled within 48 hours of pickup");
   });
 });

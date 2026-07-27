@@ -97,10 +97,13 @@ export async function notifyBookingConfirmed(bookingId: string): Promise<void> {
  *  Shared by both cancellation paths: the customer's own self-service cancel
  *  (window policy decides the refund) and the admin cancel (Task 7's explicit
  *  refund/no-refund choice) — both produce the same `{ refunded, refundCents,
- *  refundError }` shape, so this one template variant covers either origin. */
+ *  refundError }` shape, so this one template variant covers either origin.
+ *  `policySaysFree` is admin-path-only: it lets the email tell "policy denied
+ *  the refund" (customer cancelled late) apart from "admin overrode policy and
+ *  denied a refund the window would otherwise have granted" (goodwill denial). */
 export async function notifyBookingCancelled(
   bookingId: string,
-  refund: { refunded: boolean; refundCents: number; refundError?: boolean },
+  refund: { refunded: boolean; refundCents: number; refundError?: boolean; policySaysFree?: boolean },
 ): Promise<void> {
   try {
     const ctx = await context(bookingId);
