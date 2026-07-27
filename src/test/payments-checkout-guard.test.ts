@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings, payments } from "@/lib/db/schema";
 import { createBookingCheckout } from "@/lib/payments/checkout";
+import { atAruba } from "@/lib/time/format";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "", customerId = "";
@@ -26,7 +27,8 @@ beforeAll(async () => {
 describe("createBookingCheckout guards", () => {
   it("refuses a non-pending booking", async () => {
     const [b] = await db.insert(bookings).values({
-      vehicleId, customerId, startDate: "2028-01-01", endDate: "2028-01-05", bufferEndDate: "2028-01-06",
+      vehicleId, customerId,
+      startAt: atAruba("2028-01-01", "09:00"), endAt: atAruba("2028-01-05", "09:00"), bufferEndAt: atAruba("2028-01-06", "09:00"),
       status: "confirmed", priceBreakdown: breakdown, paymentOption: "reservation_fee",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "co-1",
     }).returning();
@@ -35,7 +37,8 @@ describe("createBookingCheckout guards", () => {
 
   it("refuses to start a second checkout once a payment has succeeded (double-charge guard)", async () => {
     const [b] = await db.insert(bookings).values({
-      vehicleId, customerId, startDate: "2028-02-01", endDate: "2028-02-05", bufferEndDate: "2028-02-06",
+      vehicleId, customerId,
+      startAt: atAruba("2028-02-01", "09:00"), endAt: atAruba("2028-02-05", "09:00"), bufferEndAt: atAruba("2028-02-06", "09:00"),
       status: "pending", priceBreakdown: breakdown, paymentOption: "reservation_fee",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "co-2",
     }).returning();

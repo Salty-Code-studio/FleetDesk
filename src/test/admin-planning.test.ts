@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings } from "@/lib/db/schema";
 import { dayRange, getPlanning } from "@/lib/admin/planning";
+import { atAruba } from "@/lib/time/format";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 
@@ -23,7 +24,8 @@ beforeAll(async () => {
   });
   const [c] = await db.insert(customers).values({ email: "plan@test.com", name: "Planner" }).returning();
   await db.insert(bookings).values({
-    vehicleId: eco!.id, customerId: c!.id, startDate: "2027-03-05", endDate: "2027-03-09", bufferEndDate: "2027-03-10",
+    vehicleId: eco!.id, customerId: c!.id,
+    startAt: atAruba("2027-03-05", "09:00"), endAt: atAruba("2027-03-09", "09:00"), bufferEndAt: atAruba("2027-03-10", "09:00"),
     status: "confirmed", priceBreakdown: {}, paymentOption: "reservation_fee", acceptedPolicyVersion: 1,
     acceptedAt: new Date(), idempotencyKey: "plan-1",
   });

@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings } from "@/lib/db/schema";
 import { listCustomerBookings, cancelOwnBooking } from "@/lib/booking/customer-bookings";
+import { atAruba } from "@/lib/time/format";
 import { expectReject } from "./util";
 
 let db: Awaited<ReturnType<typeof getDb>>;
@@ -14,7 +15,8 @@ let cursor = 1;
 async function mk(customerId: string, status: "pending" | "confirmed" | "completed" = "pending") {
   const m = String(cursor++).padStart(2, "0");
   const [b] = await db.insert(bookings).values({
-    vehicleId, customerId, startDate: `2027-${m}-01`, endDate: `2027-${m}-05`, bufferEndDate: `2027-${m}-06`,
+    vehicleId, customerId,
+    startAt: atAruba(`2027-${m}-01`, "09:00"), endAt: atAruba(`2027-${m}-05`, "09:00"), bufferEndAt: atAruba(`2027-${m}-06`, "09:00"),
     status, priceBreakdown: bd, paymentOption: "reservation_fee", acceptedPolicyVersion: 1,
     acceptedAt: new Date(), idempotencyKey: `cb-${m}`,
   }).returning();

@@ -9,11 +9,42 @@ import { getSettings } from "@/lib/admin/settings";
 import { getLatestPolicy, type PolicyType } from "@/lib/admin/policies";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
 import { validateDates } from "@/lib/booking/availability";
+import { atAruba } from "@/lib/time/format";
+import { isoDate } from "@/lib/validation/iso-date";
 import { Errors } from "@/lib/http/errors";
 
 /** Rental start in Aruba local time (UTC-4), as YYYY-MM-DD. */
 export function arubaToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(new Date());
+}
+
+/** Now as a Aruba fixed-offset ISO timestamp. */
+export function arubaNowIso(): string {
+  const d = new Date();
+  return atAruba(
+    new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(d),
+    new Intl.DateTimeFormat("en-GB", { timeZone: "America/Aruba", hour: "2-digit", minute: "2-digit", hour12: false }).format(d),
+  );
+}
+
+/** Boundary compat: a bare YYYY-MM-DD (Phase 1 deep links, old clients) becomes
+ *  that date at 09:00 Aruba. Full timestamps pass through unchanged.
+ *  NOTE: Task 3 swaps the hardcoded 09:00 for settings.openingTime. */
+export function normalizeTs(value: string): string {
+  return isoDate.safeParse(value).success ? atAruba(value, "09:00") : value;
+}
+
+/** Legacy-key compat: not-yet-updated clients (the Phase 1 site, the ops
+ *  board before Task 5) post startDate/endDate; map those onto startAt/endAt
+ *  before schema validation so old and new field names both work. */
+export function mapLegacyDateKeys(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const obj = { ...(raw as Record<string, unknown>) };
+  if (obj.startDate !== undefined && obj.startAt === undefined) obj.startAt = obj.startDate;
+  if (obj.endDate !== undefined && obj.endAt === undefined) obj.endAt = obj.endDate;
+  delete obj.startDate;
+  delete obj.endDate;
+  return obj;
 }
 
 export interface PublicVehicle {
@@ -52,19 +83,19 @@ export async function publicPolicy(type: PolicyType) {
 
 export interface QuoteRequest {
   vehicleSlug: string;
-  startDate: string;
-  endDate: string;
+  startAt: string;
+  endAt: string;
   insuranceTierId?: string | null;
   addOns?: Array<{ addOnId: string; qty: number }>;
 }
 
 /** Validate + price a request without creating anything. Throws 4xx on bad input. */
-export async function publicQuote(req: QuoteRequest, today: string): Promise<QuoteBreakdown> {
+export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<QuoteBreakdown> {
   const db = await getDb();
   const settings = await getSettings();
   const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.slug, req.vehicleSlug));
   if (!vehicle || vehicle.status !== "active") throw Errors.notFound("Vehicle not available");
-  validateDates(req.startDate, req.endDate, settings, today);
+  validateDates(req.startAt, req.endAt, settings, nowIso);
 
   let insurance: { id: string; name: string; dailyPriceCents: number } | null = null;
   if (req.insuranceTierId) {
@@ -79,7 +110,7 @@ export async function publicQuote(req: QuoteRequest, today: string): Promise<Quo
   const byId = new Map(addOnRows.map((a) => [a.id, a]));
 
   return quote({
-    days: rentalDays(req.startDate, req.endDate),
+    days: rentalDays(req.startAt, req.endAt),
     vehicle: {
       priceDayCents: vehicle.priceDayCents, priceWeekCents: vehicle.priceWeekCents,
       priceMonthCents: vehicle.priceMonthCents, depositCents: vehicle.depositCents,

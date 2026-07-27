@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings, payments } from "@/lib/db/schema";
 import { expireStaleHolds } from "@/lib/payments/holds";
+import { atAruba } from "@/lib/time/format";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "", customerId = "";
@@ -15,7 +16,8 @@ async function mkBooking(key: string, createdAt: Date, status: "pending" | "conf
   // distinct non-overlapping dates per booking (same vehicle, buffered constraint)
   const month = String(dateCursor++).padStart(2, "0");
   const [b] = await db.insert(bookings).values({
-    vehicleId, customerId, startDate: `2027-${month}-01`, endDate: `2027-${month}-05`, bufferEndDate: `2027-${month}-06`,
+    vehicleId, customerId,
+    startAt: atAruba(`2027-${month}-01`, "09:00"), endAt: atAruba(`2027-${month}-05`, "09:00"), bufferEndAt: atAruba(`2027-${month}-06`, "09:00"),
     status, priceBreakdown: bd, paymentOption: "reservation_fee", acceptedPolicyVersion: 1,
     acceptedAt: new Date(), idempotencyKey: key, createdAt,
   }).returning();

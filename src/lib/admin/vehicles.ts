@@ -5,9 +5,15 @@ import { vehicles, availabilityBlocks } from "@/lib/db/schema";
 import { centsField, optionalCentsField } from "@/lib/admin/money";
 import { Errors } from "@/lib/http/errors";
 import { isoDate } from "@/lib/validation/iso-date";
+import { atAruba, arubaDateOf } from "@/lib/time/format";
 
 export type Vehicle = typeof vehicles.$inferSelect;
-export type AvailabilityBlock = typeof availabilityBlocks.$inferSelect;
+/** Blocks are whole out-of-service days; the day fields are derived from the
+ *  underlying midnight-to-midnight Aruba timestamps stored on the row. */
+export type AvailabilityBlock = Omit<typeof availabilityBlocks.$inferSelect, "startAt" | "endAt"> & {
+  startDate: string;
+  endDate: string;
+};
 
 export const VehicleCreateSchema = z.object({
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "must be kebab-case").max(80),
@@ -79,9 +85,15 @@ export async function retireVehicle(id: string): Promise<Vehicle> {
   return row!;
 }
 
+function toBlockView(row: typeof availabilityBlocks.$inferSelect): AvailabilityBlock {
+  const { startAt, endAt, ...rest } = row;
+  return { ...rest, startDate: arubaDateOf(startAt), endDate: arubaDateOf(endAt) };
+}
+
 export async function listBlocks(vehicleId: string): Promise<AvailabilityBlock[]> {
   const db = await getDb();
-  return db.select().from(availabilityBlocks).where(eq(availabilityBlocks.vehicleId, vehicleId)).orderBy(asc(availabilityBlocks.startDate));
+  const rows = await db.select().from(availabilityBlocks).where(eq(availabilityBlocks.vehicleId, vehicleId)).orderBy(asc(availabilityBlocks.startAt));
+  return rows.map(toBlockView);
 }
 
 export async function createBlock(vehicleId: string, raw: z.input<typeof BlockSchema>): Promise<AvailabilityBlock> {
@@ -89,8 +101,17 @@ export async function createBlock(vehicleId: string, raw: z.input<typeof BlockSc
   const db = await getDb();
   const vehicle = await getVehicle(vehicleId);
   if (!vehicle) throw Errors.notFound("Vehicle not found");
-  const [row] = await db.insert(availabilityBlocks).values({ vehicleId, ...input }).returning();
-  return row!;
+  // Blocks are whole out-of-service days: midnight-to-midnight Aruba, so a
+  // block from day D to day E (exclusive) is a continuous [D, E) range with
+  // no 09:00 offset (unlike bookings, which default to a 09:00 pick-up time).
+  const [row] = await db.insert(availabilityBlocks).values({
+    vehicleId,
+    startAt: atAruba(input.startDate, "00:00"),
+    endAt: atAruba(input.endDate, "00:00"),
+    type: input.type,
+    reason: input.reason,
+  }).returning();
+  return toBlockView(row!);
 }
 
 export async function deleteBlock(id: string): Promise<boolean> {

@@ -13,6 +13,7 @@ import { Errors } from "@/lib/http/errors";
 import { getStripe } from "@/lib/payments/stripe-client";
 import { chargeForBooking, type PaymentOption } from "@/lib/payments/charge";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
+import { formatDateTime } from "@/lib/time/format";
 
 const LABEL: Record<"reservation_fee" | "deposit", string> = {
   reservation_fee: "Reservation fee",
@@ -70,7 +71,7 @@ export async function createBookingCheckout(bookingId: string, origin: string): 
           unit_amount: charge.amountCents,
           product_data: {
             name: `${LABEL[charge.type]} — ${vehicle?.name ?? "FleetDesk rental"}`,
-            description: `${booking.startDate} to ${booking.endDate}`,
+            description: `${formatDateTime(booking.startAt)} to ${formatDateTime(booking.endAt)}`,
           },
         },
       }],

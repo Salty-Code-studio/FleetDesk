@@ -1,13 +1,17 @@
+import { z } from "zod";
 import { withRoute } from "@/lib/http/handler";
 import { json } from "@/lib/http/respond";
 import { parseJsonBody } from "@/lib/http/validate";
 import { enforceRateLimit } from "@/lib/http/rate-limit";
 import { enforceOrigin } from "@/lib/auth/csrf";
 import { createBooking, BookingCreateSchema } from "@/lib/booking/create";
-import { arubaToday } from "@/lib/booking/public";
+import { arubaNowIso, mapLegacyDateKeys } from "@/lib/booking/public";
 import { notifyNewBooking } from "@/lib/email/notifications";
 
 export const runtime = "nodejs";
+
+// Legacy-key compat: the Phase 1 site still posts startDate/endDate.
+const BodySchema = z.preprocess(mapLegacyDateKeys, BookingCreateSchema);
 
 /**
  * POST /api/bookings — create a pending booking (public). Idempotent via the
@@ -20,14 +24,14 @@ export const POST = withRoute(async (req) => {
   // guard with the Origin/Referer allowlist (fail-closed) against cross-site posts.
   enforceOrigin(req);
   await enforceRateLimit(req, "global", "booking");
-  const input = await parseJsonBody(req, BookingCreateSchema);
-  const { booking, breakdown, replayed } = await createBooking(input, arubaToday());
+  const input = await parseJsonBody(req, BodySchema);
+  const { booking, breakdown, replayed } = await createBooking(input, arubaNowIso());
   if (!replayed) await notifyNewBooking(booking.id); // best-effort admin alert
   return json({
     id: booking.id,
     status: booking.status,
-    startDate: booking.startDate,
-    endDate: booking.endDate,
+    startAt: booking.startAt,
+    endAt: booking.endAt,
     paymentOption: booking.paymentOption,
     breakdown,
     replayed,

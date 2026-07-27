@@ -7,6 +7,7 @@
  * short rental is never charged more than the next tier up. We compute the exact
  * optimum with a tiny DP over the day count.
  */
+import { parseTs } from "@/lib/time/format";
 
 export interface VehicleRates {
   priceDayCents: number;
@@ -54,11 +55,11 @@ export interface QuoteBreakdown {
   currency: string;
 }
 
-/** Whole rental days; end date is exclusive (the return day). */
-export function rentalDays(startDate: string, endDate: string): number {
-  const a = Date.parse(`${startDate}T00:00:00Z`);
-  const b = Date.parse(`${endDate}T00:00:00Z`);
-  return Math.round((b - a) / 86_400_000);
+/** Whole charged rental days from timestamps: ceil of elapsed hours / 24, min 1.
+ *  09:00 -> 09:00 next day = 1 day; any overrun starts the next day. */
+export function rentalDays(startAt: string, endAt: string): number {
+  const hours = (parseTs(endAt) - parseTs(startAt)) / 3_600_000;
+  return Math.max(1, Math.ceil(hours / 24));
 }
 
 /** Cheapest tiered price for `days` days. cost[0]=0; each day extends from the

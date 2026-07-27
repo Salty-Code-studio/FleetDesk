@@ -4,12 +4,16 @@ import { json } from "@/lib/http/respond";
 import { enforceRateLimit } from "@/lib/http/rate-limit";
 import { parseParams } from "@/lib/http/validate";
 import { getClasses } from "@/lib/booking/classes";
-import { isoDate } from "@/lib/validation/iso-date";
+import { normalizeTs } from "@/lib/booking/public";
+import { isoDateTime } from "@/lib/validation/iso-date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const QuerySchema = z.object({ pickup: isoDate.optional(), return: isoDate.optional() });
+const QuerySchema = z.object({
+  pickup: z.string().transform(normalizeTs).pipe(isoDateTime).optional(),
+  return: z.string().transform(normalizeTs).pipe(isoDateTime).optional(),
+});
 
 /** GET /api/classes?pickup&return — public. The bookable car TYPES with their
  *  per-class day rate, and (when dates are given) an available car to hold. */

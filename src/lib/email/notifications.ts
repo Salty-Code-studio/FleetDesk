@@ -14,6 +14,7 @@ import {
 } from "@/lib/email/templates";
 import { notifyAdmin, sendOwnerWhatsApp } from "@/lib/notify";
 import { logger } from "@/lib/logger";
+import { formatDateTime } from "@/lib/time/format";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 
 async function context(bookingId: string) {
@@ -36,16 +37,16 @@ export async function notifyNewBooking(bookingId: string): Promise<void> {
     await sendToMany(settings.adminAlertRecipients, (to) => ({
       to, type: "admin_new_booking",
       ...adminNewBookingEmail({
-        vehicleName: ctx.vehicleName, startDate: ctx.booking.startDate, endDate: ctx.booking.endDate,
+        vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
         customerEmail: ctx.customerEmail, paymentOption: ctx.booking.paymentOption,
       }),
     }));
     await notifyAdmin({
       level: "info", type: "booking.created", title: "New booking",
-      body: `${ctx.vehicleName} · ${ctx.booking.startDate} → ${ctx.booking.endDate} · ${ctx.customerEmail}`,
+      body: `${ctx.vehicleName} · ${formatDateTime(ctx.booking.startAt)} → ${formatDateTime(ctx.booking.endAt)} · ${ctx.customerEmail}`,
       bookingId,
     });
-    await sendOwnerWhatsApp(`New booking: ${ctx.vehicleName}, ${ctx.booking.startDate} → ${ctx.booking.endDate} (${ctx.customerEmail})`).catch(() => undefined);
+    await sendOwnerWhatsApp(`New booking: ${ctx.vehicleName}, ${formatDateTime(ctx.booking.startAt)} → ${formatDateTime(ctx.booking.endAt)} (${ctx.customerEmail})`).catch(() => undefined);
   } catch (e) {
     logger.error("notify_new_booking_failed", { bookingId, error: (e as Error).message });
   }
@@ -65,7 +66,7 @@ export async function notifyBookingConfirmed(bookingId: string): Promise<void> {
     await sendAndLog({
       to: ctx.customerEmail, type: "booking_confirmed",
       ...bookingConfirmedEmail({
-        vehicleName: ctx.vehicleName, startDate: ctx.booking.startDate, endDate: ctx.booking.endDate,
+        vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
         rentalTotalCents: breakdown.subtotalCents, currency: pay?.currency ?? breakdown.currency,
         amountPaidCents: pay?.amountCents, chargeType: pay?.type,
       }),

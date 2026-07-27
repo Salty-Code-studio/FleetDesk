@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, boolean, timestamp, date, uuid, jsonb, check } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, boolean, timestamp, uuid, jsonb, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const vehicleStatus = pgEnum("vehicle_status", ["active", "maintenance", "retired"]);
@@ -25,13 +25,13 @@ export const vehicles = pgTable("vehicles", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Admin-placed out-of-service windows (cleaning, repairs). End date exclusive, [) like bookings. */
+/** Admin-placed out-of-service windows (cleaning, repairs). End exclusive, [) like bookings. */
 export const availabilityBlocks = pgTable("availability_blocks", {
   id: uuid("id").defaultRandom().primaryKey(),
   vehicleId: uuid("vehicle_id").notNull().references(() => vehicles.id, { onDelete: "cascade" }),
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date").notNull(),
+  startAt: timestamp("start_at", { withTimezone: true, mode: "string" }).notNull(),
+  endAt: timestamp("end_at", { withTimezone: true, mode: "string" }).notNull(),
   type: blockType("type").notNull().default("other"),
   reason: text("reason").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [check("availability_blocks_dates", sql`${t.endDate} > ${t.startDate}`)]);
+}, (t) => [check("availability_blocks_dates", sql`${t.endAt} > ${t.startAt}`)]);

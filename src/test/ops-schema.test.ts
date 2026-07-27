@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings, availabilityBlocks } from "@/lib/db/schema";
+import { atAruba } from "@/lib/time/format";
 import { expectReject } from "./util";
 
 let db: Awaited<ReturnType<typeof getDb>>;
@@ -28,11 +29,11 @@ describe("ops board schema", () => {
 
   it("defaults a block to type 'other' and accepts the fixed types", async () => {
     const [b] = await db.insert(availabilityBlocks).values({
-      vehicleId, startDate: "2027-02-01", endDate: "2027-02-03",
+      vehicleId, startAt: atAruba("2027-02-01", "00:00"), endAt: atAruba("2027-02-03", "00:00"),
     }).returning();
     expect(b!.type).toBe("other");
     const [wash] = await db.insert(availabilityBlocks).values({
-      vehicleId, startDate: "2027-02-10", endDate: "2027-02-11", type: "carwash", reason: "Weekly wash",
+      vehicleId, startAt: atAruba("2027-02-10", "00:00"), endAt: atAruba("2027-02-11", "00:00"), type: "carwash", reason: "Weekly wash",
     }).returning();
     expect(wash!.type).toBe("carwash");
   });
@@ -40,8 +41,8 @@ describe("ops board schema", () => {
   it("rejects an unknown block type", async () => {
     await expectReject(
       db.execute(
-        `INSERT INTO availability_blocks (vehicle_id, start_date, end_date, type)
-         VALUES ('${vehicleId}', '2027-03-01', '2027-03-02', 'spaceship')` as never,
+        `INSERT INTO availability_blocks (vehicle_id, start_at, end_at, type)
+         VALUES ('${vehicleId}', '2027-03-01T00:00:00-04:00', '2027-03-02T00:00:00-04:00', 'spaceship')` as never,
       ),
       /invalid input value|block_type/i,
     );
@@ -50,7 +51,8 @@ describe("ops board schema", () => {
   it("defaults a booking's source to 'online' and accepts 'manual' with notes", async () => {
     const [c] = await db.insert(customers).values({ email: "ops@test.com" }).returning();
     const [online] = await db.insert(bookings).values({
-      vehicleId, customerId: c!.id, startDate: "2027-04-01", endDate: "2027-04-05", bufferEndDate: "2027-04-06",
+      vehicleId, customerId: c!.id,
+      startAt: atAruba("2027-04-01", "09:00"), endAt: atAruba("2027-04-05", "09:00"), bufferEndAt: atAruba("2027-04-06", "09:00"),
       status: "confirmed", priceBreakdown: {}, paymentOption: "reservation_fee",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "ops-online",
     }).returning();
@@ -58,7 +60,8 @@ describe("ops board schema", () => {
     expect(online!.notes).toBeNull();
 
     const [manual] = await db.insert(bookings).values({
-      vehicleId, customerId: c!.id, startDate: "2027-05-01", endDate: "2027-05-05", bufferEndDate: "2027-05-06",
+      vehicleId, customerId: c!.id,
+      startAt: atAruba("2027-05-01", "09:00"), endAt: atAruba("2027-05-05", "09:00"), bufferEndAt: atAruba("2027-05-06", "09:00"),
       status: "confirmed", source: "manual", notes: "Walk-in, paid cash at desk",
       priceBreakdown: {}, paymentOption: "reservation_fee",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "ops-manual",

@@ -6,18 +6,32 @@
 import { and, eq, ne, lt, gt, inArray, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { vehicles, bookings, customers, availabilityBlocks, blackoutDates } from "@/lib/db/schema";
+import { atAruba, arubaDateOf, arubaTimeOf, addHoursIso } from "@/lib/time/format";
 
 export interface PlanningBar {
   id: string;
-  start: string; // YYYY-MM-DD
-  end: string;   // exclusive
+  start: string;    // local day YYYY-MM-DD the bar starts (derived)
+  end: string;      // exclusive local day (derived)
+  startAt: string;  // full timestamp
+  endAt: string;    // full timestamp
   status: string;
   source: string; // online | manual
   label: string;
   notes: string | null;
 }
 export interface PlanningBlock {
-  id: string; start: string; end: string; type: string; reason: string;
+  id: string;
+  start: string;    // local day YYYY-MM-DD the block starts (derived)
+  end: string;      // exclusive local day (derived)
+  startAt: string;  // full timestamp
+  endAt: string;    // full timestamp
+  type: string; reason: string;
+}
+
+/** Local (Aruba) day-exclusive boundary for a timestamp range: a 00:00 return
+ *  touches nothing of that day; otherwise the range spills into the next day. */
+function exclusiveEndDay(endAt: string): string {
+  return arubaTimeOf(endAt) === "00:00" ? arubaDateOf(endAt) : arubaDateOf(addHoursIso(endAt, 24));
 }
 export interface PlanningVehicle {
   id: string; name: string; slug: string; plate: string; class: string;
@@ -47,25 +61,27 @@ export function dayRange(from: string, to: string): string[] {
 export async function getPlanning(from: string, to: string): Promise<Planning> {
   const db = await getDb();
   const toExclusive = new Date(Date.parse(`${to}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  const fromAt = atAruba(from, "00:00");
+  const toExclusiveAt = atAruba(toExclusive, "00:00");
 
   const vehicleRows = await db.select().from(vehicles)
     .where(ne(vehicles.status, "retired"))
     .orderBy(asc(vehicles.class), asc(vehicles.name));
 
   const bookingRows = await db.select({
-    id: bookings.id, vehicleId: bookings.vehicleId, start: bookings.startDate, end: bookings.endDate,
+    id: bookings.id, vehicleId: bookings.vehicleId, startAt: bookings.startAt, endAt: bookings.endAt,
     status: bookings.status, source: bookings.source, notes: bookings.notes,
     customerName: customers.name, customerEmail: customers.email,
   }).from(bookings)
     .innerJoin(customers, eq(bookings.customerId, customers.id))
     .where(and(
       inArray(bookings.status, ["pending", "confirmed", "completed"]),
-      lt(bookings.startDate, toExclusive),
-      gt(bookings.endDate, from),
+      lt(bookings.startAt, toExclusiveAt),
+      gt(bookings.endAt, fromAt),
     ));
 
   const blockRows = await db.select().from(availabilityBlocks)
-    .where(and(lt(availabilityBlocks.startDate, toExclusive), gt(availabilityBlocks.endDate, from)));
+    .where(and(lt(availabilityBlocks.startAt, toExclusiveAt), gt(availabilityBlocks.endAt, fromAt)));
 
   const blackoutRows = await db.select().from(blackoutDates)
     .where(and(lt(blackoutDates.startDate, toExclusive), gt(blackoutDates.endDate, from)));
@@ -77,13 +93,17 @@ export async function getPlanning(from: string, to: string): Promise<Planning> {
   for (const b of bookingRows) {
     const pv = byVehicle.get(b.vehicleId);
     if (pv) pv.bookings.push({
-      id: b.id, start: b.start, end: b.end, status: b.status, source: b.source,
+      id: b.id, start: arubaDateOf(b.startAt), end: exclusiveEndDay(b.endAt),
+      startAt: b.startAt, endAt: b.endAt, status: b.status, source: b.source,
       label: b.customerName || b.customerEmail.split("@")[0]!, notes: b.notes,
     });
   }
   for (const bl of blockRows) {
     const pv = byVehicle.get(bl.vehicleId);
-    if (pv) pv.blocks.push({ id: bl.id, start: bl.startDate, end: bl.endDate, type: bl.type, reason: bl.reason });
+    if (pv) pv.blocks.push({
+      id: bl.id, start: arubaDateOf(bl.startAt), end: exclusiveEndDay(bl.endAt),
+      startAt: bl.startAt, endAt: bl.endAt, type: bl.type, reason: bl.reason,
+    });
   }
 
   // Group into ordered categories.

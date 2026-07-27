@@ -9,15 +9,16 @@ import { getDb } from "@/lib/db/client";
 import { vehicles } from "@/lib/db/schema";
 import { getSettings } from "@/lib/admin/settings";
 import { checkAvailability } from "@/lib/booking/availability";
-import { isoDate } from "@/lib/validation/iso-date";
+import { normalizeTs } from "@/lib/booking/public";
+import { isoDateTime } from "@/lib/validation/iso-date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const QuerySchema = z.object({
   vehicle: z.string().trim().min(1).max(80),
-  pickup: isoDate,
-  return: isoDate,
+  pickup: z.string().transform(normalizeTs).pipe(isoDateTime),
+  return: z.string().transform(normalizeTs).pipe(isoDateTime),
 });
 
 /** GET /api/availability?vehicle=slug&pickup&return */

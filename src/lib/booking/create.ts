@@ -21,12 +21,13 @@ import { getLatestPolicy } from "@/lib/admin/policies";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
 import { validateDates, checkAvailability } from "@/lib/booking/availability";
 import { LicenseSchema, validateLicense, encryptLicense } from "@/lib/booking/license";
-import { isoDate } from "@/lib/validation/iso-date";
+import { addHoursIso, arubaDateOf, parseTs } from "@/lib/time/format";
+import { isoDateTime } from "@/lib/validation/iso-date";
 
 export const BookingCreateSchema = z.object({
   vehicleSlug: z.string().trim().min(1).max(80),
-  startDate: isoDate,
-  endDate: isoDate,
+  startAt: isoDateTime,
+  endAt: isoDateTime,
   customer: z.object({
     email: z.string().trim().toLowerCase().email().max(254),
     name: z.string().trim().min(1).max(120),
@@ -49,7 +50,7 @@ export interface BookingResult {
   replayed: boolean;
 }
 
-export async function createBooking(input: BookingCreateInput, today: string): Promise<BookingResult> {
+export async function createBooking(input: BookingCreateInput, nowIso: string): Promise<BookingResult> {
   const db = await getDb();
 
   // Idempotent replay: same key returns the same booking, never a second one.
@@ -63,10 +64,10 @@ export async function createBooking(input: BookingCreateInput, today: string): P
   if (!vehicle || vehicle.status !== "active") throw Errors.notFound("Vehicle not available");
 
   // Guardrails (throw 4xx on violation).
-  validateDates(input.startDate, input.endDate, settings, today);
-  validateLicense(input.license, { minDriverAge: settings.minDriverAge, rentalStart: input.startDate, rentalEnd: input.endDate });
+  validateDates(input.startAt, input.endAt, settings, nowIso);
+  validateLicense(input.license, { minDriverAge: settings.minDriverAge, rentalStart: arubaDateOf(input.startAt), rentalEnd: arubaDateOf(input.endAt) });
 
-  const availability = await checkAvailability(vehicle.id, input.startDate, input.endDate, settings);
+  const availability = await checkAvailability(vehicle.id, input.startAt, input.endAt, settings);
   if (!availability.available) throw Errors.conflict(availability.reason ?? "Those dates are not available");
 
   if (input.paymentOption === "full_deposit" && vehicle.depositCents === null) {
@@ -110,7 +111,7 @@ export async function createBooking(input: BookingCreateInput, today: string): P
     if (req.qty > 10) throw Errors.badRequest(`At most 10 of "${a.name}" per booking`);
   }
 
-  const days = rentalDays(input.startDate, input.endDate);
+  const days = rentalDays(input.startAt, input.endAt);
   const breakdown = quote({
     days,
     vehicle: {
@@ -129,11 +130,10 @@ export async function createBooking(input: BookingCreateInput, today: string): P
   });
 
   const termsVersion = (await getLatestPolicy("rental_terms"))?.version ?? 0;
-  const retainUntil = new Date(Date.parse(`${input.endDate}T00:00:00Z`) + settings.licenseRetentionDays * 86_400_000);
+  const retainUntil = new Date(parseTs(input.endAt) + settings.licenseRetentionDays * 86_400_000);
   // The DB exclusion constraint runs over [start, bufferEnd) so the cleaning gap
   // is physically enforced (not just pre-checked).
-  const bufferEndDate = new Date(Date.parse(`${input.endDate}T00:00:00Z`) + settings.turnaroundBufferDays * 86_400_000)
-    .toISOString().slice(0, 10);
+  const bufferEndAt = addHoursIso(input.endAt, settings.turnaroundBufferHours);
   const now = new Date();
 
   try {
@@ -152,9 +152,9 @@ export async function createBooking(input: BookingCreateInput, today: string): P
           .innerJoin(bookings, eq(bookingAddOns.bookingId, bookings.id))
           .where(and(
             eq(bookingAddOns.addOnId, a.id),
-            inArray(bookings.status, ["pending", "confirmed"]),
-            lt(bookings.startDate, input.endDate),
-            gt(bookings.endDate, input.startDate),
+            inArray(bookings.status, ["pending", "confirmed", "picked_up"]),
+            lt(bookings.startAt, input.endAt),
+            gt(bookings.endAt, input.startAt),
           ));
         const headroom = a.stock - Number(usedRow?.used ?? 0);
         if (req.qty > headroom) throw Errors.conflict(`Only ${Math.max(0, headroom)} of "${a.name}" left for those dates`);
@@ -171,9 +171,9 @@ export async function createBooking(input: BookingCreateInput, today: string): P
       const [booking] = await tx.insert(bookings).values({
         vehicleId: vehicle.id,
         customerId: customer!.id,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        bufferEndDate,
+        startAt: input.startAt,
+        endAt: input.endAt,
+        bufferEndAt,
         status: "pending",
         priceBreakdown: breakdown,
         insuranceTierId: insurance?.id ?? null,

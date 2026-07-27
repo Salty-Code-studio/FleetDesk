@@ -5,12 +5,14 @@ import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, settings, addOns, insuranceTiers, driverLicenses, bookings, bookingAddOns } from "@/lib/db/schema";
 import { createBooking, type BookingCreateInput } from "@/lib/booking/create";
 import { decryptField } from "@/lib/crypto/fields";
+import { atAruba } from "@/lib/time/format";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let limitedAddOnId = "";
 let tierId = "";
 
-const TODAY = "2026-06-15";
+const at = (d: string) => atAruba(d, "09:00");
+const TODAY = at("2026-06-15");
 const baseLicense = {
   nameOnLicense: "Jane Driver", licenseNumber: "AUA-7654321", issuingCountry: "Aruba",
   issueDate: "2020-01-01", expiryDate: "2030-01-01", dob: "2000-05-17",
@@ -18,7 +20,7 @@ const baseLicense = {
 
 function input(over: Partial<BookingCreateInput> = {}): BookingCreateInput {
   return {
-    vehicleSlug: "book-car", startDate: "2026-07-01", endDate: "2026-07-08",
+    vehicleSlug: "book-car", startAt: at("2026-07-01"), endAt: at("2026-07-08"),
     customer: { email: "jane@example.com", name: "Jane Driver", phone: "+297 000 0000" },
     insuranceTierId: null, addOns: [], license: { ...baseLicense },
     acceptTerms: true, paymentOption: "reservation_fee",
@@ -73,8 +75,8 @@ describe("createBooking", () => {
   });
 
   it("is idempotent: the same key returns the same booking, no duplicate", async () => {
-    const a = await createBooking(input({ startDate: "2026-10-01", endDate: "2026-10-05", idempotencyKey: "dupe-key" }), TODAY);
-    const b = await createBooking(input({ startDate: "2026-10-01", endDate: "2026-10-05", idempotencyKey: "dupe-key" }), TODAY);
+    const a = await createBooking(input({ startAt: at("2026-10-01"), endAt: at("2026-10-05"), idempotencyKey: "dupe-key" }), TODAY);
+    const b = await createBooking(input({ startAt: at("2026-10-01"), endAt: at("2026-10-05"), idempotencyKey: "dupe-key" }), TODAY);
     expect(b.replayed).toBe(true);
     expect(b.booking.id).toBe(a.booking.id);
     const all = await db.select().from(bookings).where(eq(bookings.idempotencyKey, "dupe-key"));
@@ -82,18 +84,18 @@ describe("createBooking", () => {
   });
 
   it("rejects an overlapping booking for the same vehicle (the exclusion constraint)", async () => {
-    await createBooking(input({ startDate: "2026-11-01", endDate: "2026-11-08", idempotencyKey: "ov-1" }), TODAY);
+    await createBooking(input({ startAt: at("2026-11-01"), endAt: at("2026-11-08"), idempotencyKey: "ov-1" }), TODAY);
     await expect(
-      createBooking(input({ startDate: "2026-11-05", endDate: "2026-11-12", idempotencyKey: "ov-2" }), TODAY),
+      createBooking(input({ startAt: at("2026-11-05"), endAt: at("2026-11-12"), idempotencyKey: "ov-2" }), TODAY),
     ).rejects.toThrow(/not available|already booked|overlap/i);
   });
 
   it("rejects an add-on oversell across overlapping dates (shared equipment, different cars)", async () => {
     // stock is 2; book qty 2 on car 1, then an OVERLAPPING booking on car 2 for
     // qty 1 must fail the stock check (not the per-vehicle overlap guard)
-    await createBooking(input({ vehicleSlug: "book-car", startDate: "2027-01-01", endDate: "2027-01-05", addOns: [{ addOnId: limitedAddOnId, qty: 2 }], idempotencyKey: "stock-1" }), TODAY);
+    await createBooking(input({ vehicleSlug: "book-car", startAt: at("2027-01-01"), endAt: at("2027-01-05"), addOns: [{ addOnId: limitedAddOnId, qty: 2 }], idempotencyKey: "stock-1" }), TODAY);
     await expect(
-      createBooking(input({ vehicleSlug: "book-car-2", startDate: "2027-01-02", endDate: "2027-01-06", addOns: [{ addOnId: limitedAddOnId, qty: 1 }], idempotencyKey: "stock-2" }), TODAY),
+      createBooking(input({ vehicleSlug: "book-car-2", startAt: at("2027-01-02"), endAt: at("2027-01-06"), addOns: [{ addOnId: limitedAddOnId, qty: 1 }], idempotencyKey: "stock-2" }), TODAY),
     ).rejects.toThrow(/left for those dates/i);
   });
 
@@ -117,7 +119,7 @@ describe("createBooking", () => {
     // stock is 2; sending the same add-on twice at qty 2 each must be rejected
     await expect(
       createBooking(input({
-        vehicleSlug: "book-car", startDate: "2027-05-01", endDate: "2027-05-05",
+        vehicleSlug: "book-car", startAt: at("2027-05-01"), endAt: at("2027-05-05"),
         addOns: [{ addOnId: limitedAddOnId, qty: 2 }, { addOnId: limitedAddOnId, qty: 2 }],
         idempotencyKey: "dup-stock-1",
       }), TODAY),
@@ -125,7 +127,7 @@ describe("createBooking", () => {
   });
 
   it("never returns licence plaintext on the booking", async () => {
-    const { booking } = await createBooking(input({ startDate: "2027-03-01", endDate: "2027-03-05", idempotencyKey: "leak-1" }), TODAY);
+    const { booking } = await createBooking(input({ startAt: at("2027-03-01"), endAt: at("2027-03-05"), idempotencyKey: "leak-1" }), TODAY);
     expect(JSON.stringify(booking)).not.toContain("AUA-7654321");
     expect(JSON.stringify(booking)).not.toContain("2000-05-17");
   });

@@ -9,6 +9,7 @@ import { inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { vehicles, bookings } from "@/lib/db/schema";
 import { getSettings } from "@/lib/admin/settings";
+import { arubaDateOf } from "@/lib/time/format";
 
 export interface ReportKpis {
   revenueAllCents: number;
@@ -53,7 +54,7 @@ export async function getReports(today: string): Promise<Reports> {
 
   const brows = await db.select({
     vehicleId: bookings.vehicleId, status: bookings.status,
-    startDate: bookings.startDate, endDate: bookings.endDate, priceBreakdown: bookings.priceBreakdown,
+    startAt: bookings.startAt, endAt: bookings.endAt, priceBreakdown: bookings.priceBreakdown,
   }).from(bookings).where(inArray(bookings.status, ["pending", "confirmed", "completed"]));
 
   const rev = (b: (typeof brows)[number]) =>
@@ -63,15 +64,15 @@ export async function getReports(today: string): Promise<Reports> {
 
   const monthKey = today.slice(0, 7);
   const revenueAllCents = revenueRows.reduce((s, b) => s + rev(b), 0);
-  const revenueMonthCents = revenueRows.filter((b) => b.startDate.slice(0, 7) === monthKey).reduce((s, b) => s + rev(b), 0);
-  const rentalsThisMonth = brows.filter((b) => b.startDate.slice(0, 7) === monthKey).length;
-  const activeRentals = brows.filter((b) => b.status === "confirmed" && b.startDate <= today && b.endDate > today).length;
+  const revenueMonthCents = revenueRows.filter((b) => arubaDateOf(b.startAt).slice(0, 7) === monthKey).reduce((s, b) => s + rev(b), 0);
+  const rentalsThisMonth = brows.filter((b) => arubaDateOf(b.startAt).slice(0, 7) === monthKey).length;
+  const activeRentals = brows.filter((b) => b.status === "confirmed" && arubaDateOf(b.startAt) <= today && arubaDateOf(b.endAt) > today).length;
 
   // Utilization over the next 30 days across the active fleet.
   const winStart = today, winEnd = addDays(today, 30);
   const bookedDaysByVehicle = new Map<string, number>();
   for (const b of occupancyRows) {
-    const d = overlapDays(b.startDate, b.endDate, winStart, winEnd);
+    const d = overlapDays(arubaDateOf(b.startAt), arubaDateOf(b.endAt), winStart, winEnd);
     if (d > 0) bookedDaysByVehicle.set(b.vehicleId, (bookedDaysByVehicle.get(b.vehicleId) ?? 0) + d);
   }
   const totalCarDays = activeVehicles.length * 30;
@@ -82,7 +83,7 @@ export async function getReports(today: string): Promise<Reports> {
   // Revenue by month (last 6, chronological).
   const revenueByMonth = Array.from({ length: 6 }, (_, i) => monthOffset(today, 5 - i)).map((mk) => ({
     month: mk,
-    cents: revenueRows.filter((b) => b.startDate.slice(0, 7) === mk).reduce((s, b) => s + rev(b), 0),
+    cents: revenueRows.filter((b) => arubaDateOf(b.startAt).slice(0, 7) === mk).reduce((s, b) => s + rev(b), 0),
   }));
 
   // Revenue by class.

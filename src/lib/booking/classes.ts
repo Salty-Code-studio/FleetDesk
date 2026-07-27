@@ -44,7 +44,7 @@ export async function getClasses(pickup?: string, end?: string): Promise<ClassOp
     let carSlug: string | null = null;
     if (datesGiven) {
       for (const c of cars) {
-        const a = await checkAvailability(c.id, pickup!, end!, { turnaroundBufferDays: settings.turnaroundBufferDays });
+        const a = await checkAvailability(c.id, pickup!, end!, { turnaroundBufferHours: settings.turnaroundBufferHours });
         if (a.available) { carSlug = c.slug; break; }
       }
     }

@@ -10,6 +10,7 @@ import { runMigrations } from "@/lib/db/migrate";
 import { parseJsonBody } from "@/lib/http/validate";
 import { vehicles, settings, customers, bookings, addOns, bookingAddOns, adminUsers } from "@/lib/db/schema";
 import { moveBooking } from "@/lib/admin/move-booking";
+import { atAruba } from "@/lib/time/format";
 import { expectReject } from "./util";
 
 describe("shouldUseSsl — TLS keyed on host, not NODE_ENV", () => {
@@ -86,7 +87,8 @@ describe("moveBooking — re-prices and re-checks add-on stock for online bookin
 
   async function onlineBooking(start: string, end: string, qty: number, key: string) {
     const [bk] = await db.insert(bookings).values({
-      vehicleId: car, customerId: custId, startDate: start, endDate: end, bufferEndDate: end,
+      vehicleId: car, customerId: custId,
+      startAt: atAruba(start, "09:00"), endAt: atAruba(end, "09:00"), bufferEndAt: atAruba(end, "09:00"),
       status: "confirmed", source: "online", priceBreakdown: { days: 0, addOns: [] },
       paymentOption: "reservation_fee", acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: key,
     }).returning();
@@ -96,7 +98,7 @@ describe("moveBooking — re-prices and re-checks add-on stock for online bookin
 
   it("recomputes the price snapshot for the new dates (#4)", async () => {
     const bk = await onlineBooking("2029-01-01", "2029-01-05", 1, "rp-1"); // 4 days
-    const moved = await moveBooking(bk.id, { startDate: "2029-02-01", endDate: "2029-02-11" }); // 10 days
+    const moved = await moveBooking(bk.id, { startAt: atAruba("2029-02-01", "09:00"), endAt: atAruba("2029-02-11", "09:00") }); // 10 days
     const pb = moved.priceBreakdown as { days: number; vehicleCents: number; addOns: { cents: number }[] };
     expect(pb.days).toBe(10);
     expect(pb.vehicleCents).toBeGreaterThan(0);
@@ -110,7 +112,8 @@ describe("moveBooking — re-prices and re-checks add-on stock for online bookin
       doors: 4, priceDayCents: 4000, priceWeekCents: 24000, priceMonthCents: 80000,
     }).returning();
     const [other] = await db.insert(bookings).values({
-      vehicleId: v2!.id, customerId: custId, startDate: "2029-06-01", endDate: "2029-06-05", bufferEndDate: "2029-06-05",
+      vehicleId: v2!.id, customerId: custId,
+      startAt: atAruba("2029-06-01", "09:00"), endAt: atAruba("2029-06-05", "09:00"), bufferEndAt: atAruba("2029-06-05", "09:00"),
       status: "confirmed", source: "online", priceBreakdown: { days: 4, addOns: [] },
       paymentOption: "reservation_fee", acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: "rp-other",
     }).returning();
@@ -120,7 +123,7 @@ describe("moveBooking — re-prices and re-checks add-on stock for online bookin
     // moving X there needs 2 more chairs while 0 are left for that window.
     const x = await onlineBooking("2029-01-20", "2029-01-24", 2, "rp-x");
     await expectReject(
-      moveBooking(x.id, { startDate: "2029-06-01", endDate: "2029-06-05" }),
+      moveBooking(x.id, { startAt: atAruba("2029-06-01", "09:00"), endAt: atAruba("2029-06-05", "09:00") }),
       /left for those dates|only|conflict/i,
     );
   });

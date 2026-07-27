@@ -1,0 +1,1 @@
+ALTER TYPE "public"."booking_status" ADD VALUE 'picked_up' BEFORE 'cancelled';

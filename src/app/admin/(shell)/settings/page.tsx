@@ -15,7 +15,8 @@ import "./settings.css";
 
 interface Settings {
   reservationFeeCents: number; currency: string; minDriverAge: number;
-  turnaroundBufferDays: number; minRentalDays: number; maxRentalDays: number;
+  turnaroundBufferHours: number; openingTime: string; closingTime: string;
+  minRentalDays: number; maxRentalDays: number;
   maxAdvanceDays: number; licenseRetentionDays: number; adminAlertRecipients: string[];
 }
 interface Blackout { id: string; startDate: string; endDate: string; reason: string }
@@ -68,7 +69,9 @@ export default function SettingsPage() {
         reservationFeeCents: s.reservationFeeCents,
         currency: s.currency,
         minDriverAge: s.minDriverAge,
-        turnaroundBufferDays: s.turnaroundBufferDays,
+        turnaroundBufferHours: s.turnaroundBufferHours,
+        openingTime: s.openingTime,
+        closingTime: s.closingTime,
         minRentalDays: s.minRentalDays,
         maxRentalDays: s.maxRentalDays,
         maxAdvanceDays: s.maxAdvanceDays,
@@ -122,7 +125,7 @@ export default function SettingsPage() {
           <div className="panel">
             <div className="set-panel-head"><h2>Fees &amp; guardrails</h2></div>
             <div className="form-grid">
-              {Array.from({ length: 9 }).map((_, i) => (
+              {Array.from({ length: 11 }).map((_, i) => (
                 <label key={i}><Skeleton width="55%" height={11} /><Skeleton height={38} radius={9} /></label>
               ))}
             </div>
@@ -166,9 +169,18 @@ export default function SettingsPage() {
                 <input type="number" min="16" max="99" value={s.minDriverAge}
                   onChange={(e) => setS({ ...s, minDriverAge: Number(e.target.value) })} />
               </label>
-              <label>Turnaround buffer (days)
-                <input type="number" min="0" max="30" value={s.turnaroundBufferDays}
-                  onChange={(e) => setS({ ...s, turnaroundBufferDays: Number(e.target.value) })} />
+              <label>Turnaround buffer (hours)
+                <input type="number" min="0" max="168" value={s.turnaroundBufferHours}
+                  onChange={(e) => setS({ ...s, turnaroundBufferHours: Number(e.target.value) })} />
+              </label>
+              {/* Temporary text inputs; Task 4 swaps these for a TimeSelect component. */}
+              <label>Opening time
+                <input type="text" pattern="^([01]\d|2[0-3]):[0-5]\d$" placeholder="08:00" value={s.openingTime}
+                  onChange={(e) => setS({ ...s, openingTime: e.target.value })} />
+              </label>
+              <label>Closing time
+                <input type="text" pattern="^([01]\d|2[0-3]):[0-5]\d$" placeholder="18:00" value={s.closingTime}
+                  onChange={(e) => setS({ ...s, closingTime: e.target.value })} />
               </label>
               <label>Minimum rental (days)
                 <input type="number" min="1" max="365" value={s.minRentalDays}

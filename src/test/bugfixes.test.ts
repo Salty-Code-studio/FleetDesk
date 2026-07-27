@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings, settings as settingsTable } from "@/lib/db/schema";
 import { isoDate } from "@/lib/validation/iso-date";
+import { atAruba } from "@/lib/time/format";
 import { translateDbError } from "@/lib/db/errors";
 import { ManualBookingSchema } from "@/lib/admin/manual-booking";
 import { MoveSchema } from "@/lib/admin/move-booking";
@@ -32,12 +33,12 @@ describe("calendar-date validation (findings #7/#8/#10)", () => {
       expect(isoDate.safeParse(ok).success).toBe(true);
     }
   });
-  it("ManualBookingSchema and MoveSchema reject impossible dates", () => {
+  it("ManualBookingSchema and MoveSchema reject impossible timestamps", () => {
     expect(ManualBookingSchema.safeParse({
       vehicleId: "00000000-0000-0000-0000-000000000000",
-      startDate: "2026-04-15", endDate: "2026-04-31", customerName: "X",
+      startAt: "2026-04-15T09:00:00-04:00", endAt: "2026-04-31T09:00:00-04:00", customerName: "X",
     }).success).toBe(false);
-    expect(MoveSchema.safeParse({ endDate: "2026-13-01" }).success).toBe(false);
+    expect(MoveSchema.safeParse({ endAt: "2026-13-01T09:00:00-04:00" }).success).toBe(false);
   });
 });
 
@@ -59,19 +60,19 @@ describe("checkAvailability uses each booking's stored buffer (finding #9)", () 
       doors: 5, priceDayCents: 1, priceWeekCents: 1, priceMonthCents: 1,
     }).returning();
     const [c] = await db.insert(customers).values({ email: "buf@test.com" }).returning();
-    // booking made under a 1-day buffer: stored bufferEndDate = end + 1
+    // booking made under a 24-hour buffer: stored bufferEndAt = end + 24h
     await db.insert(bookings).values({
-      vehicleId: v!.id, customerId: c!.id, startDate: "2026-08-01", endDate: "2026-08-10", bufferEndDate: "2026-08-11",
+      vehicleId: v!.id, customerId: c!.id, startAt: atAruba("2026-08-01", "09:00"), endAt: atAruba("2026-08-10", "09:00"), bufferEndAt: atAruba("2026-08-11", "09:00"),
       status: "confirmed", priceBreakdown: {}, paymentOption: "reservation_fee",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "buf-raise-1",
     });
-    // admin later raises the global buffer to 3 days. A pickup on 08-11 (one clear
+    // admin later raises the global buffer to 72 hours. A pickup on 08-11 (one clear
     // day after the stored buffer) must still be AVAILABLE — the old code wrongly
     // widened by the new buffer and blocked it.
-    const res = await checkAvailability(v!.id, "2026-08-11", "2026-08-14", { turnaroundBufferDays: 3 });
+    const res = await checkAvailability(v!.id, atAruba("2026-08-11", "09:00"), atAruba("2026-08-14", "09:00"), { turnaroundBufferHours: 72 });
     expect(res.available).toBe(true);
     // but 08-10 (inside the stored buffer) is still correctly blocked
-    const res2 = await checkAvailability(v!.id, "2026-08-10", "2026-08-14", { turnaroundBufferDays: 3 });
+    const res2 = await checkAvailability(v!.id, atAruba("2026-08-10", "09:00"), atAruba("2026-08-14", "09:00"), { turnaroundBufferHours: 72 });
     expect(res2.available).toBe(false);
   });
 });
@@ -92,7 +93,7 @@ describe("abandoned checkout frees the car (finding #2)", () => {
     const [c] = await db.insert(customers).values({ email: "exp@test.com" }).returning();
     const old = new Date(Date.now() - 60 * 60_000);
     const [b] = await db.insert(bookings).values({
-      vehicleId: v!.id, customerId: c!.id, startDate: "2029-01-01", endDate: "2029-01-05", bufferEndDate: "2029-01-06",
+      vehicleId: v!.id, customerId: c!.id, startAt: atAruba("2029-01-01", "09:00"), endAt: atAruba("2029-01-05", "09:00"), bufferEndAt: atAruba("2029-01-06", "09:00"),
       status: "pending", priceBreakdown: {}, paymentOption: "reservation_fee",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "exp-1", createdAt: old,
     }).returning();

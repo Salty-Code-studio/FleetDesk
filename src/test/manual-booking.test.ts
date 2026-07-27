@@ -4,11 +4,14 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, settings, customers } from "@/lib/db/schema";
 import { createManualBooking } from "@/lib/admin/manual-booking";
+import { atAruba } from "@/lib/time/format";
 import { expectReject } from "./util";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "";
 let retiredId = "";
+
+const at = (d: string) => atAruba(d, "09:00");
 
 beforeAll(async () => {
   db = await getDb();
@@ -29,7 +32,7 @@ beforeAll(async () => {
 describe("manual booking", () => {
   it("creates a confirmed manual booking with a synthetic customer", async () => {
     const b = await createManualBooking({
-      vehicleId, startDate: "2027-02-01", endDate: "2027-02-04",
+      vehicleId, startAt: at("2027-02-01"), endAt: at("2027-02-04"),
       customerName: "Walk In", customerPhone: "297111", priceCents: 18000,
     });
     expect(b.status).toBe("confirmed");
@@ -43,7 +46,7 @@ describe("manual booking", () => {
 
   it("uses a provided real email instead of a synthetic one", async () => {
     const b = await createManualBooking({
-      vehicleId, startDate: "2027-06-01", endDate: "2027-06-03",
+      vehicleId, startAt: at("2027-06-01"), endAt: at("2027-06-03"),
       customerName: "Real Guest", customerEmail: "guest@example.com",
     });
     const [c] = await db.select().from(customers).where(eq(customers.id, b.customerId));
@@ -51,16 +54,16 @@ describe("manual booking", () => {
   });
 
   it("rejects an overlapping manual booking (buffered exclusion constraint)", async () => {
-    await createManualBooking({ vehicleId, startDate: "2027-03-01", endDate: "2027-03-05", customerName: "A", customerPhone: "1" });
+    await createManualBooking({ vehicleId, startAt: at("2027-03-01"), endAt: at("2027-03-05"), customerName: "A", customerPhone: "1" });
     await expectReject(
-      createManualBooking({ vehicleId, startDate: "2027-03-04", endDate: "2027-03-08", customerName: "B", customerPhone: "2" }),
+      createManualBooking({ vehicleId, startAt: at("2027-03-04"), endAt: at("2027-03-08"), customerName: "B", customerPhone: "2" }),
       /no longer|already|overlap|conflict|not available|reservation|taken/i,
     );
   });
 
   it("rejects a manual booking on a retired vehicle", async () => {
     await expectReject(
-      createManualBooking({ vehicleId: retiredId, startDate: "2027-04-01", endDate: "2027-04-03", customerName: "X" }),
+      createManualBooking({ vehicleId: retiredId, startAt: at("2027-04-01"), endAt: at("2027-04-03"), customerName: "X" }),
       /not available/i,
     );
   });
@@ -68,7 +71,7 @@ describe("manual booking", () => {
   it("allows a near-term booking (soft lead-time guardrail skipped for the desk)", async () => {
     const today = new Date().toISOString().slice(0, 10);
     const end = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
-    const b = await createManualBooking({ vehicleId, startDate: today, endDate: end, customerName: "Now", customerPhone: "9" });
+    const b = await createManualBooking({ vehicleId, startAt: at(today), endAt: at(end), customerName: "Now", customerPhone: "9" });
     expect(b.id).toBeDefined();
   });
 });

@@ -106,6 +106,20 @@
       "when": 1782326216944,
       "tag": "0014_hot_mesmero",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1785176040444,
+      "tag": "0015_smiling_thunderbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785176187233,
+      "tag": "0016_high_gladiator",
+      "breakpoints": true
     }
   ]
 }

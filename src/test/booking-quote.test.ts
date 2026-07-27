@@ -1,13 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { rentalDays, bestVehicleCents, quote } from "@/lib/booking/quote";
+import { atAruba } from "@/lib/time/format";
 
 const rates = { priceDayCents: 5800, priceWeekCents: 34800, priceMonthCents: 118000, depositCents: 25000 };
+const at = (d: string) => atAruba(d, "09:00");
 
 describe("rentalDays", () => {
   it("counts whole days with an exclusive end", () => {
-    expect(rentalDays("2026-07-01", "2026-07-08")).toBe(7);
-    expect(rentalDays("2026-07-01", "2026-07-02")).toBe(1);
-    expect(rentalDays("2026-07-01", "2026-08-01")).toBe(31);
+    expect(rentalDays(at("2026-07-01"), at("2026-07-08"))).toBe(7);
+    expect(rentalDays(at("2026-07-01"), at("2026-07-02"))).toBe(1);
+    expect(rentalDays(at("2026-07-01"), at("2026-08-01"))).toBe(31);
   });
 });
 

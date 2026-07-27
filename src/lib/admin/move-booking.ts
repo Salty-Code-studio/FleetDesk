@@ -6,10 +6,11 @@ import { Errors } from "@/lib/http/errors";
 import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
-import { isoDate } from "@/lib/validation/iso-date";
+import { addHoursIso, parseTs } from "@/lib/time/format";
+import { isoDateTime } from "@/lib/validation/iso-date";
 
 /**
- * Drag-to-move on the ops board. Any subset of {vehicleId, startDate, endDate}
+ * Drag-to-move on the ops board. Any subset of {vehicleId, startAt, endAt}
  * may change. The recomputed range is re-validated by the same physical
  * exclusion constraint that guards creation, so a move into an occupied slot
  * (on the same or a different car) is rejected at the database level. Soft
@@ -17,8 +18,8 @@ import { isoDate } from "@/lib/validation/iso-date";
  */
 export const MoveSchema = z.object({
   vehicleId: z.string().uuid().optional(),
-  startDate: isoDate.optional(),
-  endDate: isoDate.optional(),
+  startAt: isoDateTime.optional(),
+  endAt: isoDateTime.optional(),
 }).strict();
 export type MoveInput = z.infer<typeof MoveSchema>;
 
@@ -34,15 +35,14 @@ export async function moveBooking(id: string, input: MoveInput) {
       }
 
       const vehicleId = input.vehicleId ?? booking.vehicleId;
-      const startDate = input.startDate ?? booking.startDate;
-      const endDate = input.endDate ?? booking.endDate;
-      if (endDate <= startDate) throw Errors.badRequest("Return must be after pick-up");
+      const startAt = input.startAt ?? booking.startAt;
+      const endAt = input.endAt ?? booking.endAt;
+      if (parseTs(endAt) <= parseTs(startAt)) throw Errors.badRequest("Return must be after pick-up");
 
       const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
       if (!vehicle || vehicle.status === "retired") throw Errors.notFound("Target vehicle not available");
 
-      const bufferEndDate = new Date(Date.parse(`${endDate}T00:00:00Z`) + settings.turnaroundBufferDays * 86_400_000)
-        .toISOString().slice(0, 10);
+      const bufferEndAt = addHoursIso(endAt, settings.turnaroundBufferHours);
 
       // Online bookings carry add-ons and a date/vehicle-derived price snapshot.
       // Re-validate limited add-on stock over the NEW window AND re-price, so a
@@ -68,15 +68,15 @@ export async function moveBooking(id: string, input: MoveInput) {
             .where(and(
               eq(bookingAddOns.addOnId, l.addOnId),
               ne(bookings.id, id),
-              inArray(bookings.status, ["pending", "confirmed"]),
-              lt(bookings.startDate, endDate),
-              gt(bookings.endDate, startDate),
+              inArray(bookings.status, ["pending", "confirmed", "picked_up"]),
+              lt(bookings.startAt, endAt),
+              gt(bookings.endAt, startAt),
             ));
           const headroom = (l.stock as number) - Number(used?.used ?? 0);
           if (l.qty > headroom) throw Errors.conflict(`Only ${Math.max(0, headroom)} of "${l.name}" left for those dates`);
         }
 
-        const days = rentalDays(startDate, endDate);
+        const days = rentalDays(startAt, endAt);
         priceBreakdown = quote({
           days,
           vehicle: {
@@ -98,7 +98,7 @@ export async function moveBooking(id: string, input: MoveInput) {
       }
 
       const [updated] = await tx.update(bookings)
-        .set({ vehicleId, startDate, endDate, bufferEndDate, priceBreakdown, updatedAt: new Date() })
+        .set({ vehicleId, startAt, endAt, bufferEndAt, priceBreakdown, updatedAt: new Date() })
         .where(eq(bookings.id, id))
         .returning();
       return updated!;

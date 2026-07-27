@@ -12,8 +12,8 @@ import type { QuoteBreakdown } from "@/lib/booking/quote";
 export interface CustomerBookingView {
   id: string;
   vehicleName: string;
-  startDate: string;
-  endDate: string;
+  startAt: string;
+  endAt: string;
   status: string;
   paymentOption: string;
   breakdown: QuoteBreakdown;
@@ -22,7 +22,7 @@ export interface CustomerBookingView {
 export async function listCustomerBookings(customerId: string): Promise<CustomerBookingView[]> {
   const db = await getDb();
   const rows = await db.select({
-    id: bookings.id, startDate: bookings.startDate, endDate: bookings.endDate,
+    id: bookings.id, startAt: bookings.startAt, endAt: bookings.endAt,
     status: bookings.status, paymentOption: bookings.paymentOption, breakdown: bookings.priceBreakdown,
     vehicleName: vehicles.name,
   }).from(bookings)
@@ -33,7 +33,7 @@ export async function listCustomerBookings(customerId: string): Promise<Customer
 }
 
 export interface CancelledBooking {
-  id: string; vehicleName: string; startDate: string; endDate: string;
+  id: string; vehicleName: string; startAt: string; endAt: string;
 }
 
 /** Cancel the customer's own pending|confirmed booking. Frees the slot
@@ -49,5 +49,5 @@ export async function cancelOwnBooking(customerId: string, bookingId: string): P
   }
   const [vehicle] = await db.select({ name: vehicles.name }).from(vehicles).where(eq(vehicles.id, booking.vehicleId));
   await db.update(bookings).set({ status: "cancelled", updatedAt: new Date() }).where(eq(bookings.id, bookingId));
-  return { id: booking.id, vehicleName: vehicle?.name ?? "your car", startDate: booking.startDate, endDate: booking.endDate };
+  return { id: booking.id, vehicleName: vehicle?.name ?? "your car", startAt: booking.startAt, endAt: booking.endAt };
 }

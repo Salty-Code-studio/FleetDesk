@@ -9,12 +9,16 @@ import { isoDate } from "@/lib/validation/iso-date";
 export type Settings = typeof settings.$inferSelect;
 export type BlackoutDate = typeof blackoutDates.$inferSelect;
 
+const TIME_HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 /** Partial update — every field optional, each independently range-checked. */
 export const SettingsPatchSchema = z.object({
   reservationFeeCents: centsField.optional(),
   currency: z.string().trim().toUpperCase().length(3, "3-letter currency code").optional(),
   minDriverAge: z.number().int().min(16).max(99).optional(),
-  turnaroundBufferDays: z.number().int().min(0).max(30).optional(),
+  turnaroundBufferHours: z.number().int().min(0).max(168).optional(),
+  openingTime: z.string().regex(TIME_HHMM, "must be HH:MM").optional(),
+  closingTime: z.string().regex(TIME_HHMM, "must be HH:MM").optional(),
   minRentalDays: z.number().int().min(1).max(365).optional(),
   maxRentalDays: z.number().int().min(1).max(365).optional(),
   maxAdvanceDays: z.number().int().min(1).max(1095).optional(),
@@ -23,6 +27,9 @@ export const SettingsPatchSchema = z.object({
 }).strict().refine(
   (v) => v.minRentalDays === undefined || v.maxRentalDays === undefined || v.minRentalDays <= v.maxRentalDays,
   { message: "minRentalDays must be ≤ maxRentalDays", path: ["minRentalDays"] },
+).refine(
+  (v) => v.openingTime === undefined || v.closingTime === undefined || v.openingTime < v.closingTime,
+  { message: "openingTime must be before closingTime", path: ["openingTime"] },
 );
 
 export const BlackoutSchema = z.object({
@@ -54,6 +61,11 @@ export async function patchSettings(patch: z.infer<typeof SettingsPatchSchema>):
   const mergedMax = patch.maxRentalDays ?? current.maxRentalDays;
   if (mergedMin > mergedMax) {
     throw Errors.validation([{ path: "minRentalDays", message: "minRentalDays must be ≤ maxRentalDays" }]);
+  }
+  const mergedOpening = patch.openingTime ?? current.openingTime;
+  const mergedClosing = patch.closingTime ?? current.closingTime;
+  if (mergedOpening >= mergedClosing) {
+    throw Errors.validation([{ path: "openingTime", message: "openingTime must be before closingTime" }]);
   }
   const [updated] = await db.update(settings)
     .set({ ...patch, updatedAt: new Date() })

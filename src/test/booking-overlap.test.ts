@@ -2,12 +2,15 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings } from "@/lib/db/schema";
+import { atAruba } from "@/lib/time/format";
 import { expectReject } from "./util";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "";
 let otherVehicleId = "";
 let customerId = "";
+
+const at = (d: string) => atAruba(d, "09:00");
 
 const mkBooking = (
   start: string,
@@ -18,7 +21,7 @@ const mkBooking = (
   bufferEnd?: string,
 ) => ({
   vehicleId: forVehicleId ?? vehicleId,
-  customerId, startDate: start, endDate: end, bufferEndDate: bufferEnd ?? end, status,
+  customerId, startAt: at(start), endAt: at(end), bufferEndAt: at(bufferEnd ?? end), status,
   priceBreakdown: { totalCents: 10000 },
   paymentOption: "reservation_fee" as const,
   acceptedPolicyVersion: 1,
