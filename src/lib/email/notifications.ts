@@ -10,7 +10,7 @@ import { bookings, vehicles, customers, payments } from "@/lib/db/schema";
 import { getSettings } from "@/lib/admin/settings";
 import { sendAndLog, sendToMany } from "@/lib/email/send";
 import {
-  bookingConfirmedEmail, adminNewBookingEmail, adminPaymentEmail,
+  bookingConfirmedEmail, bookingCancelledEmail, adminNewBookingEmail, adminPaymentEmail,
 } from "@/lib/email/templates";
 import { notifyAdmin, sendOwnerWhatsApp } from "@/lib/notify";
 import { logger } from "@/lib/logger";
@@ -90,5 +90,33 @@ export async function notifyBookingConfirmed(bookingId: string): Promise<void> {
     await sendOwnerWhatsApp(`Payment received: ${ctx.vehicleName} confirmed (${ctx.customerEmail})`).catch(() => undefined);
   } catch (e) {
     logger.error("notify_booking_confirmed_failed", { bookingId, error: (e as Error).message });
+  }
+}
+
+/** Customer + admin cancellation notice, carrying the refund outcome (spec §16). */
+export async function notifyBookingCancelled(
+  bookingId: string,
+  refund: { refunded: boolean; refundCents: number; refundError?: boolean },
+): Promise<void> {
+  try {
+    const ctx = await context(bookingId);
+    if (!ctx) return;
+    const settings = await getSettings();
+    const emailArgs = {
+      vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
+      refund, cancellationWindowHours: settings.cancellationWindowHours, currency: settings.currency,
+    };
+
+    await sendAndLog({ to: ctx.customerEmail, type: "booking_cancelled", ...bookingCancelledEmail(emailArgs) });
+    await sendToMany(settings.adminAlertRecipients, (to) => ({
+      to, type: "admin_booking_cancelled", ...bookingCancelledEmail(emailArgs),
+    }));
+    await notifyAdmin({
+      level: refund.refundError ? "warning" : "info", type: "booking.cancelled", title: "Booking cancelled",
+      body: `${ctx.vehicleName} · ${formatDateTime(ctx.booking.startAt)} → ${formatDateTime(ctx.booking.endAt)} · ${ctx.customerEmail}`,
+      bookingId,
+    });
+  } catch (e) {
+    logger.error("notify_booking_cancelled_failed", { bookingId, error: (e as Error).message });
   }
 }

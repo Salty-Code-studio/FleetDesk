@@ -1,0 +1,117 @@
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { getDb } from "@/lib/db/client";
+import { runMigrations } from "@/lib/db/migrate";
+import { vehicles, customers, bookings, payments } from "@/lib/db/schema";
+import { cancelOwnBooking } from "@/lib/booking/customer-bookings";
+import { atAruba } from "@/lib/time/format";
+
+// Same Stripe test double idiom as refunds.test.ts / cancellation-policy.test.ts:
+// every Stripe call in the app funnels through this one module.
+const stripeRefundCreate = vi.fn(async () => ({ id: "re_test" }));
+vi.mock("@/lib/payments/stripe-client", () => ({
+  getStripe: () => ({ refunds: { create: stripeRefundCreate } }),
+}));
+
+let db: Awaited<ReturnType<typeof getDb>>;
+let vehicleId = "", customerId = "";
+
+const breakdown = {
+  days: 7, vehicleCents: 34800, insuranceCents: 0, addOns: [], addOnsCents: 0,
+  subtotalCents: 34800, depositCents: 25000, youngDriverCents: 0, depositPercent: 0, depositMinCents: 3000, currency: "USD",
+};
+
+let dateCursor = 1;
+// distinct non-overlapping windows per booking (same vehicle, buffered constraint).
+// Day 08 as the pickup day (not 01) so "3 days before" / "12 hours before" never
+// underflow into the previous month.
+function nextWindow() {
+  const idx = dateCursor++;
+  const year = 2032 + Math.floor((idx - 1) / 12);
+  const month = String(((idx - 1) % 12) + 1).padStart(2, "0");
+  return {
+    year, month,
+    startAt: atAruba(`${year}-${month}-08`, "09:00"),
+    endAt: atAruba(`${year}-${month}-15`, "09:00"),
+    bufferEndAt: atAruba(`${year}-${month}-16`, "09:00"),
+  };
+}
+
+let keyCursor = 1;
+async function makeBooking(amountPaidCents: number) {
+  const w = nextWindow();
+  const [b] = await db.insert(bookings).values({
+    vehicleId, customerId,
+    startAt: w.startAt, endAt: w.endAt, bufferEndAt: w.bufferEndAt,
+    status: "confirmed", priceBreakdown: breakdown, paymentOption: "deposit",
+    acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: `cc-${keyCursor++}`,
+    amountPaidCents,
+  }).returning();
+  return { booking: b!, window: w };
+}
+
+let sessionCursor = 1;
+async function makePayment(bookingId: string, amountCents: number) {
+  const [p] = await db.insert(payments).values({
+    bookingId,
+    stripeCheckoutSessionId: `cs_cc_${sessionCursor}`,
+    stripePaymentIntentId: `pi_cc_${sessionCursor++}`,
+    type: "rental_deposit",
+    method: "stripe",
+    amountCents,
+    currency: "USD",
+    status: "succeeded",
+  }).returning();
+  return p!;
+}
+
+beforeAll(async () => {
+  db = await getDb();
+  await runMigrations();
+  const [v] = await db.insert(vehicles).values({
+    slug: "cc-car", plate: "PL-cc-car", class: "SUV", name: "CC Car", seats: 5, transmission: "Automatic",
+    doors: 5, priceDayCents: 5800, priceWeekCents: 34800, priceMonthCents: 118000, depositCents: 25000,
+  }).returning();
+  const [c] = await db.insert(customers).values({ email: "cc@test.com" }).returning();
+  vehicleId = v!.id; customerId = c!.id;
+});
+
+beforeEach(() => {
+  stripeRefundCreate.mockClear();
+});
+
+describe("customer cancellation applies the cancellation window policy", () => {
+  it("refunds the succeeded payment when cancelling 3 days before pickup", async () => {
+    const { booking, window: w } = await makeBooking(4000);
+    const payment = await makePayment(booking.id, 4000);
+    const nowIso = atAruba(`${w.year}-${w.month}-05`, "09:00"); // 3 days before startAt
+
+    const result = await cancelOwnBooking(customerId, booking.id, nowIso);
+
+    expect(stripeRefundCreate).toHaveBeenCalledWith({ payment_intent: payment.stripePaymentIntentId, amount: 4000 });
+    expect(result.refunded).toBe(true);
+    expect(result.refundCents).toBe(4000);
+  });
+
+  it("does not call Stripe or refund when cancelling 12 hours before pickup", async () => {
+    const { booking, window: w } = await makeBooking(4000);
+    await makePayment(booking.id, 4000);
+    const nowIso = atAruba(`${w.year}-${w.month}-07`, "21:00"); // 12h before startAt (08 09:00)
+
+    const result = await cancelOwnBooking(customerId, booking.id, nowIso);
+
+    expect(stripeRefundCreate).not.toHaveBeenCalled();
+    expect(result.refunded).toBe(false);
+    expect(result.refundCents).toBe(0);
+  });
+
+  it("cancels cleanly with refundCents 0 when there is no succeeded payment", async () => {
+    const { booking, window: w } = await makeBooking(0);
+    const nowIso = atAruba(`${w.year}-${w.month}-05`, "09:00"); // well outside the window, but nothing to refund
+
+    const result = await cancelOwnBooking(customerId, booking.id, nowIso);
+
+    expect(stripeRefundCreate).not.toHaveBeenCalled();
+    expect(result.refunded).toBe(false);
+    expect(result.refundCents).toBe(0);
+  });
+});

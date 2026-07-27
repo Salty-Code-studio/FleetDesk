@@ -10,7 +10,7 @@ const endAt = atAruba("2026-07-08", "09:00");
 const all = [
   loginCodeEmail({ code: "482917", link: "https://x/verify?code=482917" }),
   bookingConfirmedEmail({ vehicleName: "Hyundai Creta", startAt, endAt, rentalTotalCents: 34800, amountPaidCents: 4000, chargeType: "rental_deposit", currency: "USD" }),
-  bookingCancelledEmail({ vehicleName: "Kia Picanto", startAt, endAt: atAruba("2026-07-05", "09:00") }),
+  bookingCancelledEmail({ vehicleName: "Kia Picanto", startAt, endAt: atAruba("2026-07-05", "09:00"), refund: { refunded: true, refundCents: 4000 }, cancellationWindowHours: 48, currency: "USD" }),
   adminNewBookingEmail({ vehicleName: "Kia Sportage", startAt, endAt, customerEmail: "a@b.com", paymentOption: "deposit" }),
   adminPaymentEmail({ vehicleName: "Kia Sportage", startAt, endAt, amountCents: 4000, currency: "USD", customerEmail: "a@b.com" }),
 ];
@@ -38,7 +38,7 @@ describe("email templates", () => {
     expect(confirmed.html).toContain(period);
     expect(confirmed.html).not.toContain(startAt);
 
-    const cancelled = bookingCancelledEmail({ vehicleName: "Kia Picanto", startAt, endAt });
+    const cancelled = bookingCancelledEmail({ vehicleName: "Kia Picanto", startAt, endAt, refund: { refunded: false, refundCents: 0 }, cancellationWindowHours: 48, currency: "USD" });
     expect(cancelled.html).toContain(period);
     expect(cancelled.html).not.toContain(startAt);
 
@@ -58,5 +58,27 @@ describe("email templates", () => {
       expect(e.html).not.toContain("—");
       expect(e.subject).not.toContain("--");
     }
+  });
+
+  it("bookingCancelledEmail renders the refund outcome (spec §16)", () => {
+    const refunded = bookingCancelledEmail({
+      vehicleName: "Kia Picanto", startAt, endAt,
+      refund: { refunded: true, refundCents: 4000 }, cancellationWindowHours: 48, currency: "USD",
+    });
+    expect(refunded.html).toContain("USD 40.00");
+    expect(refunded.html).toContain("refunded to your card");
+
+    const notEligible = bookingCancelledEmail({
+      vehicleName: "Kia Picanto", startAt, endAt,
+      refund: { refunded: false, refundCents: 0 }, cancellationWindowHours: 48, currency: "USD",
+    });
+    expect(notEligible.html).toContain("Cancelled within 48 hours of pickup");
+    expect(notEligible.html).toContain("not refunded");
+
+    const errored = bookingCancelledEmail({
+      vehicleName: "Kia Picanto", startAt, endAt,
+      refund: { refunded: false, refundCents: 0, refundError: true }, cancellationWindowHours: 48, currency: "USD",
+    });
+    expect(errored.html).toContain("refund is being processed");
   });
 });

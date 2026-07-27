@@ -47,15 +47,17 @@ describe("customer bookings", () => {
 
   it("cancels the customer's own booking and frees the slot", async () => {
     const b = await mk(aliceId, "confirmed");
-    const res = await cancelOwnBooking(aliceId, b.id);
+    const res = await cancelOwnBooking(aliceId, b.id, atAruba("2026-01-01", "09:00"));
     expect(res.id).toBe(b.id);
+    expect(res.refunded).toBe(false);
+    expect(res.refundCents).toBe(0);
     const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
     expect(after!.status).toBe("cancelled");
   });
 
   it("refuses to cancel someone else's booking (404, no enumeration)", async () => {
     const bobBooking = await mk(bobId, "confirmed");
-    await expectReject(cancelOwnBooking(aliceId, bobBooking.id), /not found/i);
+    await expectReject(cancelOwnBooking(aliceId, bobBooking.id, atAruba("2026-01-01", "09:00")), /not found/i);
     // bob's booking is untouched
     const [after] = await db.select().from(bookings).where(eq(bookings.id, bobBooking.id));
     expect(after!.status).toBe("confirmed");
@@ -63,6 +65,6 @@ describe("customer bookings", () => {
 
   it("refuses to cancel a completed booking", async () => {
     const done = await mk(aliceId, "completed");
-    await expectReject(cancelOwnBooking(aliceId, done.id), /no longer be cancelled/i);
+    await expectReject(cancelOwnBooking(aliceId, done.id, atAruba("2026-01-01", "09:00")), /no longer be cancelled/i);
   });
 });

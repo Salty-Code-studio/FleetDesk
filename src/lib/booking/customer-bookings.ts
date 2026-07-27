@@ -5,8 +5,12 @@
  */
 import { and, eq, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { bookings, vehicles } from "@/lib/db/schema";
+import { bookings, vehicles, payments } from "@/lib/db/schema";
+import { getSettings } from "@/lib/admin/settings";
+import { isFreeCancellation } from "@/lib/booking/cancellation";
+import { refundPayment } from "@/lib/payments/refunds";
 import { Errors } from "@/lib/http/errors";
+import { logger } from "@/lib/logger";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 
 export interface CustomerBookingView {
@@ -34,12 +38,16 @@ export async function listCustomerBookings(customerId: string): Promise<Customer
 
 export interface CancelledBooking {
   id: string; vehicleName: string; startAt: string; endAt: string;
+  refunded: boolean; refundCents: number; refundError: boolean;
 }
 
 /** Cancel the customer's own pending|confirmed booking. Frees the slot
- *  (cancelled is outside the exclusion constraint). Refund handling per the
- *  cancellation policy is the §16 open item; here we record the cancellation. */
-export async function cancelOwnBooking(customerId: string, bookingId: string): Promise<CancelledBooking> {
+ *  (cancelled is outside the exclusion constraint). Applies the cancellation
+ *  window policy (spec §16): outside the window, succeeded payments are
+ *  auto-refunded; inside it (and no-shows), the deposit is not refunded. A
+ *  refund that errors never blocks the cancellation, it just gets logged
+ *  loudly for an admin retry from the Drawer. */
+export async function cancelOwnBooking(customerId: string, bookingId: string, nowIso: string): Promise<CancelledBooking> {
   const db = await getDb();
   const [booking] = await db.select().from(bookings)
     .where(and(eq(bookings.id, bookingId), eq(bookings.customerId, customerId)));
@@ -49,5 +57,27 @@ export async function cancelOwnBooking(customerId: string, bookingId: string): P
   }
   const [vehicle] = await db.select({ name: vehicles.name }).from(vehicles).where(eq(vehicles.id, booking.vehicleId));
   await db.update(bookings).set({ status: "cancelled", updatedAt: new Date() }).where(eq(bookings.id, bookingId));
-  return { id: booking.id, vehicleName: vehicle?.name ?? "your car", startAt: booking.startAt, endAt: booking.endAt };
+
+  let refundCents = 0;
+  let refundError = false;
+  const settings = await getSettings();
+  if (isFreeCancellation(booking, settings, nowIso)) {
+    const succeeded = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, bookingId), eq(payments.status, "succeeded")));
+    for (const p of succeeded) {
+      try {
+        const before = p.refundedCents;
+        const r = await refundPayment(p.id);
+        refundCents += r.refundedCents - before;
+      } catch (e) {
+        refundError = true;
+        logger.error("customer_cancel_refund_failed", { bookingId, paymentId: p.id, error: (e as Error).message });
+      }
+    }
+  }
+
+  return {
+    id: booking.id, vehicleName: vehicle?.name ?? "your car", startAt: booking.startAt, endAt: booking.endAt,
+    refunded: refundCents > 0, refundCents, refundError,
+  };
 }

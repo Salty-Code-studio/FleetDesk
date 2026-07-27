@@ -61,12 +61,22 @@ export function bookingConfirmedEmail(args: {
   };
 }
 
-export function bookingCancelledEmail(args: { vehicleName: string; startAt: string; endAt: string }): RenderedEmail {
+export function bookingCancelledEmail(args: {
+  vehicleName: string; startAt: string; endAt: string;
+  refund: { refunded: boolean; refundCents: number; refundError?: boolean };
+  cancellationWindowHours: number; currency: string;
+}): RenderedEmail {
+  const { refund } = args;
+  const refundLine = refund.refundError
+    ? "Your refund is being processed and will land on your card soon."
+    : refund.refunded
+    ? `Your payment of ${money(refund.refundCents, args.currency)} has been refunded to your card.`
+    : `Cancelled within ${args.cancellationWindowHours} hours of pickup: the deposit is not refunded, as per the cancellation policy.`;
   return {
     subject: `Your ${args.vehicleName} booking was cancelled`,
     html: shell("Booking cancelled", `
       <p>Your booking for the <strong>${args.vehicleName}</strong> (${formatDateTime(args.startAt)} to ${formatDateTime(args.endAt)}) has been cancelled.</p>
-      <p>If a refund applies, our team will sort it out and be in touch.</p>`),
+      <p>${refundLine}</p>`),
   };
 }
 
