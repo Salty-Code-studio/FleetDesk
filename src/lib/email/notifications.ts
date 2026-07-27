@@ -76,7 +76,8 @@ export async function notifyBookingConfirmed(bookingId: string): Promise<void> {
       await sendToMany(settings.adminAlertRecipients, (to) => ({
         to, type: "admin_payment",
         ...adminPaymentEmail({
-          vehicleName: ctx.vehicleName, amountCents: pay.amountCents, currency: pay.currency,
+          vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
+          amountCents: pay.amountCents, currency: pay.currency,
           customerEmail: ctx.customerEmail,
         }),
       }));

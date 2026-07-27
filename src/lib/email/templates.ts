@@ -71,11 +71,11 @@ export function adminNewBookingEmail(args: { vehicleName: string; startAt: strin
   };
 }
 
-export function adminPaymentEmail(args: { vehicleName: string; amountCents: number; currency: string; customerEmail: string }): RenderedEmail {
+export function adminPaymentEmail(args: { vehicleName: string; startAt: string; endAt: string; amountCents: number; currency: string; customerEmail: string }): RenderedEmail {
   return {
     subject: `Payment received: ${money(args.amountCents, args.currency)}`,
     html: shell("Payment received", `
       <p>Payment confirmed and the booking is now confirmed.</p>
-      <p><strong>${args.vehicleName}</strong><br>${money(args.amountCents, args.currency)} from ${args.customerEmail}</p>`),
+      <p><strong>${args.vehicleName}</strong><br>${formatDateTime(args.startAt)} to ${formatDateTime(args.endAt)}<br>${money(args.amountCents, args.currency)} from ${args.customerEmail}</p>`),
   };
 }

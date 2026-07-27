@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatDateTime } from "@/lib/time/format";
 
-interface Booking { id: string; status: string; startDate: string; endDate: string }
+interface Booking { id: string; status: string; startAt: string; endAt: string }
 
 export default function ConfirmationPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -35,10 +36,10 @@ export default function ConfirmationPage() {
         ) : !booking ? (
           <p>We&apos;ve received your request. Our team will be in touch shortly.</p>
         ) : confirmed ? (
-          <p>Payment received and your booking for {booking.startDate} to {booking.endDate} is confirmed.
+          <p>Payment received and your booking for {formatDateTime(booking.startAt)} to {formatDateTime(booking.endAt)} is confirmed.
             We&apos;ll arrange delivery on WhatsApp. See you soon.</p>
         ) : (
-          <p>Your booking for {booking.startDate} to {booking.endDate} is held. If you just paid, the
+          <p>Your booking for {formatDateTime(booking.startAt)} to {formatDateTime(booking.endAt)} is held. If you just paid, the
             confirmation lands in a moment. Our team will also reach out on WhatsApp.</p>
         )}
         <p style={{ marginTop: "1.75rem" }}><a href="https://fleetdesk.app">Back to fleetdesk.app</a></p>

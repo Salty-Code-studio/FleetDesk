@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatDateTime } from "@/lib/time/format";
 
 interface Booking {
-  id: string; vehicleName: string; startDate: string; endDate: string; status: string;
+  id: string; vehicleName: string; startAt: string; endAt: string; status: string;
   breakdown: { subtotalCents: number; currency: string };
 }
 
@@ -54,7 +55,7 @@ export default function AccountPage() {
           <div className="acct-booking">
             <div>
               <strong>{b.vehicleName}</strong><br />
-              <span className="note">{b.startDate} to {b.endDate} · {money(b.breakdown.subtotalCents, b.breakdown.currency)}</span>
+              <span className="note">{formatDateTime(b.startAt)} to {formatDateTime(b.endAt)} · {money(b.breakdown.subtotalCents, b.breakdown.currency)}</span>
             </div>
             <div className="acct-status">
               <span className={`status-tag ${b.status === "confirmed" ? "ok" : b.status === "cancelled" ? "no" : "neutral"}`}>{STATUS[b.status] ?? b.status}</span>
