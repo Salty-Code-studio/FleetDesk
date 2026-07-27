@@ -14,6 +14,7 @@ import {
 import { DatePicker, Select, TimeSelect } from "@/components/ui";
 import { atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, formatTime, parseTs } from "@/lib/time/format";
 import { barSpan, barState } from "@/lib/admin/bar-span";
+import { BookingDrawer } from "./booking-drawer";
 import "./dashboard.css";
 
 interface Bar { id: string; start: string; end: string; startAt: string; endAt: string; status: string; source: string; label: string; notes: string | null }
@@ -40,7 +41,6 @@ type Gesture =
 
 type Popover =
   | { kind: "create"; vehicleId: string; plate: string; name: string; startDate: string; endDate: string; x: number; y: number }
-  | { kind: "booking"; bar: Bar; vehicleId: string; x: number; y: number }
   | { kind: "block"; block: Block; x: number; y: number };
 
 export default function AdminDashboard() {
@@ -49,6 +49,7 @@ export default function AdminDashboard() {
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [popover, setPopover] = useState<Popover | null>(null);
+  const [drawerBookingId, setDrawerBookingId] = useState<string | null>(null);
   const [showService, setShowService] = useState(false);
   // live drag previews (re-rendered): a selection rectangle, or a moving booking ghost
   const [sel, setSel] = useState<{ vehicleId: string; startDate: string; endDate: string } | null>(null);
@@ -351,7 +352,7 @@ export default function AdminDashboard() {
                           <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} ${dimmed ? "dragging" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
                             title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.source === "manual" ? " · manual" : ""}`}
                             onPointerDown={(e) => onBarPointerDown(e, v, b)}
-                            onClick={(e) => { if (!gestureRef.current) setPopover({ kind: "booking", bar: b, vehicleId: v.id, x: e.clientX, y: e.clientY }); }}>
+                            onClick={() => { if (!gestureRef.current) setDrawerBookingId(b.id); }}>
                             {b.label}
                           </div>
                         ) : null;
@@ -372,13 +373,18 @@ export default function AdminDashboard() {
       {popover && (
         <BoardPopover
           popover={popover}
-          vehicles={flatVehicles}
           confirm={confirm}
           onClose={() => setPopover(null)}
           onDone={async (m) => { setPopover(null); if (m) toast.show({ type: "success", message: m }); await load(from, to); }}
           onError={(m) => toast.show({ type: "error", message: m })}
         />
       )}
+
+      <BookingDrawer
+        bookingId={drawerBookingId}
+        onClose={() => setDrawerBookingId(null)}
+        onChanged={() => load(from, to)}
+      />
 
       <ServiceModal
         open={showService}
@@ -394,9 +400,8 @@ export default function AdminDashboard() {
 
 // ---------------------------------------------------------------------------
 
-function BoardPopover({ popover, vehicles, confirm, onClose, onDone, onError }: {
+function BoardPopover({ popover, confirm, onClose, onDone, onError }: {
   popover: Popover;
-  vehicles: Vehicle[];
   confirm: ConfirmFn;
   onClose: () => void;
   onDone: (msg?: string) => Promise<void> | void;
@@ -439,7 +444,6 @@ function BoardPopover({ popover, vehicles, confirm, onClose, onDone, onError }: 
       <div className="pl-backdrop" onClick={onClose} />
       <div ref={ref} className="pl-pop" style={style} role="dialog">
         {popover.kind === "create" && <CreatePanel p={popover} confirm={confirm} onDone={onDone} onError={onError} onClose={onClose} />}
-        {popover.kind === "booking" && <BookingPanel p={popover} vehicles={vehicles} confirm={confirm} onDone={onDone} onError={onError} onClose={onClose} />}
         {popover.kind === "block" && <BlockPanel p={popover} confirm={confirm} onDone={onDone} onError={onError} />}
       </div>
     </>
@@ -535,77 +539,6 @@ function CreatePanel({ p, confirm, onDone, onError, onClose }: {
           <div className="pl-pop-actions">
             <button className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Block car"}</button>
             <button type="button" className="btn btn--quiet" onClick={() => setTab("choose")}>Back</button>
-          </div>
-        </form>
-      )}
-    </div>
-  );
-}
-
-function BookingPanel({ p, vehicles, confirm, onDone, onError, onClose }: {
-  p: Extract<Popover, { kind: "booking" }>;
-  vehicles: Vehicle[];
-  confirm: ConfirmFn;
-  onDone: (msg?: string) => Promise<void> | void;
-  onError: (msg: string) => void;
-  onClose: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [mv, setMv] = useState({
-    vehicleId: p.vehicleId,
-    startDate: arubaDateOf(p.bar.startAt), startTime: arubaTimeOf(p.bar.startAt),
-    endDate: arubaDateOf(p.bar.endAt), endTime: arubaTimeOf(p.bar.endAt),
-  });
-  const [showMove, setShowMove] = useState(false);
-
-  async function cancel() {
-    if (busy) return;
-    const ok = await confirm({
-      title: "Cancel this rental?",
-      message: `${p.bar.label} (${p.bar.start} to ${p.bar.end}) will be cancelled and its dates open back up.`,
-      confirmLabel: "Cancel rental",
-      cancelLabel: "Keep rental",
-      danger: true,
-    });
-    if (!ok) return;
-    setBusy(true);
-    try { await api(`/api/admin/bookings/${p.bar.id}/cancel`, {}); await onDone("Booking cancelled."); }
-    catch (err) { onError((err as ApiError).message); setBusy(false); }
-  }
-  async function move(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true);
-    try {
-      await apiPatch(`/api/admin/bookings/${p.bar.id}/move`, {
-        vehicleId: mv.vehicleId,
-        startAt: atAruba(mv.startDate, mv.startTime), endAt: atAruba(mv.endDate, mv.endTime),
-      });
-      await onDone("Moved.");
-    } catch (err) { onError((err as ApiError).message); setBusy(false); }
-  }
-
-  return (
-    <div>
-      <div className="pl-pop-head"><b>{p.bar.label}</b><span className="pl-pop-range">{p.bar.start} → {p.bar.end} · {p.bar.status}{p.bar.source === "manual" ? " · manual" : ""}</span></div>
-      <p className="pl-pop-times">Pick-up {formatTime(p.bar.startAt)} · Return {formatTime(p.bar.endAt)}</p>
-      {p.bar.notes && <p className="pl-pop-note">{p.bar.notes}</p>}
-      {!showMove ? (
-        <div className="pl-pop-actions">
-          <button className="btn btn--quiet" onClick={() => setShowMove(true)}>Move…</button>
-          {(p.bar.status === "pending" || p.bar.status === "confirmed") && <button className="btn danger" disabled={busy} onClick={cancel}>Cancel rental</button>}
-          <button className="btn btn--quiet" onClick={onClose}>Close</button>
-        </div>
-      ) : (
-        <form className="pl-form" onSubmit={move}>
-          <label>Car<Select value={mv.vehicleId} onChange={(v) => setMv({ ...mv, vehicleId: v })} options={vehicles.map((v) => ({ value: v.id, label: `${v.plate} · ${v.name}` }))} /></label>
-          <div className="pl-service-dates">
-            <label>Pick-up<DatePicker required value={mv.startDate} onChange={(iso) => setMv({ ...mv, startDate: iso })} /></label>
-            <label>Pick-up time<TimeSelect value={mv.startTime} onChange={(t) => setMv({ ...mv, startTime: t })} /></label>
-            <label>Return<DatePicker required value={mv.endDate} onChange={(iso) => setMv({ ...mv, endDate: iso })} /></label>
-            <label>Return time<TimeSelect value={mv.endTime} onChange={(t) => setMv({ ...mv, endTime: t })} /></label>
-          </div>
-          <div className="pl-pop-actions">
-            <button className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Save move"}</button>
-            <button type="button" className="btn btn--quiet" onClick={() => setShowMove(false)}>Back</button>
           </div>
         </form>
       )}

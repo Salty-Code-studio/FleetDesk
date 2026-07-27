@@ -1,0 +1,68 @@
+/* BookingDrawer page-specific layout (Sand & Surf). Page-scoped only; shared
+   component styles (Drawer/Modal chrome, .btn, .tag, .pl-form, .pl-pop-actions,
+   table.grid, .row-actions, .muted) stay in admin.css. No external loads,
+   no @import, no fonts here. */
+
+.bd-section {
+  padding-bottom: 1.3rem;
+  margin-bottom: 1.3rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+.bd-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.bd-section h3 {
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+  margin: 0 0 .8rem;
+}
+
+/* Summary: a compact two-column label/value grid. */
+.bd-summary { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem 1rem; margin: 0; }
+.bd-summary > div { min-width: 0; }
+.bd-summary dt {
+  font-size: .66rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  font-family: var(--font-mono); color: var(--ink-soft); margin: 0 0 .2rem;
+}
+.bd-summary dd { margin: 0; font-size: .92rem; }
+.bd-summary dd small { display: block; color: var(--ink-soft); font-size: .78rem; margin-top: .1rem; }
+.bd-summary .bd-period { grid-column: 1 / -1; }
+
+/* Status chip: reuses the exact board bar palette so the color language is
+   the same everywhere a booking's status shows up. */
+.bd-status {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .22rem .6rem; border-radius: 999px; font-size: .74rem; font-weight: 700;
+  font-family: var(--font-mono); color: #fff;
+}
+.bd-status--pending { background: var(--amber); color: #2f2100; }
+.bd-status--confirmed { background: var(--teal); }
+.bd-status--picked_up { background: var(--pickup); }
+.bd-status--completed { background: var(--ok); }
+.bd-status--cancelled { background: var(--ink-mute); }
+
+/* Payments: one row per payment, wraps gracefully on narrow drawers. */
+.bd-payments { display: flex; flex-direction: column; gap: .55rem; margin-bottom: 1rem; }
+.bd-payment-row {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  padding: .6rem .7rem; background: var(--fill); border-radius: 10px;
+}
+.bd-payment-type { font-weight: 600; }
+.bd-payment-amt { font-family: var(--font-mono); font-weight: 700; margin-left: auto; }
+.bd-payment-row .btn--quiet { padding: .3rem .55rem; font-size: .82rem; }
+
+.bd-balance {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+  color: var(--ink); margin: 0;
+}
+
+/* Move form date/time fields, two per row (mirrors the board's own service form). */
+.bd-dates { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-bottom: .7rem; }
+.bd-dates label { margin: 0; }
+
+@media (max-width: 640px) {
+  .bd-summary { grid-template-columns: 1fr; }
+  .bd-dates { grid-template-columns: 1fr; }
+}
