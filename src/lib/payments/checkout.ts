@@ -14,6 +14,7 @@ import { getStripe } from "@/lib/payments/stripe-client";
 import { chargeForBooking, type PaymentOption, type ChargeType } from "@/lib/payments/charge";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 import { formatDateTime } from "@/lib/time/format";
+import { siteConfig } from "@/lib/site-config";
 
 const LABEL: Record<ChargeType, string> = {
   reservation_fee: "Reservation fee",
@@ -73,7 +74,7 @@ export async function createBookingCheckout(bookingId: string, origin: string): 
           currency: charge.currency.toLowerCase(),
           unit_amount: charge.amountCents,
           product_data: {
-            name: `${LABEL[charge.type]} — ${vehicle?.name ?? "FleetDesk rental"}`,
+            name: `${LABEL[charge.type]} — ${vehicle?.name ?? `${siteConfig.siteName} rental`}`,
             description: `${formatDateTime(booking.startAt)} to ${formatDateTime(booking.endAt)}`,
           },
         },

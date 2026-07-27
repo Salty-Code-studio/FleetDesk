@@ -3,6 +3,7 @@
  * dash-free (house writing rule). Pure functions → unit-testable.
  */
 import { formatDateTime } from "@/lib/time/format";
+import { siteConfig } from "@/lib/site-config";
 
 export interface RenderedEmail {
   subject: string;
@@ -14,10 +15,10 @@ const INK = "#15192f";
 
 function shell(title: string, body: string): string {
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,Inter,sans-serif;color:${INK};max-width:520px;margin:0 auto;padding:24px">
-  <div style="font-weight:800;letter-spacing:.03em;font-size:18px;margin-bottom:20px">FLEET<span style="color:#f15f2c">DESK</span></div>
+  <div style="font-weight:800;letter-spacing:.03em;font-size:18px;margin-bottom:20px">${siteConfig.siteName.toUpperCase()}</div>
   <h1 style="font-size:20px;margin:0 0 12px">${title}</h1>
   ${body}
-  <p style="color:#828aa6;font-size:12px;margin-top:28px">FleetDesk &amp; Leasing, Aruba. We bring the car to you.</p>
+  <p style="color:#828aa6;font-size:12px;margin-top:28px">${siteConfig.siteName}, Aruba. We bring the car to you.</p>
 </div>`;
 }
 
@@ -25,7 +26,7 @@ const money = (cents: number, currency: string) => `${currency} ${(cents / 100).
 
 export function loginCodeEmail(args: { code: string; link: string }): RenderedEmail {
   return {
-    subject: "Your FleetDesk sign-in code",
+    subject: `Your ${siteConfig.siteName} sign-in code`,
     html: shell("Sign in to your bookings", `
       <p>Use this code to sign in. It is good for 15 minutes.</p>
       <p style="font-size:30px;font-weight:800;letter-spacing:6px;color:${BRAND};margin:16px 0">${args.code}</p>
