@@ -10,7 +10,7 @@ import { bookings, vehicles, customers, payments } from "@/lib/db/schema";
 import { getSettings } from "@/lib/admin/settings";
 import { sendAndLog, sendToMany } from "@/lib/email/send";
 import {
-  bookingConfirmedEmail, bookingCancelledEmail, adminNewBookingEmail, adminPaymentEmail,
+  bookingConfirmedEmail, bookingCancelledEmail, adminNewBookingEmail, adminPaymentEmail, bookingExtendedEmail,
 } from "@/lib/email/templates";
 import { notifyAdmin, sendOwnerWhatsApp } from "@/lib/notify";
 import { logger } from "@/lib/logger";
@@ -125,5 +125,34 @@ export async function notifyBookingCancelled(
     });
   } catch (e) {
     logger.error("notify_booking_cancelled_failed", { bookingId, error: (e as Error).message });
+  }
+}
+
+/** Customer + admin notice after a desk-side rental extension (Task 9). The
+ *  dates are already extended; `checkoutUrl` (link path) tells the customer to
+ *  pay the delta, its absence means the desk already settled it. Kept at the
+ *  route so extendBooking stays a pure, testable lib (same split as cancel). */
+export async function notifyBookingExtended(
+  bookingId: string,
+  info: { deltaCents: number; newEndAt: string; checkoutUrl: string | null },
+): Promise<void> {
+  try {
+    const ctx = await context(bookingId);
+    if (!ctx) return;
+    const currency = (ctx.booking.priceBreakdown as QuoteBreakdown).currency;
+    await sendAndLog({
+      to: ctx.customerEmail, type: "booking_extended",
+      ...bookingExtendedEmail({
+        vehicleName: ctx.vehicleName, newEndAt: info.newEndAt,
+        deltaCents: info.deltaCents, currency, checkoutUrl: info.checkoutUrl,
+      }),
+    });
+    await notifyAdmin({
+      level: "info", type: "booking.extended", title: "Booking extended",
+      body: `${ctx.vehicleName} · now until ${formatDateTime(info.newEndAt)} · ${ctx.customerEmail}`,
+      bookingId,
+    });
+  } catch (e) {
+    logger.error("notify_booking_extended_failed", { bookingId, error: (e as Error).message });
   }
 }

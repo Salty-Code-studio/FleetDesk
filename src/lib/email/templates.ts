@@ -84,6 +84,25 @@ export function bookingCancelledEmail(args: {
   };
 }
 
+export function bookingExtendedEmail(args: {
+  vehicleName: string; newEndAt: string; deltaCents: number; currency: string; checkoutUrl: string | null;
+}): RenderedEmail {
+  // Three outcomes: pay-by-link (a Stripe link to settle the delta), paid at the
+  // desk (nothing owed online), or a zero delta (the longer rental cost no more).
+  const payLine = args.checkoutUrl
+    ? `To lock in the extra time, pay securely here: <a href="${args.checkoutUrl}" style="color:${BRAND}">Pay ${money(args.deltaCents, args.currency)}</a>`
+    : args.deltaCents > 0
+    ? `The extra ${money(args.deltaCents, args.currency)} was paid at the desk. Nothing more to do.`
+    : "There is nothing extra to pay for the added time. Enjoy the road.";
+  return {
+    subject: `Your ${args.vehicleName} rental is extended`,
+    html: shell("Rental extended", `
+      <p>Good news, we pushed your return out.</p>
+      <p><strong>${args.vehicleName}</strong><br>Now yours until ${formatDateTime(args.newEndAt)}</p>
+      <p>${payLine}</p>`),
+  };
+}
+
 export function adminNewBookingEmail(args: { vehicleName: string; startAt: string; endAt: string; customerEmail: string; paymentOption: string }): RenderedEmail {
   return {
     subject: `New booking: ${args.vehicleName} (${formatDateTime(args.startAt)})`,

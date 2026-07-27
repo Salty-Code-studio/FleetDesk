@@ -108,3 +108,59 @@ export async function createBookingCheckout(bookingId: string, origin: string): 
     return { url: session.url };
   });
 }
+
+/**
+ * Checkout for an already-applied rental extension. Sibling of
+ * createBookingCheckout: the booking dates were extended synchronously (the
+ * desk decided "pay by link"), and THIS stands up a hosted Checkout for just the
+ * delta plus a pending extension payment row. The signed webhook settles that
+ * row and credits amountPaidCents (see webhook.ts, extension branch); nothing
+ * here confirms money. `deltaCents` is the server-computed delta from
+ * extendBooking — never a client amount.
+ */
+export async function createExtensionCheckout(
+  booking: typeof bookings.$inferSelect,
+  deltaCents: number,
+): Promise<{ url: string }> {
+  const db = await getDb();
+  const stripe = getStripe();
+  const breakdown = booking.priceBreakdown as QuoteBreakdown;
+  const currency = breakdown.currency;
+  const [vehicle] = await db.select({ name: vehicles.name }).from(vehicles).where(eq(vehicles.id, booking.vehicleId));
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: currency.toLowerCase(),
+        unit_amount: deltaCents,
+        product_data: {
+          name: `Rental extension — ${vehicle?.name ?? `${siteConfig.siteName} rental`}`,
+          description: `${formatDateTime(booking.startAt)} to ${formatDateTime(booking.endAt)}`,
+        },
+      },
+    }],
+    metadata: { bookingId: booking.id, paymentType: "extension" },
+    success_url: `${siteConfig.siteUrl}/book/confirmation?id=${booking.id}`,
+    cancel_url: `${siteConfig.siteUrl}/book/confirmation?id=${booking.id}`,
+  });
+  if (!session.url) throw Errors.badRequest("Could not start checkout");
+
+  try {
+    await db.insert(payments).values({
+      bookingId: booking.id,
+      stripeCheckoutSessionId: session.id,
+      type: "extension",
+      method: "stripe",
+      amountCents: deltaCents,
+      currency,
+      status: "pending",
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) throw Errors.conflict("A payment for this booking is already in progress");
+    throw e;
+  }
+
+  return { url: session.url };
+}
