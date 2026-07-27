@@ -58,6 +58,7 @@ export async function checkAvailability(
   startAt: string,
   endAt: string,
   settings: { turnaroundBufferHours: number },
+  excludeBookingId?: string,
 ): Promise<AvailabilityResult> {
   const db = await getDb();
 
@@ -77,6 +78,7 @@ export async function checkAvailability(
   const clashing = await db.select({ id: bookings.id }).from(bookings).where(and(
     eq(bookings.vehicleId, vehicleId),
     inArray(bookings.status, ["pending", "confirmed", "picked_up"]),
+    excludeBookingId ? ne(bookings.id, excludeBookingId) : sql`true`,
     lt(bookings.startAt, newBufferEnd),
     gt(bookings.bufferEndAt, startAt),
   )).limit(1);

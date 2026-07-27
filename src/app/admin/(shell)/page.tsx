@@ -179,11 +179,25 @@ export default function AdminDashboard() {
       try {
         await apiPatch(`/api/admin/bookings/${g.bookingId}/move`, body);
         toast.show({ type: "success", message: "Moved." });
-        await load(from, to);
       } catch (e) {
-        toast.show({ type: "error", message: (e as ApiError).message }); // 409 → "Those dates overlap…"; board reloads to the true state
-        await load(from, to);
+        const err = e as ApiError;
+        if (err.code === "advisory_conflict") {
+          // Block/blackout collision, not a real double-booking — offer an
+          // explicit override rather than just bouncing the drag.
+          const ok = await confirm({ title: "Car unavailable", message: err.message, confirmLabel: "Book anyway", danger: true });
+          if (ok) {
+            try {
+              await apiPatch(`/api/admin/bookings/${g.bookingId}/move`, { ...body, override: true });
+              toast.show({ type: "success", message: "Moved." });
+            } catch (e2) {
+              toast.show({ type: "error", message: (e2 as ApiError).message });
+            }
+          }
+        } else {
+          toast.show({ type: "error", message: err.message }); // 409 → "Those dates overlap…"; board reloads to the true state
+        }
       }
+      await load(from, to);
     }
   }
 
@@ -424,7 +438,7 @@ function BoardPopover({ popover, vehicles, confirm, onClose, onDone, onError }: 
     <>
       <div className="pl-backdrop" onClick={onClose} />
       <div ref={ref} className="pl-pop" style={style} role="dialog">
-        {popover.kind === "create" && <CreatePanel p={popover} onDone={onDone} onError={onError} onClose={onClose} />}
+        {popover.kind === "create" && <CreatePanel p={popover} confirm={confirm} onDone={onDone} onError={onError} onClose={onClose} />}
         {popover.kind === "booking" && <BookingPanel p={popover} vehicles={vehicles} confirm={confirm} onDone={onDone} onError={onError} onClose={onClose} />}
         {popover.kind === "block" && <BlockPanel p={popover} confirm={confirm} onDone={onDone} onError={onError} />}
       </div>
@@ -432,8 +446,9 @@ function BoardPopover({ popover, vehicles, confirm, onClose, onDone, onError }: 
   );
 }
 
-function CreatePanel({ p, onDone, onError, onClose }: {
+function CreatePanel({ p, confirm, onDone, onError, onClose }: {
   p: Extract<Popover, { kind: "create" }>;
+  confirm: ConfirmFn;
   onDone: (msg?: string) => Promise<void> | void;
   onError: (msg: string) => void;
   onClose: () => void;
@@ -447,17 +462,35 @@ function CreatePanel({ p, onDone, onError, onClose }: {
 
   async function submitRental(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
+    const payload = {
+      vehicleId: p.vehicleId,
+      startAt: atAruba(p.startDate, times.pickup), endAt: atAruba(p.endDate, times.ret),
+      customerName: r.name, customerPhone: r.phone,
+      ...(r.email ? { customerEmail: r.email } : {}),
+      ...(r.price ? { priceCents: Math.round(Number(r.price) * 100) } : {}),
+      ...(r.notes ? { notes: r.notes } : {}),
+    };
     try {
-      await api("/api/admin/bookings", {
-        vehicleId: p.vehicleId,
-        startAt: atAruba(p.startDate, times.pickup), endAt: atAruba(p.endDate, times.ret),
-        customerName: r.name, customerPhone: r.phone,
-        ...(r.email ? { customerEmail: r.email } : {}),
-        ...(r.price ? { priceCents: Math.round(Number(r.price) * 100) } : {}),
-        ...(r.notes ? { notes: r.notes } : {}),
-      });
+      await api("/api/admin/bookings", payload);
       await onDone("Rental added.");
-    } catch (err) { onError((err as ApiError).message); setBusy(false); }
+    } catch (err) {
+      const e2 = err as ApiError;
+      if (e2.code === "advisory_conflict") {
+        // Block/blackout collision, not a real double-booking — offer an
+        // explicit override rather than just failing the form.
+        const ok = await confirm({ title: "Car unavailable", message: e2.message, confirmLabel: "Book anyway", danger: true });
+        if (ok) {
+          try {
+            await api("/api/admin/bookings", { ...payload, override: true });
+            await onDone("Rental added.");
+            return;
+          } catch (err2) { onError((err2 as ApiError).message); }
+        }
+        setBusy(false);
+        return;
+      }
+      onError(e2.message); setBusy(false);
+    }
   }
   async function submitBlock(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);

@@ -5,6 +5,7 @@ import { bookings, vehicles, bookingAddOns, addOns } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
 import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
+import { checkAvailability } from "@/lib/booking/availability";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
 import { addHoursIso, parseTs } from "@/lib/time/format";
 import { isoDateTime } from "@/lib/validation/iso-date";
@@ -20,12 +21,47 @@ export const MoveSchema = z.object({
   vehicleId: z.string().uuid().optional(),
   startAt: isoDateTime.optional(),
   endAt: isoDateTime.optional(),
+  /** Desk staff can explicitly move a booking over an advisory block/blackout
+   *  after confirming in the UI; the physical exclusion constraint (real
+   *  booking clashes) can never be overridden. */
+  override: z.boolean().default(false),
 }).strict();
-export type MoveInput = z.infer<typeof MoveSchema>;
+// Input type (not infer): moveBooking is called directly (tests, internal
+// callers) without going through MoveSchema.parse, so `override` — the one
+// field with a default — must stay optional at the type level too.
+export type MoveInput = z.input<typeof MoveSchema>;
 
 export async function moveBooking(id: string, input: MoveInput) {
   const db = await getDb();
   const settings = await getSettings();
+
+  // Advisory pre-check OUTSIDE the transaction: checkAvailability opens its own
+  // connection via getDb(), and PGlite (the test/dev driver) is single-connection
+  // — calling it from inside db.transaction() deadlocks. This mirrors the same
+  // pre-transaction placement createBooking already uses. A rare race between
+  // this read and the transaction below is fine: the physical exclusion
+  // constraint (booking clashes) still guards the actual update either way; this
+  // check exists only to advise on blocks/blackouts, which the constraint can't see.
+  if (!input.override) {
+    const [existing] = await db.select().from(bookings).where(eq(bookings.id, id));
+    if (existing) {
+      const vehicleId = input.vehicleId ?? existing.vehicleId;
+      const startAt = input.startAt ?? existing.startAt;
+      const endAt = input.endAt ?? existing.endAt;
+      const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.id, vehicleId));
+      // A missing/retired vehicle is a hard 404, never an overridable advisory —
+      // let the transaction below reject it the same way it always has.
+      if (vehicle && vehicle.status !== "retired" && parseTs(endAt) > parseTs(startAt)) {
+        // Exclude this booking's own (pre-move) row — otherwise a date/car
+        // tweak on the same booking would always "clash" with itself.
+        const availability = await checkAvailability(vehicleId, startAt, endAt, settings, id);
+        if (!availability.available) {
+          throw Errors.conflict(`${availability.reason ?? "That range is unavailable"}. Confirm to book anyway.`, { code: "advisory_conflict" });
+        }
+      }
+    }
+  }
+
   try {
     return await db.transaction(async (tx) => {
       const [booking] = await tx.select().from(bookings).where(eq(bookings.id, id)).for("update");

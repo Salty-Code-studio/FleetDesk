@@ -5,6 +5,7 @@ import { vehicles, customers, bookings } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
 import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
+import { checkAvailability } from "@/lib/booking/availability";
 import { addHoursIso, parseTs } from "@/lib/time/format";
 import { isoDateTime } from "@/lib/validation/iso-date";
 
@@ -25,6 +26,10 @@ export const ManualBookingSchema = z.object({
   customerEmail: z.string().trim().toLowerCase().email().max(254).optional(),
   priceCents: z.number().int().min(0).max(100_000_00).optional(),
   notes: z.string().trim().max(500).optional(),
+  /** Desk staff can explicitly book over an advisory block/blackout after
+   *  confirming in the UI; the physical exclusion constraint (real booking
+   *  clashes) can never be overridden. */
+  override: z.boolean().default(false),
 }).strict().refine((v) => parseTs(v.endAt) > parseTs(v.startAt), { message: "endAt must be after startAt", path: ["endAt"] });
 
 export type ManualBookingInput = z.input<typeof ManualBookingSchema>;
@@ -46,6 +51,15 @@ export async function createManualBooking(raw: ManualBookingInput) {
   const settings = await getSettings();
   const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.id, input.vehicleId));
   if (!vehicle || vehicle.status === "retired") throw Errors.notFound("Vehicle not available");
+
+  if (!input.override) {
+    const availability = await checkAvailability(vehicle.id, input.startAt, input.endAt, settings);
+    // A booking clash is already surfaced by the DB constraint on insert; the
+    // advisory value here is blocks and blackouts, which the constraint can't see.
+    if (!availability.available) {
+      throw Errors.conflict(`${availability.reason ?? "That range is unavailable"}. Confirm to book anyway.`, { code: "advisory_conflict" });
+    }
+  }
 
   const email = input.customerEmail ?? syntheticEmail(input.customerPhone, input.customerName);
   await db.insert(customers)

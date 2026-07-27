@@ -39,6 +39,9 @@ const STATUS: Record<ErrorCode, number> = {
 
 export class AppError extends Error {
   readonly code: ErrorCode;
+  /** HTTP status this code maps to — an own property (not a prototype getter)
+   *  so it survives structural matchers like `toMatchObject`. */
+  readonly status: number;
   /** Safe, client-facing detail. MUST NOT contain internals. */
   readonly publicMessage: string;
   /** Optional structured field errors (e.g. from zod) — already safe. */
@@ -54,6 +57,7 @@ export class AppError extends Error {
     super(publicMessage, opts?.cause ? { cause: opts.cause } : undefined);
     this.name = "AppError";
     this.code = code;
+    this.status = STATUS[code];
     this.publicMessage = publicMessage;
     this.details = opts?.details;
     this.headers = opts?.headers;
@@ -70,7 +74,7 @@ export const Errors = {
     new AppError("unauthorized", msg, { headers: { "WWW-Authenticate": "Bearer" } }),
   forbidden: (msg = "You do not have access to this resource") => new AppError("forbidden", msg),
   notFound: (msg = "Resource not found") => new AppError("not_found", msg),
-  conflict: (msg = "Conflict") => new AppError("conflict", msg),
+  conflict: (msg = "Conflict", details?: unknown) => new AppError("conflict", msg, { details }),
   rateLimited: (retryAfterSeconds: number, msg = "Too many requests") =>
     new AppError("rate_limited", msg, { headers: { "Retry-After": String(retryAfterSeconds) } }),
   csrf: (msg = "CSRF validation failed") => new AppError("csrf_failed", msg),
