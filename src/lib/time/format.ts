@@ -16,9 +16,11 @@ export function atAruba(date: string, time: string): string {
 /** Epoch ms from either strict ISO or Postgres "YYYY-MM-DD HH:MM:SS+TZ" text. */
 export function parseTs(s: string): number {
   const iso = s.includes("T") ? s : s.replace(" ", "T");
-  // Postgres emits a two-digit offset ("+00"); once the value contains "T",
-  // V8's strict ISO parser needs "+00:00", so pad a bare ±HH offset to ±HH:00.
-  return Date.parse(iso.replace(/([+-]\d{2})$/, "$1:00"));
+  // Postgres emits a two-digit offset ("+00"); V8's strict ISO parser needs
+  // "+00:00", so pad a bare ±HH offset to ±HH:00. Only pad when the offset
+  // follows a "T" time component: a bare calendar date ("2026-08-01") also ends
+  // in ±HH shape ("-01"), and padding that would corrupt it into NaN.
+  return Date.parse(iso.replace(/(T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)([+-]\d{2})$/, "$1$2:00"));
 }
 
 const dateFmt = new Intl.DateTimeFormat("en-CA", { timeZone: ARUBA_TZ }); // YYYY-MM-DD
