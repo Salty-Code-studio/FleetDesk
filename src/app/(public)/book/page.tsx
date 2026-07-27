@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { DatePicker } from "@/components/ui";
+import { DatePicker, TimeSelect } from "@/components/ui";
 
 interface ClassOption { class: string; fromDayCents: number; depositCents: number | null; cars: number; available: boolean | null; carSlug: string | null }
 interface Tier { id: string; name: string; dailyPriceCents: number; coverage: string; isDefault: boolean }
@@ -10,6 +10,9 @@ interface Breakdown {
   days: number; vehicleCents: number; insuranceCents: number;
   addOns: { id: string; name: string; qty: number; cents: number }[];
   addOnsCents: number; subtotalCents: number; depositCents: number | null; reservationFeeCents: number; currency: string;
+  // wave-05 wires real hours: /api/booking-config lands this too; the quote
+  // response does not send it yet, so this stays optional until it does.
+  meta?: { openingTime: string; closingTime: string };
 }
 
 const money = (c: number, cur = "USD") => (cur === "USD" ? `$${(c / 100).toFixed(2)}` : `${cur} ${(c / 100).toFixed(2)}`);
@@ -28,6 +31,11 @@ export default function BookPage() {
   const [selectedClass, setSelectedClass] = useState("");
   const [pickup, setPickup] = useState("");
   const [ret, setRet] = useState("");
+  const [pickupTime, setPickupTime] = useState("");
+  const [retTime, setRetTime] = useState("");
+  // wave-05 wires real hours: /api/booking-config (see its plan) will return
+  // openingTime/closingTime and replace this default when it lands.
+  const [hours, setHours] = useState<{ openingTime: string; closingTime: string }>({ openingTime: "08:00", closingTime: "18:00" });
   const [tierId, setTierId] = useState<string>("");
   const [qty, setQty] = useState<Record<string, number>>({});
   const [license, setLicense] = useState({ ...blankLicense });
@@ -38,6 +46,11 @@ export default function BookPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const idemKey = useMemo(() => (typeof crypto !== "undefined" ? crypto.randomUUID() : String(Math.random())), []);
+
+  // Full Aruba-offset timestamps once both a date and a time are chosen; falls
+  // back to the bare date otherwise (the API still accepts date-only values).
+  const startAt = pickup && pickupTime ? `${pickup}T${pickupTime}:00-04:00` : pickup; // date-only still accepted by the API
+  const endAt = ret && retTime ? `${ret}T${retTime}:00-04:00` : ret;
 
   // Load catalogs + read the Phase 1 deep-link params (?class, ?pickup, ?return).
   useEffect(() => {
@@ -50,23 +63,25 @@ export default function BookPage() {
       const def = i.find((t) => t.isDefault);
       if (def) setTierId(def.id);
       const p = new URLSearchParams(window.location.search);
-      if (p.get("pickup")) setPickup(p.get("pickup")!);
-      if (p.get("return")) setRet(p.get("return")!);
+      if (p.get("pickup")) { setPickup(p.get("pickup")!); setPickupTime(hours.openingTime); }
+      if (p.get("return")) { setRet(p.get("return")!); setRetTime(hours.openingTime); }
       const cls = p.get("class") || p.get("car"); // car is legacy; both resolve to a type
       if (cls) { const m = c.find((x) => x.class.toLowerCase() === cls.toLowerCase()); if (m) setSelectedClass(m.class); }
     }).catch(() => setError("Could not load the fleet. Please refresh."));
+    // Mount-only: intentionally reads the `hours` default in effect at load time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-resolve availability + the held car whenever the dates change.
+  // Re-resolve availability + the held car whenever the dates or times change.
   useEffect(() => {
     if (!pickup || !ret || ret <= pickup) return;
     let live = true;
-    fetch(`/api/classes?pickup=${pickup}&return=${ret}`)
+    fetch(`/api/classes?pickup=${encodeURIComponent(startAt)}&return=${encodeURIComponent(endAt)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c: ClassOption[] | null) => { if (live && c) setClasses(c); })
       .catch(() => {});
     return () => { live = false; };
-  }, [pickup, ret]);
+  }, [pickup, ret, startAt, endAt]);
 
   const selectedData = classes.find((c) => c.class === selectedClass);
   const carSlug = selectedData?.carSlug ?? null;
@@ -79,15 +94,17 @@ export default function BookPage() {
     [qty],
   );
 
-  // Live USD quote whenever the (resolved) car, dates, insurance or extras change.
+  // Live USD quote whenever the (resolved) car, dates, times, insurance or extras change.
   useEffect(() => {
     if (!carSlug || !pickup || !ret || ret <= pickup) { setBreakdown(null); return; }
-    const body = { vehicleSlug: carSlug, startDate: pickup, endDate: ret, insuranceTierId: tierId || null, addOns: addOnsBody };
+    const body = { vehicleSlug: carSlug, startAt, endAt, insuranceTierId: tierId || null, addOns: addOnsBody };
     let live = true;
     fetch("/api/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      .then((r) => (r.ok ? r.json() : null)).then((b) => { if (live) setBreakdown(b); }).catch(() => {});
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { if (live) { setBreakdown(b); if (b?.meta) setHours(b.meta); } })
+      .catch(() => {});
     return () => { live = false; };
-  }, [carSlug, pickup, ret, tierId, addOnsBody]);
+  }, [carSlug, pickup, ret, startAt, endAt, tierId, addOnsBody]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -97,7 +114,7 @@ export default function BookPage() {
       const res = await fetch("/api/bookings", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vehicleSlug: carSlug, startDate: pickup, endDate: ret, customer,
+          vehicleSlug: carSlug, startAt, endAt, customer,
           insuranceTierId: tierId || null, addOns: addOnsBody, license,
           acceptTerms, paymentOption, idempotencyKey: idemKey,
         }),
@@ -141,6 +158,8 @@ export default function BookPage() {
     if (n === 2) {
       if (!pickup || !ret) { focusField("[name='pickup'],#pickup"); return "Please choose your pick-up and return dates."; }
       if (ret <= pickup) { focusField("#ret"); return "The return date must be after the pick-up date."; }
+      if (!pickupTime) { focusField("#pickup-time"); return "Please choose a pick-up time."; }
+      if (!retTime) { focusField("#ret-time"); return "Please choose a return time."; }
       if (avail && !avail.available) return avail.reason;
       if (selectedClass && !avail) return "Please choose your pick-up and return dates.";
     }
@@ -263,11 +282,15 @@ export default function BookPage() {
               <div className="card">
                 <h2 ref={headingRef} tabIndex={-1}><span className="step-n">2</span>Dates</h2>
                 <div className="two">
-                  <label className="fld">Pick-up<DatePicker id="pickup" name="pickup" required min={todayISO()} value={pickup} onChange={(iso) => { setPickup(iso); setStepError(""); }} ariaLabel="Pick-up date" /></label>
-                  <label className="fld">Return<DatePicker id="ret" name="ret" required min={pickup || todayISO()} value={ret} onChange={(iso) => { setRet(iso); setStepError(""); }} ariaLabel="Return date" /></label>
+                  <label className="fld">Pick-up date<DatePicker id="pickup" name="pickup" required min={todayISO()} value={pickup} onChange={(iso) => { setPickup(iso); setStepError(""); }} ariaLabel="Pick-up date" /></label>
+                  <label className="fld">Pick-up time<TimeSelect id="pickup-time" ariaLabel="Pick-up time" min={hours.openingTime} max={hours.closingTime} value={pickupTime} onChange={(t) => { setPickupTime(t); setStepError(""); }} /></label>
+                </div>
+                <div className="two">
+                  <label className="fld">Return date<DatePicker id="ret" name="ret" required min={pickup || todayISO()} value={ret} onChange={(iso) => { setRet(iso); setStepError(""); }} ariaLabel="Return date" /></label>
+                  <label className="fld">Return time<TimeSelect id="ret-time" ariaLabel="Return time" min={hours.openingTime} max={hours.closingTime} value={retTime} onChange={(t) => { setRetTime(t); setStepError(""); }} /></label>
                 </div>
                 {selectedClass && avail && (avail.available
-                  ? <p className="avail ok">✓ A {selectedClass} car is available on these dates</p>
+                  ? <p className="avail ok">✓ A {selectedClass} car is available then</p>
                   : <p className="avail no">✕ {avail.reason}</p>)}
               </div>
             )}
@@ -340,7 +363,7 @@ export default function BookPage() {
 
                 <dl className="recap">
                   <div className="recap-row"><dt>Car type</dt><dd>{selectedClass || "Not chosen yet"}</dd></div>
-                  <div className="recap-row"><dt>Dates</dt><dd>{pickup && ret ? `${pickup} to ${ret}` : "Not set"}{breakdown ? ` · ${breakdown.days} day${breakdown.days !== 1 ? "s" : ""}` : ""}</dd></div>
+                  <div className="recap-row"><dt>Dates</dt><dd>{pickup && ret ? `Pick-up ${pickup} at ${pickupTime} to Return ${ret} at ${retTime}` : "Not set"}{breakdown ? ` · ${breakdown.days} day${breakdown.days !== 1 ? "s" : ""}` : ""}</dd></div>
                   <div className="recap-row"><dt>Insurance</dt><dd>{tiers.find((t) => t.id === tierId)?.name ?? "Basic"}</dd></div>
                   <div className="recap-row"><dt>Extras</dt><dd>{addOnsBody.length === 0 ? "None" : addons.filter((a) => (qty[a.id] ?? 0) > 0).map((a) => `${a.name}${(qty[a.id] ?? 0) > 1 ? ` ×${qty[a.id]}` : ""}`).join(", ")}</dd></div>
                   <div className="recap-row"><dt>Driver</dt><dd>{license.nameOnLicense || "Not entered"}</dd></div>

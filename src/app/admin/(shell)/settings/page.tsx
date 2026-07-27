@@ -10,7 +10,7 @@ import {
   useConfirm,
   registerPaletteAction,
 } from "@/app/admin/_ui";
-import { DatePicker } from "@/components/ui";
+import { DatePicker, TimeSelect } from "@/components/ui";
 import "./settings.css";
 
 interface Settings {
@@ -173,14 +173,13 @@ export default function SettingsPage() {
                 <input type="number" min="0" max="168" value={s.turnaroundBufferHours}
                   onChange={(e) => setS({ ...s, turnaroundBufferHours: Number(e.target.value) })} />
               </label>
-              {/* Temporary text inputs; Task 4 swaps these for a TimeSelect component. */}
               <label>Opening time
-                <input type="text" pattern="^([01]\d|2[0-3]):[0-5]\d$" placeholder="08:00" value={s.openingTime}
-                  onChange={(e) => setS({ ...s, openingTime: e.target.value })} />
+                <TimeSelect min="00:00" max="23:30" ariaLabel="Opening time" value={s.openingTime}
+                  onChange={(t) => setS({ ...s, openingTime: t })} />
               </label>
               <label>Closing time
-                <input type="text" pattern="^([01]\d|2[0-3]):[0-5]\d$" placeholder="18:00" value={s.closingTime}
-                  onChange={(e) => setS({ ...s, closingTime: e.target.value })} />
+                <TimeSelect min="00:00" max="23:30" ariaLabel="Closing time" value={s.closingTime}
+                  onChange={(t) => setS({ ...s, closingTime: t })} />
               </label>
               <label>Minimum rental (days)
                 <input type="number" min="1" max="365" value={s.minRentalDays}

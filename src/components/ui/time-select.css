@@ -1,0 +1,47 @@
+/* FleetDesk TimeSelect - Sand & Surf, scds- namespaced, token + literal fallback.
+   Mirrors the DatePicker trigger box (src/components/ui/date-picker.css) so a
+   date + time pair reads as one control family. Native <select>: no popover. */
+
+.time-select {
+  display: block;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid var(--line, #e3dac8);
+  border-radius: 10px;
+  background: var(--panel, #fcfaf4);
+  color: var(--ink, #1c2b2e);
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 0.95rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.time-select:invalid {
+  color: var(--ink-soft, #586a6d);
+}
+
+.time-select:hover:not(:disabled) {
+  border-color: var(--teal, #0e3a40);
+}
+
+.time-select:focus-visible {
+  outline: 2px solid var(--teal, #0e3a40);
+  outline-offset: 1px;
+  border-color: var(--teal, #0e3a40);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal, #0e3a40) 22%, transparent);
+}
+
+.time-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .time-select {
+    transition: none;
+  }
+}
