@@ -18,6 +18,13 @@ let lockCount = 0;
 let savedOverflow = "";
 let savedPaddingRight = "";
 
+// Stack of currently-open overlay instances (Modal-over-Drawer, etc.), most
+// recently opened last. Every instance independently registers a capture-phase
+// `document` keydown listener, so without this only the topmost one may act
+// on Escape: otherwise one keypress would fire every open overlay's onClose
+// and close them all at once instead of just backing out of the top one.
+const overlayStack: object[] = [];
+
 function lockBody() {
   if (lockCount === 0 && typeof document !== "undefined") {
     const { body } = document;
@@ -56,6 +63,8 @@ export function useOverlay(
   const restoreRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // Stable per-instance token identifying this overlay's place in the stack.
+  const tokenRef = useRef<object>({});
 
   const focusFirst = useCallback(() => {
     const panel = panelRef.current;
@@ -76,9 +85,18 @@ export function useOverlay(
     lockBody();
     // Defer one frame so the panel has rendered before we focus it.
     const raf = requestAnimationFrame(focusFirst);
+    // Stable for the lifetime of this effect (tokenRef.current never changes
+    // after first render) — captured locally so the cleanup below closes over
+    // a plain variable instead of re-reading the ref.
+    const token = tokenRef.current;
+    overlayStack.push(token);
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
+        // Only the topmost open overlay backs out on Escape. A Modal opened
+        // over an open Drawer (e.g. Refund/Cancel over the BookingDrawer)
+        // must not also close the Drawer underneath it for the same keypress.
+        if (overlayStack[overlayStack.length - 1] !== token) return;
         e.stopPropagation();
         onCloseRef.current();
         return;
@@ -116,6 +134,8 @@ export function useOverlay(
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("keydown", onKeyDown, true);
+      const idx = overlayStack.indexOf(token);
+      if (idx !== -1) overlayStack.splice(idx, 1);
       unlockBody();
       // Restore focus to whatever opened the overlay.
       const el = restoreRef.current;
