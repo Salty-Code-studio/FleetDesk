@@ -193,7 +193,7 @@ label.fld {
   margin-bottom: 0.9rem;
 }
 label.fld input,
-label.fld select {
+label.fld select:not(.time-select) {
   padding: 0.65rem 0.75rem;
   border: 1.5px solid var(--line);
   border-radius: var(--radius-sm);
@@ -210,7 +210,7 @@ label.fld input::placeholder {
   color: var(--ink-soft);
 }
 label.fld input:focus,
-label.fld select:focus {
+label.fld select:focus:not(.time-select) {
   outline: none;
   border-color: var(--teal);
   background: #fff;
