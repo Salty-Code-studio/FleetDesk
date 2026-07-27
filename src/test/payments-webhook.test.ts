@@ -18,12 +18,25 @@ const breakdown = {
 };
 
 let dateCursor = 1;
+// distinct non-overlapping dates per booking (same vehicle, buffered constraint).
+// Wraps into later years once the cursor passes month 12 so many bookings still
+// land on valid, non-overlapping windows.
+function nextWindow() {
+  const idx = dateCursor++;
+  const year = 2027 + Math.floor((idx - 1) / 12);
+  const month = String(((idx - 1) % 12) + 1).padStart(2, "0");
+  return {
+    startAt: atAruba(`${year}-${month}-01`, "09:00"),
+    endAt: atAruba(`${year}-${month}-08`, "09:00"),
+    bufferEndAt: atAruba(`${year}-${month}-09`, "09:00"),
+  };
+}
+
 async function makePendingBooking(key: string, sessionId: string) {
-  // distinct non-overlapping dates per booking (same vehicle, buffered constraint)
-  const month = String(dateCursor++).padStart(2, "0");
+  const { startAt, endAt, bufferEndAt } = nextWindow();
   const [b] = await db.insert(bookings).values({
     vehicleId, customerId,
-    startAt: atAruba(`2027-${month}-01`, "09:00"), endAt: atAruba(`2027-${month}-08`, "09:00"), bufferEndAt: atAruba(`2027-${month}-09`, "09:00"),
+    startAt, endAt, bufferEndAt,
     status: "pending", priceBreakdown: breakdown, paymentOption: "deposit",
     acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: key,
   }).returning();
@@ -47,10 +60,10 @@ function paidEvent(id: string, sessionId: string, bookingId: string, over: Parti
 }
 
 async function makeBookingNoPayment(key: string) {
-  const month = String(dateCursor++).padStart(2, "0");
+  const { startAt, endAt, bufferEndAt } = nextWindow();
   const [b] = await db.insert(bookings).values({
     vehicleId, customerId,
-    startAt: atAruba(`2027-${month}-01`, "09:00"), endAt: atAruba(`2027-${month}-08`, "09:00"), bufferEndAt: atAruba(`2027-${month}-09`, "09:00"),
+    startAt, endAt, bufferEndAt,
     status: "pending", priceBreakdown: breakdown, paymentOption: "deposit",
     acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: key,
   }).returning();
@@ -167,5 +180,65 @@ describe("processStripeEvent", () => {
     const header = stripe.webhooks.generateTestHeaderString({ payload, secret: env.STRIPE_WEBHOOK_SECRET });
     expect(() => stripe.webhooks.constructEvent(payload, header, env.STRIPE_WEBHOOK_SECRET)).not.toThrow();
     expect(() => stripe.webhooks.constructEvent(payload + "x", header, env.STRIPE_WEBHOOK_SECRET)).toThrow();
+  });
+});
+
+describe("wave 02 payment tracking", () => {
+  it("credits amountPaidCents when a booking is confirmed", async () => {
+    const b = await makePendingBooking("wh-amt-1", "cs_amt_1");
+    await processStripeEvent(paidEvent("evt_amt_1", "cs_amt_1", b.id));
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.status).toBe("confirmed");
+    expect(after!.amountPaidCents).toBe(3000);
+  });
+
+  it("verifies against the recorded payment row, not recomputed snapshot math", async () => {
+    const b = await makePendingBooking("wh-row-1", "cs_row_1");
+    // Poison the snapshot so a recompute would demand a different amount; the
+    // recorded pending row (3000) must win.
+    await db.update(bookings)
+      .set({ priceBreakdown: { ...breakdown, subtotalCents: 999999, depositPercent: 50, depositMinCents: 50000 } })
+      .where(eq(bookings.id, b.id));
+    const res = await processStripeEvent(paidEvent("evt_row_1", "cs_row_1", b.id));
+    expect(res.bookingConfirmed).toBe(true);
+  });
+
+  it("extension payment confirms the payment and credits the booking without touching status", async () => {
+    const b = await makePendingBooking("wh-ext-1", "cs_ext_seed_1");
+    await processStripeEvent(paidEvent("evt_ext_seed_1", "cs_ext_seed_1", b.id)); // now confirmed, paid 3000
+    await db.insert(payments).values({
+      bookingId: b.id, stripeCheckoutSessionId: "cs_ext_1", type: "extension", method: "stripe",
+      amountCents: 5800, currency: "USD", status: "pending",
+    });
+    const res = await processStripeEvent(paidEvent("evt_ext_1", "cs_ext_1", b.id, {
+      amount_total: 5800, metadata: { bookingId: b.id, paymentType: "extension" },
+    }));
+    expect(res.bookingConfirmed).toBe(false);
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.status).toBe("confirmed");
+    expect(after!.amountPaidCents).toBe(3000 + 5800);
+    const [pay] = await db.select().from(payments).where(eq(payments.stripeCheckoutSessionId, "cs_ext_1"));
+    expect(pay!.status).toBe("succeeded");
+  });
+
+  it("charge.refunded reconciles refund totals and decrements amountPaidCents", async () => {
+    const b = await makePendingBooking("wh-ref-1", "cs_ref_1");
+    await processStripeEvent(paidEvent("evt_ref_seed_1", "cs_ref_1", b.id)); // paid 3000, pi_cs_ref_1
+    const refundEvent = {
+      id: "evt_ref_1", type: "charge.refunded", object: "event", api_version: null,
+      created: 0, livemode: false, pending_webhooks: 0, request: null,
+      data: { object: { id: "ch_ref_1", object: "charge", payment_intent: "pi_cs_ref_1", amount_refunded: 3000 } },
+    } as unknown as Stripe.Event;
+    await processStripeEvent(refundEvent);
+    const [pay] = await db.select().from(payments).where(eq(payments.stripeCheckoutSessionId, "cs_ref_1"));
+    expect(pay!.status).toBe("refunded");
+    expect(pay!.refundedCents).toBe(3000);
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.amountPaidCents).toBe(0);
+    // Redelivery of the same totals is a no-op (delta 0).
+    const again = { ...refundEvent, id: "evt_ref_2" } as unknown as Stripe.Event;
+    await processStripeEvent(again);
+    const [after2] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after2!.amountPaidCents).toBe(0);
   });
 });

@@ -3,28 +3,30 @@
  * stripe.webhooks.constructEvent).
  *
  * Money-safety properties:
- *   - ATOMIC: the event-id dedupe claim, the payment upsert, and the booking
- *     flip all commit in ONE transaction. If anything fails, the claim rolls
- *     back too, so Stripe's retry re-does the work for real (no "claimed but
- *     never confirmed" lost payments).
- *   - AUTHORITATIVE payment record: the payment row is UPSERTED by session id,
- *     so a confirmed booking always has a succeeded payment row even if the
- *     checkout-time insert was lost.
- *   - Amount/currency verified against the server-expected charge before any
- *     confirmation.
- *   - Confirms ONLY a still-pending booking; a surplus/orphan succeeded payment
- *     (already-confirmed or cancelled booking) is recorded and LOUDLY flagged
- *     for refund rather than silently swallowed.
- *   - Handles delayed-settlement methods: async_payment_succeeded confirms,
- *     async_payment_failed marks the payment failed.
+ *   - ATOMIC: the event-id dedupe claim and every write commit in ONE
+ *     transaction; a failure rolls the claim back so Stripe's retry redoes the
+ *     work for real.
+ *   - AUTHORITATIVE payment record: the payment row is UPSERTED by session id.
+ *   - Amount/currency verified BEFORE any confirmation. The recorded payment
+ *     row for the session is the primary expectation (it was written when the
+ *     session was created, so it survives settings changes and legacy
+ *     snapshots); recomputing from the snapshot is the fallback for a lost
+ *     checkout-time insert.
+ *   - Confirms ONLY a still-pending booking; surplus captures are recorded,
+ *     flagged, and auto-refunded.
+ *   - bookings.amount_paid_cents is credited on confirmation and on extension
+ *     payments, and debited by charge.refunded reconciliation.
+ *   - Extension payments (metadata paymentType=extension) confirm the PAYMENT
+ *     only; the booking dates were already extended when the link was created.
  */
 import type Stripe from "stripe";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { bookings, payments, stripeWebhookEvents } from "@/lib/db/schema";
 import { chargeForBooking, type PaymentOption } from "@/lib/payments/charge";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 import { getStripe } from "@/lib/payments/stripe-client";
+import { notifyAdmin } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
 export interface ProcessResult {
@@ -37,20 +39,18 @@ export interface ProcessResult {
 const CONFIRM_EVENTS = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded"]);
 
 export async function processStripeEvent(event: Stripe.Event): Promise<ProcessResult> {
-  // async_payment_failed AND expired both mean "this session will never pay":
-  // mark its payment row failed so the booking is no longer protected from
-  // hold-expiry. Without the expired case an abandoned checkout leaves a stuck
-  // 'pending' payment that pins the car's dates forever (expireStaleHolds skips
-  // any booking with a non-failed payment).
+  // async_payment_failed AND expired both mean "this session will never pay".
   if (event.type === "checkout.session.async_payment_failed" || event.type === "checkout.session.expired") {
     return markSessionFailed(event);
   }
+  if (event.type === "charge.refunded") {
+    return reconcileRefund(event);
+  }
   if (!CONFIRM_EVENTS.has(event.type)) {
-    return { handled: true }; // acked + ignored (no side effect → safe to reprocess)
+    return { handled: true }; // acked + ignored (no side effect, safe to reprocess)
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  // async_payment_succeeded always means paid; completed must be payment_status paid.
   if (event.type === "checkout.session.completed" && session.payment_status !== "paid") {
     return { handled: true };
   }
@@ -67,14 +67,10 @@ export async function processStripeEvent(event: Stripe.Event): Promise<ProcessRe
 
   const db = await getDb();
   let result: ProcessResult = { handled: true };
-  // A surplus capture (paid against a booking that is no longer pending) is
-  // refunded AFTER the transaction commits — never do Stripe network I/O while
-  // holding a DB transaction open.
   let surplusRefund: { paymentIntentId: string; sessionId: string } | null = null;
+  let extensionPaid = false;
 
   await db.transaction(async (tx) => {
-    // Dedupe gate INSIDE the transaction: if the id already exists, this event
-    // was fully processed before — nothing to do.
     const claimed = await tx.insert(stripeWebhookEvents)
       .values({ eventId: event.id, type: event.type })
       .onConflictDoNothing({ target: stripeWebhookEvents.eventId })
@@ -87,7 +83,12 @@ export async function processStripeEvent(event: Stripe.Event): Promise<ProcessRe
       return; // claim commits; nothing to confirm
     }
 
-    const expected = chargeForBooking(booking.paymentOption as PaymentOption, booking.priceBreakdown as QuoteBreakdown);
+    // Row-first amount verification (see module doc).
+    const [known] = await tx.select().from(payments).where(eq(payments.stripeCheckoutSessionId, session.id));
+    const expected = known
+      ? { type: known.type, amountCents: known.amountCents, currency: known.currency }
+      : chargeForBooking(booking.paymentOption as PaymentOption, booking.priceBreakdown as QuoteBreakdown);
+
     const paidAmount = session.amount_total ?? 0;
     const paidCurrency = (session.currency ?? "").toUpperCase();
     if (paidAmount !== expected.amountCents || paidCurrency !== expected.currency.toUpperCase()) {
@@ -95,12 +96,29 @@ export async function processStripeEvent(event: Stripe.Event): Promise<ProcessRe
       return; // do NOT confirm on a mismatch
     }
 
-    // Upsert the payment row by session id → succeeded (authoritative record).
+    if (session.metadata?.paymentType === "extension" || known?.type === "extension") {
+      await tx.insert(payments).values({
+        bookingId: booking.id, stripeCheckoutSessionId: session.id, stripePaymentIntentId: paymentIntentId,
+        type: "extension", method: "stripe", amountCents: expected.amountCents, currency: expected.currency, status: "succeeded",
+      }).onConflictDoUpdate({
+        target: payments.stripeCheckoutSessionId,
+        set: { status: "succeeded", stripePaymentIntentId: paymentIntentId, updatedAt: new Date() },
+      });
+      await tx.update(bookings)
+        .set({ amountPaidCents: sql`${bookings.amountPaidCents} + ${expected.amountCents}`, updatedAt: new Date() })
+        .where(eq(bookings.id, booking.id));
+      extensionPaid = true;
+      result = { handled: true, bookingConfirmed: false, bookingId: booking.id };
+      return;
+    }
+
+    // Upsert the payment row by session id -> succeeded (authoritative record).
     await tx.insert(payments).values({
       bookingId: booking.id,
       stripeCheckoutSessionId: session.id,
       stripePaymentIntentId: paymentIntentId,
       type: expected.type,
+      method: "stripe",
       amountCents: expected.amountCents,
       currency: expected.currency,
       status: "succeeded",
@@ -109,23 +127,23 @@ export async function processStripeEvent(event: Stripe.Event): Promise<ProcessRe
       set: { status: "succeeded", stripePaymentIntentId: paymentIntentId, updatedAt: new Date() },
     });
 
-    // Flip pending → confirmed (guarded: only if still pending).
+    // Flip pending -> confirmed (guarded) and credit the paid amount.
     const flipped = await tx.update(bookings)
-      .set({ status: "confirmed", updatedAt: new Date() })
+      .set({
+        status: "confirmed",
+        amountPaidCents: sql`${bookings.amountPaidCents} + ${expected.amountCents}`,
+        updatedAt: new Date(),
+      })
       .where(and(eq(bookings.id, booking.id), eq(bookings.status, "pending")))
       .returning({ id: bookings.id });
 
     if (flipped.length > 0) {
       result = { handled: true, bookingConfirmed: true, bookingId: booking.id };
     } else {
-      // Money captured but the booking was not pending → a real surplus charge.
-      // We deliberately do NOT auto-resurrect a cancelled booking here: the
-      // webhook can't tell an auto-expired hold from a deliberate admin/customer
-      // cancellation, so reviving could un-cancel an intentionally cancelled
-      // booking. (The hold-expiry cron can no longer cancel a *payable* booking
-      // anyway: checkout now writes the pending payment row in-transaction before
-      // the customer can pay, and expireStaleHolds skips any non-failed payment.)
-      // Flag the surplus AND queue an automatic refund once the transaction commits.
+      // Money captured but the booking was not pending: a real surplus charge.
+      // Never resurrect a cancelled booking; flag + queue an automatic refund
+      // once the transaction commits. Surplus money is NOT credited to
+      // amount_paid_cents (it is on its way back to the card).
       logger.error("stripe_webhook_surplus_payment_needs_refund", {
         bookingId: booking.id, bookingStatus: booking.status, paymentIntentId, sessionId: session.id, eventId: event.id,
       });
@@ -134,15 +152,19 @@ export async function processStripeEvent(event: Stripe.Event): Promise<ProcessRe
     }
   });
 
+  if (extensionPaid) {
+    await notifyAdmin({
+      level: "success", type: "payment.received", title: "Extension payment received",
+      body: "The customer paid the extension link.", bookingId,
+    });
+  }
+
   if (surplusRefund) {
     const { paymentIntentId: pi, sessionId } = surplusRefund;
     try {
       await getStripe().refunds.create({ payment_intent: pi });
       logger.warn("stripe_webhook_surplus_refunded", { paymentIntentId: pi, sessionId, eventId: event.id });
     } catch (e) {
-      // Best-effort: if the refund call fails, the surplus stays flagged in the
-      // logs above for manual handling. Never throw — the booking is already
-      // correctly confirmed/cancelled and the event must still be acked.
       logger.error("stripe_webhook_surplus_refund_failed", { paymentIntentId: pi, sessionId, eventId: event.id, error: String(e) });
     }
   }
@@ -162,6 +184,39 @@ async function markSessionFailed(event: Stripe.Event): Promise<ProcessResult> {
     await tx.update(payments)
       .set({ status: "failed", updatedAt: new Date() })
       .where(eq(payments.stripeCheckoutSessionId, session.id));
+  });
+  return { handled: true };
+}
+
+/** charge.refunded: reconcile refund totals idempotently. refundPayment()
+ *  records refunds it makes itself, so the delta here is usually 0; a refund
+ *  made in the Stripe dashboard is picked up by this path. */
+async function reconcileRefund(event: Stripe.Event): Promise<ProcessResult> {
+  const charge = event.data.object as Stripe.Charge;
+  const paymentIntentId = typeof charge.payment_intent === "string"
+    ? charge.payment_intent
+    : charge.payment_intent?.id ?? null;
+  if (!paymentIntentId) return { handled: true };
+  const db = await getDb();
+  await db.transaction(async (tx) => {
+    const claimed = await tx.insert(stripeWebhookEvents)
+      .values({ eventId: event.id, type: event.type })
+      .onConflictDoNothing({ target: stripeWebhookEvents.eventId })
+      .returning({ eventId: stripeWebhookEvents.eventId });
+    if (claimed.length === 0) return;
+    const [payment] = await tx.select().from(payments).where(eq(payments.stripePaymentIntentId, paymentIntentId));
+    if (!payment) return;
+    const refundedTotal = charge.amount_refunded ?? 0;
+    const delta = refundedTotal - payment.refundedCents;
+    if (delta <= 0) return; // already recorded (e.g. by refundPayment)
+    await tx.update(payments).set({
+      refundedCents: refundedTotal,
+      status: refundedTotal >= payment.amountCents ? "refunded" : payment.status,
+      updatedAt: new Date(),
+    }).where(eq(payments.id, payment.id));
+    await tx.update(bookings)
+      .set({ amountPaidCents: sql`GREATEST(0, ${bookings.amountPaidCents} - ${delta})`, updatedAt: new Date() })
+      .where(eq(bookings.id, payment.bookingId));
   });
   return { handled: true };
 }
