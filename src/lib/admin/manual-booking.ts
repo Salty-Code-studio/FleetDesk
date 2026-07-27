@@ -75,7 +75,7 @@ export async function createManualBooking(raw: ManualBookingInput) {
       vehicleId: vehicle.id, customerId: customer!.id,
       startAt: input.startAt, endAt: input.endAt, bufferEndAt,
       status: "confirmed", source: "manual", notes: input.notes ?? null,
-      priceBreakdown: breakdown, paymentOption: "cash_deposit",
+      priceBreakdown: breakdown, paymentOption: "full",
       acceptedPolicyVersion: 0, acceptedAt: new Date(),
       idempotencyKey: `manual-${customer!.id}-${input.startAt}-${input.endAt}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     }).returning();

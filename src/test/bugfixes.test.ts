@@ -63,7 +63,7 @@ describe("checkAvailability uses each booking's stored buffer (finding #9)", () 
     // booking made under a 24-hour buffer: stored bufferEndAt = end + 24h
     await db.insert(bookings).values({
       vehicleId: v!.id, customerId: c!.id, startAt: atAruba("2026-08-01", "09:00"), endAt: atAruba("2026-08-10", "09:00"), bufferEndAt: atAruba("2026-08-11", "09:00"),
-      status: "confirmed", priceBreakdown: {}, paymentOption: "reservation_fee",
+      status: "confirmed", priceBreakdown: {}, paymentOption: "deposit",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "buf-raise-1",
     });
     // admin later raises the global buffer to 72 hours. A pickup on 08-11 (one clear
@@ -94,7 +94,7 @@ describe("abandoned checkout frees the car (finding #2)", () => {
     const old = new Date(Date.now() - 60 * 60_000);
     const [b] = await db.insert(bookings).values({
       vehicleId: v!.id, customerId: c!.id, startAt: atAruba("2029-01-01", "09:00"), endAt: atAruba("2029-01-05", "09:00"), bufferEndAt: atAruba("2029-01-06", "09:00"),
-      status: "pending", priceBreakdown: {}, paymentOption: "reservation_fee",
+      status: "pending", priceBreakdown: {}, paymentOption: "deposit",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "exp-1", createdAt: old,
     }).returning();
     await db.insert(payments).values({

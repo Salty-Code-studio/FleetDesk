@@ -15,15 +15,17 @@ describe("admin settings", () => {
   });
 
   it("applies a partial update", async () => {
-    const updated = await patchSettings({ reservationFeeCents: 3500, minDriverAge: 23 });
-    expect(updated.reservationFeeCents).toBe(3500);
+    const updated = await patchSettings({ depositMinCents: 3500, minDriverAge: 23 });
+    expect(updated.depositMinCents).toBe(3500);
     expect(updated.minDriverAge).toBe(23);
     expect(updated.currency).toBe("USD"); // untouched
   });
 
   it("validates ranges and the min≤max invariant", () => {
     expect(SettingsPatchSchema.safeParse({ minDriverAge: 12 }).success).toBe(false);
-    expect(SettingsPatchSchema.safeParse({ reservationFeeCents: -5 }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ depositMinCents: -5 }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ depositPercent: 130 }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ cancellationWindowHours: -1 }).success).toBe(false);
     expect(SettingsPatchSchema.safeParse({ minRentalDays: 10, maxRentalDays: 3 }).success).toBe(false);
     expect(SettingsPatchSchema.safeParse({ currency: "US" }).success).toBe(false);
     expect(SettingsPatchSchema.safeParse({ adminAlertRecipients: ["a@b.com"] }).success).toBe(true);

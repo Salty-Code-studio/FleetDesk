@@ -37,10 +37,17 @@ export function loginCodeEmail(args: { code: string; link: string }): RenderedEm
 export function bookingConfirmedEmail(args: {
   vehicleName: string; startAt: string; endAt: string;
   rentalTotalCents: number; currency: string;
-  amountPaidCents?: number; chargeType?: "reservation_fee" | "deposit";
+  amountPaidCents?: number; chargeType?: string;
 }): RenderedEmail {
+  const CHARGE_LABEL: Record<string, string> = {
+    reservation_fee: "(reservation fee)",
+    deposit: "(refundable deposit)",
+    rental_deposit: "(deposit, balance due at pickup)",
+    rental_full: "(paid in full)",
+    extension: "(extension payment)",
+  };
   const paidLine = args.amountPaidCents !== undefined
-    ? `Paid now: <strong>${money(args.amountPaidCents, args.currency)}</strong> ${args.chargeType === "deposit" ? "(refundable deposit)" : "(reservation fee)"}<br>`
+    ? `Paid now: <strong>${money(args.amountPaidCents, args.currency)}</strong> ${CHARGE_LABEL[args.chargeType ?? ""] ?? ""}<br>`
     : "";
   return {
     subject: `Your ${args.vehicleName} booking is confirmed`,

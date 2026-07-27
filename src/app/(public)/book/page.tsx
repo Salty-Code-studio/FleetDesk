@@ -9,7 +9,7 @@ interface AddOn { id: string; name: string; description: string; priceCents: num
 interface Breakdown {
   days: number; vehicleCents: number; insuranceCents: number;
   addOns: { id: string; name: string; qty: number; cents: number }[];
-  addOnsCents: number; subtotalCents: number; depositCents: number | null; reservationFeeCents: number; currency: string;
+  addOnsCents: number; subtotalCents: number; depositCents: number | null; depositPercent: number; depositMinCents: number; youngDriverCents: number; currency: string;
   // wave-05 wires real hours: /api/booking-config lands this too; the quote
   // response does not send it yet, so this stays optional until it does.
   meta?: { openingTime: string; closingTime: string };
@@ -40,7 +40,7 @@ export default function BookPage() {
   const [qty, setQty] = useState<Record<string, number>>({});
   const [license, setLicense] = useState({ ...blankLicense });
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "" });
-  const [paymentOption, setPaymentOption] = useState<"reservation_fee" | "full_deposit" | "cash_deposit">("reservation_fee");
+  const [paymentOption, setPaymentOption] = useState<"deposit" | "full">("deposit");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [error, setError] = useState("");
@@ -373,9 +373,8 @@ export default function BookPage() {
 
                 {breakdown && (
                   <div className="pay-options">
-                    <label className="opt"><input type="radio" name="pay" checked={paymentOption === "reservation_fee"} onChange={() => setPaymentOption("reservation_fee")} /><span className="grow">Pay the reservation fee now to hold it</span><span className="price">{money(breakdown.reservationFeeCents, cur)}</span></label>
-                    {breakdown.depositCents !== null && <label className="opt"><input type="radio" name="pay" checked={paymentOption === "full_deposit"} onChange={() => setPaymentOption("full_deposit")} /><span className="grow">Pay the full deposit online instead</span><span className="price">{money(breakdown.depositCents, cur)}</span></label>}
-                    <label className="opt"><input type="radio" name="pay" checked={paymentOption === "cash_deposit"} onChange={() => setPaymentOption("cash_deposit")} /><span className="grow">Pay deposit in cash at pick-up (reservation fee still applies)</span></label>
+                    <label className="opt"><input type="radio" name="pay" checked={paymentOption === "deposit"} onChange={() => setPaymentOption("deposit")} /><span className="grow">Reserve with a deposit, pay the rest at pickup</span></label>
+                    <label className="opt"><input type="radio" name="pay" checked={paymentOption === "full"} onChange={() => setPaymentOption("full")} /><span className="grow">Pay the full rental now</span></label>
                   </div>
                 )}
 
@@ -404,7 +403,7 @@ export default function BookPage() {
 
           {step === TOTAL && (
             <>
-              <p className="note">You&apos;ll be taken to our secure Stripe checkout to pay the {paymentOption === "full_deposit" ? "deposit" : "reservation fee"}.</p>
+              <p className="note">You&apos;ll be taken to our secure Stripe checkout.</p>
               <p className="msg err">{error}</p>
             </>
           )}

@@ -90,7 +90,7 @@ describe("moveBooking — re-prices and re-checks add-on stock for online bookin
       vehicleId: car, customerId: custId,
       startAt: atAruba(start, "09:00"), endAt: atAruba(end, "09:00"), bufferEndAt: atAruba(end, "09:00"),
       status: "confirmed", source: "online", priceBreakdown: { days: 0, addOns: [] },
-      paymentOption: "reservation_fee", acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: key,
+      paymentOption: "deposit", acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: key,
     }).returning();
     await db.insert(bookingAddOns).values({ bookingId: bk!.id, addOnId: chair, qty, priceSnapshotCents: 500 * qty });
     return bk!;
@@ -115,7 +115,7 @@ describe("moveBooking — re-prices and re-checks add-on stock for online bookin
       vehicleId: v2!.id, customerId: custId,
       startAt: atAruba("2029-06-01", "09:00"), endAt: atAruba("2029-06-05", "09:00"), bufferEndAt: atAruba("2029-06-05", "09:00"),
       status: "confirmed", source: "online", priceBreakdown: { days: 4, addOns: [] },
-      paymentOption: "reservation_fee", acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: "rp-other",
+      paymentOption: "deposit", acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: "rp-other",
     }).returning();
     await db.insert(bookingAddOns).values({ bookingId: other!.id, addOnId: chair, qty: 2, priceSnapshotCents: 1000 });
 

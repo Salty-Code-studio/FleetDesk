@@ -49,7 +49,7 @@ describe("quote", () => {
         { id: "a1", name: "Baby chair", priceCents: 500, pricing: "per_day", qty: 1 },
         { id: "a2", name: "Cooler", priceCents: 700, pricing: "per_rental", qty: 2 },
       ],
-      reservationFeeCents: 3000,
+      depositPercent: 25, depositMinCents: 3000,
       currency: "USD",
     });
     expect(b.vehicleCents).toBe(34800);          // weekly
@@ -59,12 +59,14 @@ describe("quote", () => {
     expect(b.addOnsCents).toBe(3500 + 1400);     // 4900
     expect(b.subtotalCents).toBe(34800 + 10500 + 4900); // 50200
     expect(b.depositCents).toBe(25000);
-    expect(b.reservationFeeCents).toBe(3000);
+    expect(b.depositPercent).toBe(25);
+    expect(b.depositMinCents).toBe(3000);
+    expect(b.youngDriverCents).toBe(0);
     expect(b.currency).toBe("USD");
   });
 
   it("handles no insurance and a null deposit", () => {
-    const b = quote({ days: 3, vehicle: { ...rates, depositCents: null }, addOns: [], reservationFeeCents: 3000, currency: "USD" });
+    const b = quote({ days: 3, vehicle: { ...rates, depositCents: null }, addOns: [], depositPercent: 25, depositMinCents: 3000, currency: "USD" });
     expect(b.insuranceCents).toBe(0);
     expect(b.depositCents).toBeNull();
     expect(b.subtotalCents).toBe(b.vehicleCents);

@@ -115,7 +115,8 @@ export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<Qu
       const a = byId.get(r.addOnId);
       return a ? [{ id: a.id, name: a.name, priceCents: a.priceCents, pricing: a.pricing, qty: r.qty }] : [];
     }),
-    reservationFeeCents: settings.reservationFeeCents,
+    depositPercent: settings.depositPercent,
+    depositMinCents: settings.depositMinCents,
     currency: settings.currency,
   });
 }

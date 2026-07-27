@@ -65,7 +65,7 @@ describe("moveBooking", () => {
     const [c] = await db.insert(customers).values({ email: "done@test.com" }).returning();
     const [bk] = await db.insert(bookings).values({
       vehicleId: carA, customerId: c!.id, startAt: at("2028-04-01"), endAt: at("2028-04-05"), bufferEndAt: at("2028-04-06"),
-      status: "completed", priceBreakdown: {}, paymentOption: "cash_deposit",
+      status: "completed", priceBreakdown: {}, paymentOption: "full",
       acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: "mv-done",
     }).returning();
     await expectReject(moveBooking(bk!.id, { startAt: at("2028-05-01"), endAt: at("2028-05-05") }), /no longer be moved/i);

@@ -14,7 +14,7 @@ let vehicleId = "", customerId = "";
 
 const breakdown = {
   days: 7, vehicleCents: 34800, insuranceCents: 0, addOns: [], addOnsCents: 0,
-  subtotalCents: 34800, depositCents: 25000, reservationFeeCents: 3000, currency: "USD",
+  subtotalCents: 34800, depositCents: 25000, youngDriverCents: 0, depositPercent: 0, depositMinCents: 3000, currency: "USD",
 };
 
 let dateCursor = 1;
@@ -24,7 +24,7 @@ async function makePendingBooking(key: string, sessionId: string) {
   const [b] = await db.insert(bookings).values({
     vehicleId, customerId,
     startAt: atAruba(`2027-${month}-01`, "09:00"), endAt: atAruba(`2027-${month}-08`, "09:00"), bufferEndAt: atAruba(`2027-${month}-09`, "09:00"),
-    status: "pending", priceBreakdown: breakdown, paymentOption: "reservation_fee",
+    status: "pending", priceBreakdown: breakdown, paymentOption: "deposit",
     acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: key,
   }).returning();
   await db.insert(payments).values({
@@ -51,7 +51,7 @@ async function makeBookingNoPayment(key: string) {
   const [b] = await db.insert(bookings).values({
     vehicleId, customerId,
     startAt: atAruba(`2027-${month}-01`, "09:00"), endAt: atAruba(`2027-${month}-08`, "09:00"), bufferEndAt: atAruba(`2027-${month}-09`, "09:00"),
-    status: "pending", priceBreakdown: breakdown, paymentOption: "reservation_fee",
+    status: "pending", priceBreakdown: breakdown, paymentOption: "deposit",
     acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: key,
   }).returning();
   return b!;

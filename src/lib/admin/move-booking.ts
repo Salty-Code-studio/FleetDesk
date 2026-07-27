@@ -123,7 +123,8 @@ export async function moveBooking(id: string, input: MoveInput) {
           },
           insurance: (booking.insuranceSnapshot as { id: string; name: string; dailyPriceCents: number } | null) ?? null,
           addOns: lines.map((l) => ({ id: l.addOnId, name: l.name, priceCents: l.priceCents, pricing: l.pricing, qty: l.qty })),
-          reservationFeeCents: settings.reservationFeeCents,
+          depositPercent: settings.depositPercent,
+          depositMinCents: settings.depositMinCents,
           currency: settings.currency,
         });
         // Refresh each add-on's per-line snapshot (per_day lines scale with days).

@@ -23,7 +23,7 @@ function input(over: Partial<BookingCreateInput> = {}): BookingCreateInput {
     vehicleSlug: "book-car", startAt: at("2026-07-01"), endAt: at("2026-07-08"),
     customer: { email: "jane@example.com", name: "Jane Driver", phone: "+297 000 0000" },
     insuranceTierId: null, addOns: [], license: { ...baseLicense },
-    acceptTerms: true, paymentOption: "reservation_fee",
+    acceptTerms: true, paymentOption: "deposit",
     idempotencyKey: "idem-" + Math.random().toString(36).slice(2),
     ...over,
   } as BookingCreateInput;
@@ -99,14 +99,16 @@ describe("createBooking", () => {
     ).rejects.toThrow(/left for those dates/i);
   });
 
-  it("rejects full_deposit when the car has no deposit set", async () => {
-    await db.insert(vehicles).values({
-      slug: "no-deposit", plate: "PL-no-deposit", class: "Economy", name: "No Deposit", seats: 4, transmission: "Automatic",
-      doors: 4, priceDayCents: 3500, priceWeekCents: 21000, priceMonthCents: 72000, depositCents: null,
-    });
-    await expect(
-      createBooking(input({ vehicleSlug: "no-deposit", paymentOption: "full_deposit", idempotencyKey: "dep-1" }), TODAY),
-    ).rejects.toThrow(/full deposit/i);
+  it("rejects booking when settings make the pay-now amount zero", async () => {
+    const db = await getDb();
+    await db.update(settings).set({ depositPercent: 0, depositMinCents: 0 }).where(eq(settings.id, 1));
+    try {
+      await expect(
+        createBooking(input({ paymentOption: "deposit", startAt: at("2027-02-01"), endAt: at("2027-02-05"), idempotencyKey: "dep-1" }), TODAY),
+      ).rejects.toThrow(/unavailable/i);
+    } finally {
+      await db.update(settings).set({ depositPercent: 25, depositMinCents: 3000 }).where(eq(settings.id, 1));
+    }
   });
 
   it("rejects an under-age driver end to end", async () => {

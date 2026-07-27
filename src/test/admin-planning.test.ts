@@ -26,7 +26,7 @@ beforeAll(async () => {
   await db.insert(bookings).values({
     vehicleId: eco!.id, customerId: c!.id,
     startAt: atAruba("2027-03-05", "09:00"), endAt: atAruba("2027-03-09", "09:00"), bufferEndAt: atAruba("2027-03-10", "09:00"),
-    status: "confirmed", priceBreakdown: {}, paymentOption: "reservation_fee", acceptedPolicyVersion: 1,
+    status: "confirmed", priceBreakdown: {}, paymentOption: "deposit", acceptedPolicyVersion: 1,
     acceptedAt: new Date(), idempotencyKey: "plan-1",
   });
 });

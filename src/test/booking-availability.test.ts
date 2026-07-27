@@ -49,7 +49,7 @@ describe("checkAvailability", () => {
     // never retro-blocks a slot the constraint would still accept).
     await db.insert(bookings).values({
       vehicleId, customerId, startAt: at("2026-08-01"), endAt: at("2026-08-10"), bufferEndAt: at("2026-08-11"), status: "confirmed",
-      priceBreakdown: {}, paymentOption: "reservation_fee", acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "av-k1",
+      priceBreakdown: {}, paymentOption: "deposit", acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "av-k1",
     });
     expect((await checkAvailability(vehicleId, at("2026-08-05"), at("2026-08-12"), settings)).available).toBe(false);
   });

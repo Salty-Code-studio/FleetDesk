@@ -8,7 +8,11 @@ import { sql } from "drizzle-orm";
  */
 export const settings = pgTable("settings", {
   id: integer("id").primaryKey().default(1),
-  reservationFeeCents: integer("reservation_fee_cents").notNull().default(3000),
+  // Deposit-to-reserve = max(depositPercent% of the rental total, depositMinCents), capped at the total.
+  depositPercent: integer("deposit_percent").notNull().default(25),
+  depositMinCents: integer("deposit_min_cents").notNull().default(3000),
+  // Free cancellation until this many hours before pickup; inside it, no refund.
+  cancellationWindowHours: integer("cancellation_window_hours").notNull().default(48),
   currency: text("currency").notNull().default("USD"),
   minDriverAge: integer("min_driver_age").notNull().default(21),
   turnaroundBufferHours: integer("turnaround_buffer_hours").notNull().default(24),

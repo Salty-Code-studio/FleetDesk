@@ -23,7 +23,7 @@ const mkBooking = (
   vehicleId: forVehicleId ?? vehicleId,
   customerId, startAt: at(start), endAt: at(end), bufferEndAt: at(bufferEnd ?? end), status,
   priceBreakdown: { totalCents: 10000 },
-  paymentOption: "reservation_fee" as const,
+  paymentOption: "deposit" as const,
   acceptedPolicyVersion: 1,
   acceptedAt: new Date(),
   idempotencyKey: key,

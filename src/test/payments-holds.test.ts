@@ -18,7 +18,7 @@ async function mkBooking(key: string, createdAt: Date, status: "pending" | "conf
   const [b] = await db.insert(bookings).values({
     vehicleId, customerId,
     startAt: atAruba(`2027-${month}-01`, "09:00"), endAt: atAruba(`2027-${month}-05`, "09:00"), bufferEndAt: atAruba(`2027-${month}-06`, "09:00"),
-    status, priceBreakdown: bd, paymentOption: "reservation_fee", acceptedPolicyVersion: 1,
+    status, priceBreakdown: bd, paymentOption: "deposit", acceptedPolicyVersion: 1,
     acceptedAt: new Date(), idempotencyKey: key, createdAt,
   }).returning();
   if (paid) {

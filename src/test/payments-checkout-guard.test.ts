@@ -10,7 +10,7 @@ let vehicleId = "", customerId = "";
 
 const breakdown = {
   days: 7, vehicleCents: 34800, insuranceCents: 0, addOns: [], addOnsCents: 0,
-  subtotalCents: 34800, depositCents: 25000, reservationFeeCents: 3000, currency: "USD",
+  subtotalCents: 34800, depositCents: 25000, youngDriverCents: 0, depositPercent: 0, depositMinCents: 3000, currency: "USD",
 };
 
 beforeAll(async () => {
@@ -29,7 +29,7 @@ describe("createBookingCheckout guards", () => {
     const [b] = await db.insert(bookings).values({
       vehicleId, customerId,
       startAt: atAruba("2028-01-01", "09:00"), endAt: atAruba("2028-01-05", "09:00"), bufferEndAt: atAruba("2028-01-06", "09:00"),
-      status: "confirmed", priceBreakdown: breakdown, paymentOption: "reservation_fee",
+      status: "confirmed", priceBreakdown: breakdown, paymentOption: "deposit",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "co-1",
     }).returning();
     await expect(createBookingCheckout(b!.id, "http://localhost")).rejects.toThrow(/no longer awaiting payment/i);
@@ -39,7 +39,7 @@ describe("createBookingCheckout guards", () => {
     const [b] = await db.insert(bookings).values({
       vehicleId, customerId,
       startAt: atAruba("2028-02-01", "09:00"), endAt: atAruba("2028-02-05", "09:00"), bufferEndAt: atAruba("2028-02-06", "09:00"),
-      status: "pending", priceBreakdown: breakdown, paymentOption: "reservation_fee",
+      status: "pending", priceBreakdown: breakdown, paymentOption: "deposit",
       acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "co-2",
     }).returning();
     await db.insert(payments).values({

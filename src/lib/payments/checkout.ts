@@ -11,13 +11,16 @@ import { isUniqueViolation } from "@/lib/db/errors";
 import { bookings, payments, vehicles } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
 import { getStripe } from "@/lib/payments/stripe-client";
-import { chargeForBooking, type PaymentOption } from "@/lib/payments/charge";
+import { chargeForBooking, type PaymentOption, type ChargeType } from "@/lib/payments/charge";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 import { formatDateTime } from "@/lib/time/format";
 
-const LABEL: Record<"reservation_fee" | "deposit", string> = {
+const LABEL: Record<ChargeType, string> = {
   reservation_fee: "Reservation fee",
   deposit: "Security deposit",
+  rental_deposit: "Deposit to reserve",
+  rental_full: "Rental payment",
+  extension: "Extension payment",
 };
 
 export async function createBookingCheckout(bookingId: string, origin: string): Promise<{ url: string }> {
@@ -77,7 +80,7 @@ export async function createBookingCheckout(bookingId: string, origin: string): 
       }],
       metadata: { bookingId: booking.id, paymentType: charge.type },
       success_url: `${origin}/book/confirmation?id=${booking.id}`,
-      cancel_url: `${origin}/book?canceled=1`,
+      cancel_url: `${origin}/book?canceled=1&id=${booking.id}`,
     });
 
     if (!session.url) throw Errors.badRequest("Could not start checkout");
@@ -91,6 +94,7 @@ export async function createBookingCheckout(bookingId: string, origin: string): 
         bookingId: booking.id,
         stripeCheckoutSessionId: session.id,
         type: charge.type,
+        method: "stripe",
         amountCents: charge.amountCents,
         currency: charge.currency,
         status: "pending",

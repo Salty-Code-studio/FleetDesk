@@ -19,6 +19,7 @@ import { isUniqueViolation, translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
 import { getLatestPolicy } from "@/lib/admin/policies";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
+import { paymentAmounts } from "@/lib/payments/charge";
 import { validateDates, checkAvailability } from "@/lib/booking/availability";
 import { LicenseSchema, validateLicense, encryptLicense } from "@/lib/booking/license";
 import { addHoursIso, arubaDateOf, parseTs } from "@/lib/time/format";
@@ -37,7 +38,7 @@ export const BookingCreateSchema = z.object({
   addOns: z.array(z.object({ addOnId: z.string().uuid(), qty: z.number().int().min(1).max(10) })).max(20).default([]),
   license: LicenseSchema,
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the rental terms" }) }),
-  paymentOption: z.enum(["reservation_fee", "full_deposit", "cash_deposit"]),
+  paymentOption: z.enum(["deposit", "full"]),
   idempotencyKey: z.string().trim().min(8).max(200),
 }).strict();
 
@@ -69,20 +70,6 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
 
   const availability = await checkAvailability(vehicle.id, input.startAt, input.endAt, settings);
   if (!availability.available) throw Errors.conflict(availability.reason ?? "Those dates are not available");
-
-  if (input.paymentOption === "full_deposit" && vehicle.depositCents === null) {
-    throw Errors.badRequest("Paying the full deposit online is not available for this car yet");
-  }
-  // A reservation_fee / cash_deposit booking is locked by charging the online
-  // reservation fee. If the owner set that fee to 0 the booking would be created
-  // but never chargeable (chargeForBooking throws), so reject it up front rather
-  // than leave an unpayable hold tying up the car until it expires.
-  if (
-    (input.paymentOption === "reservation_fee" || input.paymentOption === "cash_deposit") &&
-    settings.reservationFeeCents <= 0
-  ) {
-    throw Errors.badRequest("Online reservation is unavailable right now; please contact us to book");
-  }
 
   // Resolve insurance tier (must be active) and add-ons (must be active).
   let insurance: { id: string; name: string; dailyPriceCents: number } | null = null;
@@ -125,9 +112,20 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
       const a = addOnById.get(req.addOnId)!;
       return { id: a.id, name: a.name, priceCents: a.priceCents, pricing: a.pricing, qty: req.qty };
     }),
-    reservationFeeCents: settings.reservationFeeCents,
+    depositPercent: settings.depositPercent,
+    depositMinCents: settings.depositMinCents,
     currency: settings.currency,
   });
+
+  // If the owner zeroed both deposit knobs the booking could never be charged
+  // (chargeForBooking throws), so reject up front instead of stranding a hold.
+  const amounts = paymentAmounts(breakdown, input.paymentOption, {
+    depositPercent: settings.depositPercent,
+    depositMinCents: settings.depositMinCents,
+  });
+  if (amounts.payNowCents <= 0) {
+    throw Errors.badRequest("Online reservation is unavailable right now; please contact us to book");
+  }
 
   const termsVersion = (await getLatestPolicy("rental_terms"))?.version ?? 0;
   const retainUntil = new Date(parseTs(input.endAt) + settings.licenseRetentionDays * 86_400_000);

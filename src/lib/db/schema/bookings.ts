@@ -5,7 +5,7 @@ import { customers } from "./customers";
 import { addOns, insuranceTiers } from "./catalog";
 
 export const bookingStatus = pgEnum("booking_status", ["pending", "confirmed", "picked_up", "cancelled", "completed"]);
-export const paymentOption = pgEnum("payment_option", ["reservation_fee", "full_deposit", "cash_deposit"]);
+export const paymentOption = pgEnum("payment_option", ["deposit", "full"]);
 export const bookingSource = pgEnum("booking_source", ["online", "manual"]);
 
 /**
@@ -34,6 +34,9 @@ export const bookings = pgTable("bookings", {
   insuranceTierId: uuid("insurance_tier_id").references(() => insuranceTiers.id),
   insuranceSnapshot: jsonb("insurance_snapshot"),
   paymentOption: paymentOption("payment_option").notNull(),
+  // Sum of settled money on this booking. Credited by the Stripe webhook and by
+  // desk payments, debited by refunds, so balance-due is queryable.
+  amountPaidCents: integer("amount_paid_cents").notNull().default(0),
   acceptedPolicyVersion: integer("accepted_policy_version").notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull(),
   idempotencyKey: text("idempotency_key").notNull().unique(),

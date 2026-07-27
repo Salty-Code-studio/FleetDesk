@@ -14,7 +14,8 @@ import { DatePicker, TimeSelect } from "@/components/ui";
 import "./settings.css";
 
 interface Settings {
-  reservationFeeCents: number; currency: string; minDriverAge: number;
+  depositPercent: number; depositMinCents: number; cancellationWindowHours: number;
+  currency: string; minDriverAge: number;
   turnaroundBufferHours: number; openingTime: string; closingTime: string;
   minRentalDays: number; maxRentalDays: number;
   maxAdvanceDays: number; licenseRetentionDays: number; adminAlertRecipients: string[];
@@ -66,7 +67,9 @@ export default function SettingsPage() {
     if (!s) return;
     try {
       const updated = await apiPatch<Settings>("/api/admin/settings", {
-        reservationFeeCents: s.reservationFeeCents,
+        depositPercent: s.depositPercent,
+        depositMinCents: s.depositMinCents,
+        cancellationWindowHours: s.cancellationWindowHours,
         currency: s.currency,
         minDriverAge: s.minDriverAge,
         turnaroundBufferHours: s.turnaroundBufferHours,
@@ -125,7 +128,7 @@ export default function SettingsPage() {
           <div className="panel">
             <div className="set-panel-head"><h2>Fees &amp; guardrails</h2></div>
             <div className="form-grid">
-              {Array.from({ length: 11 }).map((_, i) => (
+              {Array.from({ length: 13 }).map((_, i) => (
                 <label key={i}><Skeleton width="55%" height={11} /><Skeleton height={38} radius={9} /></label>
               ))}
             </div>
@@ -157,9 +160,17 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="form-grid">
-              <label>Reservation fee ({s.currency})
-                <input type="number" step="0.01" min="0" value={dollars(s.reservationFeeCents)}
-                  onChange={(e) => setS({ ...s, reservationFeeCents: Math.round(Number(e.target.value) * 100) })} />
+              <label>Deposit to reserve (% of rental total)
+                <input type="number" step="1" min="0" max="100" value={s.depositPercent}
+                  onChange={(e) => setS({ ...s, depositPercent: Number(e.target.value) })} />
+              </label>
+              <label>Minimum deposit ({s.currency})
+                <input type="number" step="0.01" min="0" value={dollars(s.depositMinCents)}
+                  onChange={(e) => setS({ ...s, depositMinCents: Math.round(Number(e.target.value) * 100) })} />
+              </label>
+              <label>Free cancellation window (hours before pickup)
+                <input type="number" step="1" min="0" max="720" value={s.cancellationWindowHours}
+                  onChange={(e) => setS({ ...s, cancellationWindowHours: Number(e.target.value) })} />
               </label>
               <label>Currency
                 <input value={s.currency} maxLength={3}

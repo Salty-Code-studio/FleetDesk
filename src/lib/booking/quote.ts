@@ -29,7 +29,8 @@ export interface QuoteInput {
   vehicle: VehicleRates;
   insurance?: { id: string; name: string; dailyPriceCents: number } | null;
   addOns: QuoteAddOnInput[];
-  reservationFeeCents: number;
+  depositPercent: number;
+  depositMinCents: number;
   currency: string;
 }
 
@@ -50,8 +51,11 @@ export interface QuoteBreakdown {
   subtotalCents: number;
   /** Refundable security hold; null until the owner sets a per-class deposit. */
   depositCents: number | null;
-  /** Upfront amount that locks the booking. */
-  reservationFeeCents: number;
+  /** Young-driver surcharge line. Always 0 until the young-driver workstream wires it. */
+  youngDriverCents: number;
+  /** Deposit settings snapshotted at quote time; they drive the pay-now math forever after. */
+  depositPercent: number;
+  depositMinCents: number;
   currency: string;
 }
 
@@ -79,7 +83,7 @@ export function bestVehicleCents(days: number, r: VehicleRates): number {
 }
 
 export function quote(input: QuoteInput): QuoteBreakdown {
-  const { days, vehicle, insurance, addOns, reservationFeeCents, currency } = input;
+  const { days, vehicle, insurance, addOns, depositPercent, depositMinCents, currency } = input;
   const vehicleCents = bestVehicleCents(days, vehicle);
   const insuranceCents = insurance ? insurance.dailyPriceCents * days : 0;
 
@@ -97,9 +101,11 @@ export function quote(input: QuoteInput): QuoteBreakdown {
     insuranceCents,
     addOns: addOnLines,
     addOnsCents,
+    youngDriverCents: 0,
     subtotalCents: vehicleCents + insuranceCents + addOnsCents,
     depositCents: vehicle.depositCents,
-    reservationFeeCents,
+    depositPercent,
+    depositMinCents,
     currency,
   };
 }

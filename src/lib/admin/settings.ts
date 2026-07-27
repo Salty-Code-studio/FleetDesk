@@ -13,7 +13,9 @@ const TIME_HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** Partial update — every field optional, each independently range-checked. */
 export const SettingsPatchSchema = z.object({
-  reservationFeeCents: centsField.optional(),
+  depositPercent: z.number().int().min(0).max(100).optional(),
+  depositMinCents: centsField.optional(),
+  cancellationWindowHours: z.number().int().min(0).max(720).optional(),
   currency: z.string().trim().toUpperCase().length(3, "3-letter currency code").optional(),
   minDriverAge: z.number().int().min(16).max(99).optional(),
   turnaroundBufferHours: z.number().int().min(0).max(168).optional(),

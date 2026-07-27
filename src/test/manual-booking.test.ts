@@ -37,7 +37,7 @@ describe("manual booking", () => {
     });
     expect(b.status).toBe("confirmed");
     expect(b.source).toBe("manual");
-    expect(b.paymentOption).toBe("cash_deposit");
+    expect(b.paymentOption).toBe("full");
     expect((b.priceBreakdown as { subtotalCents: number }).subtotalCents).toBe(18000);
     const [c] = await db.select().from(customers).where(eq(customers.id, b.customerId));
     expect(c!.email).toMatch(/@fleetdesk\.local$/);

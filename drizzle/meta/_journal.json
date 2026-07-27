@@ -120,6 +120,13 @@
       "when": 1785176187233,
       "tag": "0016_high_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785187850544,
+      "tag": "0017_wave02_money_model",
+      "breakpoints": true
     }
   ]
 }
