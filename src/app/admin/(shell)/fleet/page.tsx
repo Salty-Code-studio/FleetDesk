@@ -11,7 +11,8 @@ import {
   useConfirm,
   registerPaletteAction,
 } from "@/app/admin/_ui";
-import { DatePicker, Select } from "@/components/ui";
+import { DatePicker, Select, TimeSelect } from "@/components/ui";
+import { atAruba } from "@/lib/time/format";
 import "./fleet.css";
 
 interface Vehicle {
@@ -37,7 +38,7 @@ export default function FleetPage() {
   const [loading, setLoading] = useState(true);
   const [blocksFor, setBlocksFor] = useState<Vehicle | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [bo, setBo] = useState({ startDate: "", endDate: "", type: "maintenance", reason: "" });
+  const [bo, setBo] = useState({ startDate: "", startTime: "00:00", endDate: "", endTime: "00:00", type: "maintenance", reason: "" });
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -121,8 +122,11 @@ export default function FleetPage() {
     e.preventDefault();
     if (!blocksFor) return;
     try {
-      await api(`/api/admin/vehicles/${blocksFor.id}/blocks`, bo);
-      setBo({ startDate: "", endDate: "", type: "maintenance", reason: "" });
+      await api(`/api/admin/vehicles/${blocksFor.id}/blocks`, {
+        startAt: atAruba(bo.startDate, bo.startTime), endAt: atAruba(bo.endDate, bo.endTime),
+        type: bo.type, reason: bo.reason,
+      });
+      setBo({ startDate: "", startTime: "00:00", endDate: "", endTime: "00:00", type: "maintenance", reason: "" });
       setBlocks(await apiGet<Block[]>(`/api/admin/vehicles/${blocksFor.id}/blocks`));
       toast.show({ type: "success", message: "Block added." });
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
@@ -269,11 +273,14 @@ export default function FleetPage() {
         </table>
         <form className="inline-form fleet-block-form" onSubmit={addBlock}>
           <label>From<br /><DatePicker value={bo.startDate} onChange={(iso) => setBo({ ...bo, startDate: iso })} required /></label>
+          <label>Start time<br /><TimeSelect value={bo.startTime} onChange={(t) => setBo({ ...bo, startTime: t })} /></label>
           <label>Until<br /><DatePicker value={bo.endDate} onChange={(iso) => setBo({ ...bo, endDate: iso })} required /></label>
+          <label>End time<br /><TimeSelect value={bo.endTime} onChange={(t) => setBo({ ...bo, endTime: t })} /></label>
           <label>Type<br /><Select value={bo.type} onChange={(v) => setBo({ ...bo, type: v })} options={BLOCK_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))} /></label>
           <label>Reason<br /><input value={bo.reason} onChange={(e) => setBo({ ...bo, reason: e.target.value })} /></label>
           <button className="btn" style={{ width: "auto" }}>Add block</button>
         </form>
+        <p className="muted fleet-block-hint">Leave 00:00 for full days.</p>
       </Drawer>
     </>
   );

@@ -4,8 +4,8 @@ import { getDb } from "@/lib/db/client";
 import { vehicles, availabilityBlocks } from "@/lib/db/schema";
 import { centsField, optionalCentsField } from "@/lib/admin/money";
 import { Errors } from "@/lib/http/errors";
-import { isoDate } from "@/lib/validation/iso-date";
-import { atAruba, arubaDateOf } from "@/lib/time/format";
+import { isoDateTime } from "@/lib/validation/iso-date";
+import { arubaDateOf, parseTs } from "@/lib/time/format";
 
 export type Vehicle = typeof vehicles.$inferSelect;
 /** Blocks are whole out-of-service days; the day fields are derived from the
@@ -35,11 +35,11 @@ export const VehicleCreateSchema = z.object({
 export const VehiclePatchSchema = VehicleCreateSchema.partial().strict();
 
 export const BlockSchema = z.object({
-  startDate: isoDate,
-  endDate: isoDate,
+  startAt: isoDateTime,
+  endAt: isoDateTime,
   type: z.enum(["maintenance", "carwash", "cleaning", "out_of_service", "other"]).default("other"),
   reason: z.string().trim().max(200).default(""),
-}).strict().refine((v) => v.endDate > v.startDate, { message: "endDate must be after startDate", path: ["endDate"] });
+}).strict().refine((v) => parseTs(v.endAt) > parseTs(v.startAt), { message: "endAt must be after startAt", path: ["endAt"] });
 
 export async function listVehicles(): Promise<Vehicle[]> {
   const db = await getDb();
@@ -101,13 +101,13 @@ export async function createBlock(vehicleId: string, raw: z.input<typeof BlockSc
   const db = await getDb();
   const vehicle = await getVehicle(vehicleId);
   if (!vehicle) throw Errors.notFound("Vehicle not found");
-  // Blocks are whole out-of-service days: midnight-to-midnight Aruba, so a
-  // block from day D to day E (exclusive) is a continuous [D, E) range with
-  // no 09:00 offset (unlike bookings, which default to a 09:00 pick-up time).
+  // Blocks carry full Aruba timestamps. A full-day block is midnight-to-midnight
+  // (00:00 to 00:00 the next day); timed blocks (e.g. a mid-day carwash) narrow
+  // the window. The exclusion constraint guards against overlaps either way.
   const [row] = await db.insert(availabilityBlocks).values({
     vehicleId,
-    startAt: atAruba(input.startDate, "00:00"),
-    endAt: atAruba(input.endDate, "00:00"),
+    startAt: input.startAt,
+    endAt: input.endAt,
     type: input.type,
     reason: input.reason,
   }).returning();

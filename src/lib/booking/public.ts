@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/admin/settings";
 import { getLatestPolicy, type PolicyType } from "@/lib/admin/policies";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
 import { validateDates } from "@/lib/booking/availability";
-import { atAruba } from "@/lib/time/format";
+import { atAruba, arubaNowIso } from "@/lib/time/format";
 import { isoDate } from "@/lib/validation/iso-date";
 import { Errors } from "@/lib/http/errors";
 
@@ -18,14 +18,9 @@ export function arubaToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(new Date());
 }
 
-/** Now as a Aruba fixed-offset ISO timestamp. */
-export function arubaNowIso(): string {
-  const d = new Date();
-  return atAruba(
-    new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(d),
-    new Intl.DateTimeFormat("en-GB", { timeZone: "America/Aruba", hour: "2-digit", minute: "2-digit", hour12: false }).format(d),
-  );
-}
+/** Now as an Aruba fixed-offset ISO timestamp. Canonical impl lives in the time
+ *  module; re-exported here for the booking routes that already import it. */
+export { arubaNowIso };
 
 /** Boundary compat: a bare YYYY-MM-DD (Phase 1 deep links, old clients) becomes
  *  that date at the shop's opening time, Aruba. Full timestamps pass through

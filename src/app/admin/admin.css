@@ -35,6 +35,8 @@
   --danger-bg:   #F6E3DF;
   --amber:       #C98A33;  /* pending status */
   --amber-bg:    #F6E9CF;
+  --pickup:      #2C5F8A;  /* picked up / with customer */
+  --overdue:     #8A2C2C;  /* overdue return */
 
   /* legacy names → repointed so old var() usages adopt the new palette */
   --blue: var(--teal);
@@ -242,9 +244,12 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-bar { position: absolute; top: 8px; height: 30px; border-radius: 8px; display: flex; align-items: center; padding: 0 .55rem; font-size: .76rem; font-weight: 600; font-family: var(--font-mono); color: #fff; overflow: hidden; white-space: nowrap; box-shadow: 0 2px 8px -2px rgba(14,58,64,.4); cursor: grab; touch-action: none; user-select: none; transition: box-shadow .15s var(--ease), filter .15s var(--ease); }
 .pl-bar:hover { filter: brightness(1.06); box-shadow: 0 4px 12px -2px rgba(14,58,64,.5); }
 .pl-bar:active { cursor: grabbing; }
-.pl-bar.confirmed { background: var(--teal); }
-.pl-bar.pending { background: var(--amber); color: #2f2100; }
-.pl-bar.completed { background: var(--ok); cursor: default; }
+.pl-bar--pending { background: var(--amber); color: #2f2100; }
+.pl-bar--confirmed { background: var(--teal); }
+.pl-bar--picked_up { background: var(--pickup); cursor: default; }
+.pl-bar--due_back_soon { background: var(--pickup); outline: 2px solid var(--amber); outline-offset: -2px; cursor: default; }
+.pl-bar--overdue { background: var(--overdue); cursor: default; }
+.pl-bar--completed { background: var(--ok); cursor: default; }
 .pl-bar.manual::after { content: "✦"; margin-left: .35rem; opacity: .85; font-size: .68rem; }
 .pl-bar.dragging { opacity: .35; }
 .pl-block { position: absolute; top: 8px; height: 30px; border-radius: 8px; color: #2b3252; display: flex; align-items: center; padding: 0 .5rem; font-size: .72rem; font-weight: 600; font-family: var(--font-mono); overflow: hidden; white-space: nowrap; cursor: pointer; user-select: none; background: repeating-linear-gradient(45deg, #d8ccb4, #d8ccb4 6px, #c8baa0 6px, #c8baa0 12px); }
@@ -265,6 +270,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-pop-head small { color: var(--ink-soft); }
 .pl-pop-range { flex: 1 0 100%; color: var(--ink-soft); font-size: .76rem; font-family: var(--font-mono); }
 .pl-pop-note { margin: 0 0 .65rem; font-size: .82rem; color: var(--ink-soft); background: var(--fill); padding: .45rem .6rem; border-radius: 9px; }
+.pl-pop-times { margin: -.35rem 0 .6rem; font-size: .74rem; color: var(--ink-soft); font-family: var(--font-mono); }
 .pl-pop-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
 .pl-pop-actions .btn { width: auto; padding: .48rem .85rem; }
 .pl-form { display: flex; flex-direction: column; gap: .55rem; }

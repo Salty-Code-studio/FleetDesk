@@ -4,6 +4,7 @@ import {
   createVehicle, updateVehicle, retireVehicle, getVehicle, listVehicles,
   createBlock, listBlocks, deleteBlock, VehicleCreateSchema,
 } from "@/lib/admin/vehicles";
+import { atAruba } from "@/lib/time/format";
 import { expectReject } from "./util";
 
 const base = {
@@ -54,7 +55,7 @@ describe("admin vehicles", () => {
 
   it("manages availability blocks per vehicle", async () => {
     const v = await createVehicle(VehicleCreateSchema.parse({ ...base, plate: nextPlate(), slug: "blocked-car" }));
-    const b = await createBlock(v.id, { startDate: "2026-09-01", endDate: "2026-09-05", reason: "Service" });
+    const b = await createBlock(v.id, { startAt: atAruba("2026-09-01", "00:00"), endAt: atAruba("2026-09-05", "00:00"), reason: "Service" });
     expect((await listBlocks(v.id)).length).toBe(1);
     expect(await deleteBlock(b.id)).toBe(true);
     expect((await listBlocks(v.id)).length).toBe(0);

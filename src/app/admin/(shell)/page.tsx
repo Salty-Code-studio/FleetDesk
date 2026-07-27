@@ -11,11 +11,13 @@ import {
   registerPaletteAction,
   type ConfirmFn,
 } from "@/app/admin/_ui";
-import { DatePicker, Select } from "@/components/ui";
+import { DatePicker, Select, TimeSelect } from "@/components/ui";
+import { atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, formatTime, parseTs } from "@/lib/time/format";
+import { barSpan, barState } from "@/lib/admin/bar-span";
 import "./dashboard.css";
 
-interface Bar { id: string; start: string; end: string; status: string; source: string; label: string; notes: string | null }
-interface Block { id: string; start: string; end: string; type: string; reason: string }
+interface Bar { id: string; start: string; end: string; startAt: string; endAt: string; status: string; source: string; label: string; notes: string | null }
+interface Block { id: string; start: string; end: string; startAt: string; endAt: string; type: string; reason: string }
 interface Vehicle { id: string; name: string; slug: string; plate: string; class: string; bookings: Bar[]; blocks: Block[] }
 interface Category { class: string; vehicles: Vehicle[] }
 interface Planning {
@@ -34,7 +36,7 @@ const niceType = (t: string) => t.replace(/_/g, " ");
 // In-flight pointer gesture. Kept in a ref so pointermove/up never depend on React state timing.
 type Gesture =
   | { kind: "select"; vehicleId: string; plate: string; name: string; anchorDay: number; moved: boolean; startX: number; startY: number }
-  | { kind: "move"; bookingId: string; originVehicleId: string; origStart: string; lenDays: number; grabDay: number; moved: boolean; startX: number; startY: number };
+  | { kind: "move"; bookingId: string; originVehicleId: string; origStart: string; origStartAt: string; origEndAt: string; lenDays: number; grabDay: number; moved: boolean; startX: number; startY: number };
 
 type Popover =
   | { kind: "create"; vehicleId: string; plate: string; name: string; startDate: string; endDate: string; x: number; y: number }
@@ -56,6 +58,8 @@ export default function AdminDashboard() {
   const confirm = useConfirm();
 
   const today = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(new Date()), []);
+  const nowIso = arubaNowIso(); // recomputed each render so bar states (due-back / overdue) stay fresh
+
   const gestureRef = useRef<Gesture | null>(null);
   const trackRectRef = useRef<DOMRect | null>(null);
 
@@ -163,11 +167,14 @@ export default function AdminDashboard() {
       // the moveCand React state, which is stale-null inside the pointer-down
       // closure that registered this listener (the ghost state never reaches here).
       const cur = dayAt(ev.clientX);
-      const newStart = addDays(from, dayIdx(from, g.origStart) + (cur - g.grabDay));
-      const newEnd = addDays(newStart, g.lenDays);
+      const delta = cur - g.grabDay;
+      const newStart = addDays(g.origStart, delta);
       const veh = vehicleAt(ev.clientX, ev.clientY) ?? g.originVehicleId;
       if (veh === g.originVehicleId && newStart === g.origStart) return; // unchanged → no-op
-      const body: Record<string, string> = { startDate: newStart, endDate: newEnd };
+      // Keep each bar's original pick-up/return times; shift both dates by the drag delta.
+      const startAt = atAruba(newStart, arubaTimeOf(g.origStartAt));
+      const endAt = atAruba(addDays(arubaDateOf(g.origEndAt), delta), arubaTimeOf(g.origEndAt));
+      const body: Record<string, string> = { startAt, endAt };
       if (veh !== g.originVehicleId) body.vehicleId = veh;
       try {
         await apiPatch(`/api/admin/bookings/${g.bookingId}/move`, body);
@@ -181,7 +188,9 @@ export default function AdminDashboard() {
   }
 
   function onBarPointerDown(e: ReactPointerEvent, v: Vehicle, b: Bar) {
-    if (e.button !== 0 || b.status === "completed") return;
+    // Only pending/confirmed bookings can move (the backend rejects the rest);
+    // a picked-up car is already out with the customer, a completed one is done.
+    if (e.button !== 0 || b.status === "completed" || b.status === "picked_up") return;
     e.stopPropagation();
     const track = (e.currentTarget as HTMLElement).closest<HTMLElement>(".pl-track");
     if (!track) return;
@@ -189,6 +198,7 @@ export default function AdminDashboard() {
     if (e.pointerType === "touch") return; // touch falls back to the click → detail/move form
     beginGesture(e, track, {
       kind: "move", bookingId: b.id, originVehicleId: v.id, origStart: b.start,
+      origStartAt: b.startAt, origEndAt: b.endAt,
       lenDays: dayIdx(from, b.end) - dayIdx(from, b.start), grabDay: dayAt(e.clientX),
       moved: false, startX: e.clientX, startY: e.clientY,
     });
@@ -240,8 +250,11 @@ export default function AdminDashboard() {
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, -7), addDays(data.to, -7))}>◀ back</button>
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, 7), addDays(data.to, 7))}>forward ▶</button>
         <div className="pl-legend">
-          <span><i className="pl-swatch" style={{ background: "#0E3A40" }} /> confirmed</span>
           <span><i className="pl-swatch" style={{ background: "#C98A33" }} /> pending</span>
+          <span><i className="pl-swatch" style={{ background: "#0E3A40" }} /> confirmed</span>
+          <span><i className="pl-swatch" style={{ background: "#2C5F8A" }} /> with customer</span>
+          <span><i className="pl-swatch" style={{ background: "#2C5F8A", outline: "2px solid #C98A33", outlineOffset: "-2px" }} /> due back soon</span>
+          <span><i className="pl-swatch" style={{ background: "#8A2C2C" }} /> overdue</span>
           <span><i className="pl-swatch" style={{ background: "#2E7D5B" }} /> completed</span>
           <span><i className="pl-swatch" style={{ background: "#c8baa0" }} /> blocked</span>
         </div>
@@ -308,9 +321,9 @@ export default function AdminDashboard() {
                         return s ? <div key={`bo-${v.id}-${bo.id}`} className="pl-blackout" style={s} title={bo.reason} /> : null;
                       })}
                       {v.blocks.map((bl) => {
-                        const s = span(bl.start, bl.end);
+                        const s = barSpan(data.days, bl.startAt, bl.endAt);
                         return s ? (
-                          <div key={bl.id} className={`pl-block pl-block--${bl.type}`} style={s} title={`${niceType(bl.type)}${bl.reason ? " · " + bl.reason : ""}`}
+                          <div key={bl.id} className={`pl-block pl-block--${bl.type}`} style={{ left: `${s.left}%`, width: `${s.width}%` }} title={`${niceType(bl.type)}${bl.reason ? " · " + bl.reason : ""}`}
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => setPopover({ kind: "block", block: bl, x: e.clientX, y: e.clientY })}>
                             {niceType(bl.type)}
@@ -319,10 +332,10 @@ export default function AdminDashboard() {
                       })}
                       {v.bookings.map((b) => {
                         const dimmed = moveCand?.bookingId === b.id;
-                        const s = span(b.start, b.end);
+                        const s = barSpan(data.days, b.startAt, b.endAt);
                         return s ? (
-                          <div key={b.id} className={`pl-bar ${b.status} ${dimmed ? "dragging" : ""} ${b.source === "manual" ? "manual" : ""}`} style={s}
-                            title={`${b.label} · ${b.start} to ${b.end} · ${b.status}${b.source === "manual" ? " · manual" : ""}`}
+                          <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} ${dimmed ? "dragging" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
+                            title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.source === "manual" ? " · manual" : ""}`}
                             onPointerDown={(e) => onBarPointerDown(e, v, b)}
                             onClick={(e) => { if (!gestureRef.current) setPopover({ kind: "booking", bar: b, vehicleId: v.id, x: e.clientX, y: e.clientY }); }}>
                             {b.label}
@@ -428,6 +441,7 @@ function CreatePanel({ p, onDone, onError, onClose }: {
   const [tab, setTab] = useState<"choose" | "rental" | "block">("choose");
   const [busy, setBusy] = useState(false);
   const [r, setR] = useState({ name: "", phone: "", email: "", price: "", notes: "" });
+  const [times, setTimes] = useState({ pickup: "09:00", ret: "09:00" });
   const [b, setB] = useState({ type: "maintenance", reason: "" });
   const range = `${p.startDate} → ${p.endDate} (return)`;
 
@@ -435,7 +449,8 @@ function CreatePanel({ p, onDone, onError, onClose }: {
     e.preventDefault(); setBusy(true);
     try {
       await api("/api/admin/bookings", {
-        vehicleId: p.vehicleId, startDate: p.startDate, endDate: p.endDate,
+        vehicleId: p.vehicleId,
+        startAt: atAruba(p.startDate, times.pickup), endAt: atAruba(p.endDate, times.ret),
         customerName: r.name, customerPhone: r.phone,
         ...(r.email ? { customerEmail: r.email } : {}),
         ...(r.price ? { priceCents: Math.round(Number(r.price) * 100) } : {}),
@@ -447,7 +462,8 @@ function CreatePanel({ p, onDone, onError, onClose }: {
   async function submitBlock(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
-      await api(`/api/admin/vehicles/${p.vehicleId}/blocks`, { startDate: p.startDate, endDate: p.endDate, type: b.type, reason: b.reason });
+      // Drag-created blocks span whole days, so start and end sit at 00:00.
+      await api(`/api/admin/vehicles/${p.vehicleId}/blocks`, { startAt: atAruba(p.startDate, "00:00"), endAt: atAruba(p.endDate, "00:00"), type: b.type, reason: b.reason });
       await onDone("Car blocked.");
     } catch (err) { onError((err as ApiError).message); setBusy(false); }
   }
@@ -465,6 +481,10 @@ function CreatePanel({ p, onDone, onError, onClose }: {
       {tab === "rental" && (
         <form className="pl-form" onSubmit={submitRental}>
           <label>Customer name<input required autoFocus value={r.name} onChange={(e) => setR({ ...r, name: e.target.value })} /></label>
+          <div className="pl-service-dates">
+            <label>Pick-up time<TimeSelect value={times.pickup} onChange={(t) => setTimes({ ...times, pickup: t })} /></label>
+            <label>Return time<TimeSelect value={times.ret} onChange={(t) => setTimes({ ...times, ret: t })} /></label>
+          </div>
           <label>Phone<input value={r.phone} onChange={(e) => setR({ ...r, phone: e.target.value })} placeholder="+297 …" /></label>
           <label>Email (optional)<input type="email" value={r.email} onChange={(e) => setR({ ...r, email: e.target.value })} /></label>
           <label>Price (USD, optional)<input type="number" step="0.01" min="0" value={r.price} onChange={(e) => setR({ ...r, price: e.target.value })} /></label>
@@ -498,7 +518,11 @@ function BookingPanel({ p, vehicles, confirm, onDone, onError, onClose }: {
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [mv, setMv] = useState({ vehicleId: p.vehicleId, startDate: p.bar.start, endDate: p.bar.end });
+  const [mv, setMv] = useState({
+    vehicleId: p.vehicleId,
+    startDate: arubaDateOf(p.bar.startAt), startTime: arubaTimeOf(p.bar.startAt),
+    endDate: arubaDateOf(p.bar.endAt), endTime: arubaTimeOf(p.bar.endAt),
+  });
   const [showMove, setShowMove] = useState(false);
 
   async function cancel() {
@@ -518,7 +542,10 @@ function BookingPanel({ p, vehicles, confirm, onDone, onError, onClose }: {
   async function move(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
-      await apiPatch(`/api/admin/bookings/${p.bar.id}/move`, { vehicleId: mv.vehicleId, startDate: mv.startDate, endDate: mv.endDate });
+      await apiPatch(`/api/admin/bookings/${p.bar.id}/move`, {
+        vehicleId: mv.vehicleId,
+        startAt: atAruba(mv.startDate, mv.startTime), endAt: atAruba(mv.endDate, mv.endTime),
+      });
       await onDone("Moved.");
     } catch (err) { onError((err as ApiError).message); setBusy(false); }
   }
@@ -526,6 +553,7 @@ function BookingPanel({ p, vehicles, confirm, onDone, onError, onClose }: {
   return (
     <div>
       <div className="pl-pop-head"><b>{p.bar.label}</b><span className="pl-pop-range">{p.bar.start} → {p.bar.end} · {p.bar.status}{p.bar.source === "manual" ? " · manual" : ""}</span></div>
+      <p className="pl-pop-times">Pick-up {formatTime(p.bar.startAt)} · Return {formatTime(p.bar.endAt)}</p>
       {p.bar.notes && <p className="pl-pop-note">{p.bar.notes}</p>}
       {!showMove ? (
         <div className="pl-pop-actions">
@@ -536,8 +564,12 @@ function BookingPanel({ p, vehicles, confirm, onDone, onError, onClose }: {
       ) : (
         <form className="pl-form" onSubmit={move}>
           <label>Car<Select value={mv.vehicleId} onChange={(v) => setMv({ ...mv, vehicleId: v })} options={vehicles.map((v) => ({ value: v.id, label: `${v.plate} · ${v.name}` }))} /></label>
-          <label>Pick-up<DatePicker required value={mv.startDate} onChange={(iso) => setMv({ ...mv, startDate: iso })} /></label>
-          <label>Return<DatePicker required value={mv.endDate} onChange={(iso) => setMv({ ...mv, endDate: iso })} /></label>
+          <div className="pl-service-dates">
+            <label>Pick-up<DatePicker required value={mv.startDate} onChange={(iso) => setMv({ ...mv, startDate: iso })} /></label>
+            <label>Pick-up time<TimeSelect value={mv.startTime} onChange={(t) => setMv({ ...mv, startTime: t })} /></label>
+            <label>Return<DatePicker required value={mv.endDate} onChange={(iso) => setMv({ ...mv, endDate: iso })} /></label>
+            <label>Return time<TimeSelect value={mv.endTime} onChange={(t) => setMv({ ...mv, endTime: t })} /></label>
+          </div>
           <div className="pl-pop-actions">
             <button className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Save move"}</button>
             <button type="button" className="btn btn--quiet" onClick={() => setShowMove(false)}>Back</button>
@@ -595,7 +627,9 @@ function ServiceModal({ open, vehicles, defaultDate, onClose, onDone, onError }:
     vehicleId: vehicles[0]?.id ?? "",
     type: "maintenance",
     startDate: defaultDate,
+    startTime: "00:00",
     endDate: addDays(defaultDate, 1),
+    endTime: "00:00",
     reason: "",
   });
 
@@ -608,11 +642,13 @@ function ServiceModal({ open, vehicles, defaultDate, onClose, onDone, onError }:
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!f.vehicleId) { onError("Add a vehicle first."); return; }
-    if (f.endDate <= f.startDate) { onError("The 'until' date must be after the start date."); return; }
+    const startAt = atAruba(f.startDate, f.startTime);
+    const endAt = atAruba(f.endDate, f.endTime);
+    if (parseTs(endAt) <= parseTs(startAt)) { onError("The end must be after the start."); return; }
     setBusy(true);
     try {
       await api(`/api/admin/vehicles/${f.vehicleId}/blocks`, {
-        startDate: f.startDate, endDate: f.endDate, type: f.type, reason: f.reason,
+        startAt, endAt, type: f.type, reason: f.reason,
       });
       await onDone("Service scheduled.");
     } catch (err) { onError((err as ApiError).message); setBusy(false); }
@@ -637,8 +673,11 @@ function ServiceModal({ open, vehicles, defaultDate, onClose, onDone, onError }:
         <label>Type<Select value={f.type} onChange={(v) => setF({ ...f, type: v })} options={BLOCK_TYPES.map((t) => ({ value: t, label: niceType(t) }))} /></label>
         <div className="pl-service-dates">
           <label>From<DatePicker required value={f.startDate} onChange={(iso) => setF({ ...f, startDate: iso })} /></label>
+          <label>Start time<TimeSelect value={f.startTime} onChange={(t) => setF({ ...f, startTime: t })} /></label>
           <label>Until<DatePicker required value={f.endDate} onChange={(iso) => setF({ ...f, endDate: iso })} /></label>
+          <label>End time<TimeSelect value={f.endTime} onChange={(t) => setF({ ...f, endTime: t })} /></label>
         </div>
+        <p className="pl-pop-times">Leave 00:00 for full days.</p>
         <label>Note (optional)<input value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="e.g. brake service at AutoFix" /></label>
       </form>
     </Modal>

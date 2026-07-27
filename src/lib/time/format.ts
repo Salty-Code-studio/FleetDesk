@@ -37,6 +37,12 @@ export function arubaTimeOf(ts: string): string {
   return timeFmt.format(new Date(parseTs(ts)));
 }
 
+/** Now as an Aruba fixed-offset ISO timestamp (client-safe: no server imports). */
+export function arubaNowIso(): string {
+  const d = new Date();
+  return atAruba(dateFmt.format(d), timeFmt.format(d));
+}
+
 /** Shift by whole hours, returning fixed-offset Aruba ISO. */
 export function addHoursIso(ts: string, hours: number): string {
   const d = new Date(parseTs(ts) + hours * 3_600_000);

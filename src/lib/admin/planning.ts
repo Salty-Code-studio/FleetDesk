@@ -75,7 +75,7 @@ export async function getPlanning(from: string, to: string): Promise<Planning> {
   }).from(bookings)
     .innerJoin(customers, eq(bookings.customerId, customers.id))
     .where(and(
-      inArray(bookings.status, ["pending", "confirmed", "completed"]),
+      inArray(bookings.status, ["pending", "confirmed", "picked_up", "completed"]),
       lt(bookings.startAt, toExclusiveAt),
       gt(bookings.endAt, fromAt),
     ));
