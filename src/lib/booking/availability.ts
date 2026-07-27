@@ -17,6 +17,8 @@ export interface DateGuardSettings {
   maxRentalDays: number;
   maxAdvanceDays: number;
   turnaroundBufferHours: number;
+  openingTime: string;
+  closingTime: string;
 }
 
 /** Throws a 400 if the timestamps break a guardrail. `nowIso` is a full timestamp. */
@@ -26,6 +28,14 @@ export function validateDates(startAt: string, endAt: string, settings: DateGuar
   }
   if (parseTs(endAt) <= parseTs(startAt)) throw Errors.badRequest("Return must be after pick-up");
   if (parseTs(startAt) < parseTs(nowIso)) throw Errors.badRequest("Pick-up cannot be in the past");
+  for (const ts of [startAt, endAt] as const) {
+    const hm = arubaTimeOf(ts);
+    if (hm < settings.openingTime || hm > settings.closingTime) {
+      throw Errors.badRequest(`Pick-up and return must be between ${settings.openingTime} and ${settings.closingTime}`);
+    }
+    const minutes = Number(hm.slice(3));
+    if (minutes % 30 !== 0) throw Errors.badRequest("Times are in 30 minute steps");
+  }
   const days = rentalDays(startAt, endAt);
   if (days < settings.minRentalDays) throw Errors.badRequest(`Minimum rental is ${settings.minRentalDays} day(s)`);
   if (days > settings.maxRentalDays) throw Errors.badRequest(`Maximum rental is ${settings.maxRentalDays} day(s)`);

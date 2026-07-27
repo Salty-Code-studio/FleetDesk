@@ -9,7 +9,7 @@ let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "";
 let customerId = "";
 
-const settings = { minRentalDays: 1, maxRentalDays: 90, maxAdvanceDays: 365, turnaroundBufferHours: 24 };
+const settings = { minRentalDays: 1, maxRentalDays: 90, maxAdvanceDays: 365, turnaroundBufferHours: 24, openingTime: "08:00", closingTime: "18:00" };
 const at = (d: string) => atAruba(d, "09:00");
 const TODAY = at("2026-06-15");
 

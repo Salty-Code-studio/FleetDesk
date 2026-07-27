@@ -28,10 +28,10 @@ export function arubaNowIso(): string {
 }
 
 /** Boundary compat: a bare YYYY-MM-DD (Phase 1 deep links, old clients) becomes
- *  that date at 09:00 Aruba. Full timestamps pass through unchanged.
- *  NOTE: Task 3 swaps the hardcoded 09:00 for settings.openingTime. */
-export function normalizeTs(value: string): string {
-  return isoDate.safeParse(value).success ? atAruba(value, "09:00") : value;
+ *  that date at the shop's opening time, Aruba. Full timestamps pass through
+ *  unchanged. */
+export function normalizeTs(value: string, openingTime: string): string {
+  return isoDate.safeParse(value).success ? atAruba(value, openingTime) : value;
 }
 
 /** Legacy-key compat: not-yet-updated clients (the Phase 1 site, the ops
