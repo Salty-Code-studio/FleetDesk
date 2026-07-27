@@ -1,14 +1,17 @@
 import { z } from "zod";
 import { eq, and, ne, inArray, lt, gt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { bookings, vehicles, bookingAddOns, addOns } from "@/lib/db/schema";
+import { bookings, vehicles, bookingAddOns, addOns, payments } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
 import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
 import { checkAvailability } from "@/lib/booking/availability";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
+import { isFreeCancellation } from "@/lib/booking/cancellation";
+import { refundPayment } from "@/lib/payments/refunds";
 import { addHoursIso, parseTs } from "@/lib/time/format";
 import { isoDateTime } from "@/lib/validation/iso-date";
+import { logger } from "@/lib/logger";
 
 /**
  * Drag-to-move on the ops board. Any subset of {vehicleId, startAt, endAt}
@@ -147,12 +150,29 @@ export async function moveBooking(id: string, input: MoveInput) {
   }
 }
 
+export interface AdminCancelledBooking {
+  id: string;
+  status: string;
+  refunded: boolean;
+  refundCents: number;
+  refundError: boolean;
+  policySaysFree: boolean;
+}
+
 /**
  * Admin cancel from the board. Frees the slot immediately: the exclusion
  * constraint only spans pending/confirmed rows, so flipping to cancelled lets a
  * new booking reuse the range. Terminal states (cancelled/completed) are inert.
+ *
+ * `refund` is the admin's explicit choice (the UI always states it, no silent
+ * default): true refunds every succeeded payment in full as a goodwill
+ * override, regardless of the cancellation window; false never touches
+ * Stripe. `policySaysFree` reports what the window policy alone would decide
+ * (spec §16) — it is purely informational for the response/UI and never gates
+ * the refund itself. A refund that errors never blocks the cancellation, it
+ * just gets logged loudly for a retry from the Drawer.
  */
-export async function cancelBookingAdmin(id: string) {
+export async function cancelBookingAdmin(id: string, refund: boolean, nowIso: string): Promise<AdminCancelledBooking> {
   const db = await getDb();
   const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
   if (!booking) throw Errors.notFound("Booking not found");
@@ -163,5 +183,33 @@ export async function cancelBookingAdmin(id: string) {
     .set({ status: "cancelled", updatedAt: new Date() })
     .where(eq(bookings.id, id))
     .returning();
-  return updated!;
+
+  const settings = await getSettings();
+  const policySaysFree = isFreeCancellation(booking, settings, nowIso);
+
+  let refundCents = 0;
+  let refundError = false;
+  if (refund) {
+    const succeeded = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, id), eq(payments.status, "succeeded")));
+    for (const p of succeeded) {
+      try {
+        const before = p.refundedCents;
+        const r = await refundPayment(p.id);
+        refundCents += r.refundedCents - before;
+      } catch (e) {
+        refundError = true;
+        logger.error("admin_cancel_refund_failed", { bookingId: id, paymentId: p.id, error: (e as Error).message });
+      }
+    }
+  }
+
+  return {
+    id: updated!.id,
+    status: updated!.status,
+    refunded: refundCents > 0,
+    refundCents,
+    refundError,
+    policySaysFree,
+  };
 }

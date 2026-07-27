@@ -84,7 +84,7 @@ describe("moveBooking", () => {
 describe("cancelBookingAdmin", () => {
   it("cancels and frees the slot for a new booking on the same range", async () => {
     const bk = await createManualBooking({ vehicleId: carA, startAt: at("2028-07-01"), endAt: at("2028-07-05"), customerName: "Cancel Me" });
-    const cancelled = await cancelBookingAdmin(bk.id);
+    const cancelled = await cancelBookingAdmin(bk.id, false, at("2028-06-01"));
     expect(cancelled.status).toBe("cancelled");
     // the freed range can be re-booked
     const reuse = await createManualBooking({ vehicleId: carA, startAt: at("2028-07-01"), endAt: at("2028-07-05"), customerName: "Reuse" });
@@ -93,7 +93,7 @@ describe("cancelBookingAdmin", () => {
 
   it("refuses to cancel an already-cancelled booking", async () => {
     const bk = await createManualBooking({ vehicleId: carA, startAt: at("2028-08-01"), endAt: at("2028-08-05"), customerName: "Twice" });
-    await cancelBookingAdmin(bk.id);
-    await expectReject(cancelBookingAdmin(bk.id), /no longer be cancelled/i);
+    await cancelBookingAdmin(bk.id, false, at("2028-07-01"));
+    await expectReject(cancelBookingAdmin(bk.id, false, at("2028-07-01")), /no longer be cancelled/i);
   });
 });

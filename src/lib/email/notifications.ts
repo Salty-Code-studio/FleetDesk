@@ -93,7 +93,11 @@ export async function notifyBookingConfirmed(bookingId: string): Promise<void> {
   }
 }
 
-/** Customer + admin cancellation notice, carrying the refund outcome (spec §16). */
+/** Customer + admin cancellation notice, carrying the refund outcome (spec §16).
+ *  Shared by both cancellation paths: the customer's own self-service cancel
+ *  (window policy decides the refund) and the admin cancel (Task 7's explicit
+ *  refund/no-refund choice) — both produce the same `{ refunded, refundCents,
+ *  refundError }` shape, so this one template variant covers either origin. */
 export async function notifyBookingCancelled(
   bookingId: string,
   refund: { refunded: boolean; refundCents: number; refundError?: boolean },
