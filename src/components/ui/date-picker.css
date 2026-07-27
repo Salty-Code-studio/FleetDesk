@@ -278,6 +278,57 @@
   color: var(--ink-soft, #586a6d);
 }
 
+/* Month + year quick-jump dropdowns in the calendar header. */
+.scds-dp__jump {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.scds-dp__select {
+  border: 1px solid var(--line, #e3dac8);
+  border-radius: 8px;
+  background: var(--panel, #fcfaf4);
+  color: var(--teal, #0e3a40);
+  font-family: var(--font-display, "Space Grotesk", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  padding: 0.3rem 0.4rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.scds-dp__select:hover {
+  border-color: var(--teal, #0e3a40);
+  background: var(--sand, #f2ebdd);
+}
+
+.scds-dp .scds-dp__select:focus-visible {
+  outline: 2px solid var(--teal, #0e3a40);
+  outline-offset: 1px;
+  border-color: var(--teal, #0e3a40);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal, #0e3a40) 22%, transparent);
+}
+
+/* Visually hidden, still available to assistive tech + aria-live. */
+.scds-dp__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scds-dp__popover {
     animation: none;
@@ -285,6 +336,7 @@
   .scds-dp__trigger,
   .scds-dp__nav,
   .scds-dp__day,
+  .scds-dp__select,
   .scds-dp__action {
     transition: none;
   }

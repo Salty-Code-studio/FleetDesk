@@ -272,6 +272,19 @@ export function DatePicker({
     [viewMonth],
   );
 
+  // Jump straight to a month/year via the header dropdowns. Keeps the focused
+  // day (clamped to the target month length) and does not yank DOM focus off
+  // the select, so the user can keep adjusting month and year.
+  const jumpTo = useCallback(
+    (year: number, monthIndex: number) => {
+      const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+      const day = Math.min(focusDate.getDate(), lastDay);
+      setViewMonth(new Date(year, monthIndex, 1));
+      setFocusDate(new Date(year, monthIndex, day));
+    },
+    [focusDate],
+  );
+
   const onGridKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
       switch (e.key) {
@@ -326,6 +339,20 @@ export function DatePicker({
 
   const cells = useMemo(() => buildGrid(viewMonth), [viewMonth]);
   const headerLabel = `${MONTHS[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`;
+
+  // Year range for the header dropdown: derive from min/max when given (so a
+  // date-of-birth field can reach far back), else a sensible window. viewYear
+  // is always included so the current view is selectable.
+  const viewYear = viewMonth.getFullYear();
+  const minYear = minDate ? minDate.getFullYear() : today.getFullYear() - 100;
+  const maxYear = maxDate ? maxDate.getFullYear() : today.getFullYear() + 5;
+  const yearOptions = useMemo(() => {
+    const lo = Math.min(minYear, viewYear);
+    const hi = Math.max(maxYear, viewYear);
+    const out: number[] = [];
+    for (let y = lo; y <= hi; y += 1) out.push(y);
+    return out;
+  }, [minYear, maxYear, viewYear]);
 
   const triggerLabel = selected ? formatDisplay(selected) : placeholder;
 
@@ -397,8 +424,34 @@ export function DatePicker({
             >
               <span aria-hidden="true">&#8249;</span>
             </button>
-            <div className="scds-dp__title" id={monthLabelId} aria-live="polite">
-              {headerLabel}
+            <div className="scds-dp__jump">
+              <span className="scds-dp__sr" id={monthLabelId} aria-live="polite">
+                {headerLabel}
+              </span>
+              <select
+                className="scds-dp__select"
+                aria-label="Month"
+                value={viewMonth.getMonth()}
+                onChange={(e) => jumpTo(viewYear, Number(e.target.value))}
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="scds-dp__select"
+                aria-label="Year"
+                value={viewYear}
+                onChange={(e) => jumpTo(Number(e.target.value), viewMonth.getMonth())}
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
             </div>
             <button
               type="button"
