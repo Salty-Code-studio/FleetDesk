@@ -27,6 +27,11 @@ export async function refundPayment(paymentId: string, opts: { amountCents?: num
     await tx.update(payments).set({ refundedCents, status }).where(eq(payments.id, p.id));
     const [b] = await tx.select().from(bookings).where(eq(bookings.id, p.bookingId)).for("update");
     if (b) await tx.update(bookings).set({ amountPaidCents: Math.max(0, b.amountPaidCents - amount) }).where(eq(bookings.id, b.id));
-    return { refundedCents, status };
+    // appliedCents is the delta THIS call actually wrote inside the locked
+    // transaction (`amount`), not a difference against any pre-transaction
+    // read. Callers must use it (not their own before/after snapshot) so a
+    // concurrent refund on the same payment can never inflate what gets
+    // reported or emailed.
+    return { refundedCents, status, appliedCents: amount };
   });
 }

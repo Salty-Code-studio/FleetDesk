@@ -90,6 +90,7 @@ describe("refundPayment", () => {
     expect(stripeRefundCreate).toHaveBeenCalledWith({ payment_intent: "pi_r1", amount: 3000 });
     expect(r.refundedCents).toBe(3000);
     expect(r.status).toBe("refunded");
+    expect(r.appliedCents).toBe(3000); // the delta THIS call applied, callers must use this (not before/after math)
 
     const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
     expect(after!.amountPaidCents).toBe(0);
@@ -102,11 +103,14 @@ describe("refundPayment", () => {
     const r = await refundPayment(payment.id, { amountCents: 1000 });
     expect(r.refundedCents).toBe(1000);
     expect(r.status).toBe("succeeded");
+    expect(r.appliedCents).toBe(1000);
 
-    // A second partial refund accumulates on top of the first.
+    // A second partial refund accumulates on top of the first: refundedCents
+    // is the new absolute total, appliedCents is just this call's delta.
     const r2 = await refundPayment(payment.id, { amountCents: 1500 });
     expect(r2.refundedCents).toBe(2500);
     expect(r2.status).toBe("succeeded");
+    expect(r2.appliedCents).toBe(1500);
 
     const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
     expect(after!.amountPaidCents).toBe(5000 - 2500);
