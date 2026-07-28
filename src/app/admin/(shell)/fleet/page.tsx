@@ -23,8 +23,10 @@ interface Vehicle {
   priceDayCents: number; priceWeekCents: number; priceMonthCents: number;
   depositCents: number | null; status: "active" | "maintenance" | "retired";
   insuranceExpiresOn: string | null; inspectionDueOn: string | null;
+  openNotes: number;
 }
 interface Block { id: string; startDate: string; endDate: string; type: string; reason: string }
+interface Note { id: string; body: string; createdAt: string; resolvedAt: string | null }
 
 const CLASSES = ["Economy", "Compact", "SUV", "4x4", "Van"];
 const SPAN_ALL = 99; // colSpan that always covers every column, even ones other plans add
@@ -47,6 +49,9 @@ export default function FleetPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [bo, setBo] = useState({ startDate: "", startTime: "00:00", endDate: "", endTime: "00:00", type: "maintenance", reason: "" });
   const [alertDays, setAlertDays] = useState(30);
+  const [notesFor, setNotesFor] = useState<Vehicle | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [noteBody, setNoteBody] = useState("");
 
   const [q, setQ] = useState("");
   const [classFilter, setClassFilter] = useState<string | null>(null);
@@ -197,6 +202,47 @@ export default function FleetPage() {
     toast.show({ type: "success", message: "Block deleted." });
   }
 
+  async function openNotes(v: Vehicle) {
+    setNotesFor(v);
+    setNotes(await apiGet<Note[]>(`/api/admin/vehicles/${v.id}/notes`));
+  }
+  async function refreshNotes(vehicleId: string) {
+    setNotes(await apiGet<Note[]>(`/api/admin/vehicles/${vehicleId}/notes`));
+    await load(); // badge counts on the rows come from the vehicles list
+  }
+  async function addNote(e: FormEvent) {
+    e.preventDefault();
+    if (!notesFor) return;
+    try {
+      await api(`/api/admin/vehicles/${notesFor.id}/notes`, { body: noteBody });
+      setNoteBody("");
+      await refreshNotes(notesFor.id);
+      toast.show({ type: "success", message: "Note added." });
+    } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
+  }
+  async function resolveNote(n: Note, resolved: boolean) {
+    if (!notesFor) return;
+    try {
+      await apiPatch(`/api/admin/notes/${n.id}`, { resolved });
+      await refreshNotes(notesFor.id);
+      toast.show({ type: "success", message: resolved ? "Note resolved." : "Note reopened." });
+    } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
+  }
+  async function escalateNote(n: Note) {
+    if (!notesFor) return;
+    const ok = await confirm({
+      title: "Block this car?",
+      message: `${notesFor.plate} gets a 7 day maintenance block starting today for: "${n.body}". You can adjust or remove it under Blocks. The note stays open until you resolve it.`,
+      confirmLabel: "Block car",
+    });
+    if (!ok) return;
+    try {
+      await api(`/api/admin/notes/${n.id}/escalate`, {});
+      await refreshNotes(notesFor.id);
+      toast.show({ type: "success", message: "Car blocked for 7 days. Adjust it under Blocks if needed." });
+    } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
+  }
+
   const money = (c: number) => `$${(c / 100).toFixed(0)}`;
   const statusTag = (s: Vehicle["status"]) =>
     s === "active" ? "on" : s === "retired" ? "off" : "def";
@@ -290,7 +336,7 @@ export default function FleetPage() {
                   </tr>
                   {g.vehicles.map((v) => (
                     <tr key={v.id}>
-                      <td><b>{v.plate}</b></td>
+                      <td><b>{v.plate}</b>{v.openNotes > 0 && <span className="fleet-note-badge" title={`${v.openNotes} open ${v.openNotes === 1 ? "note" : "notes"}`}>{v.openNotes}</span>}</td>
                       <td>{v.name}<div className="fleet-slug">{v.slug}</div>
                         {complianceBadges(v).length > 0 && (
                           <div className="fleet-compliance">
@@ -308,6 +354,7 @@ export default function FleetPage() {
                       <td><span className={`tag ${statusTag(v.status)}`}>{v.status}</span></td>
                       <td className="fleet-actions"><div className="row-actions">
                         <button onClick={() => edit(v)}>Edit</button>
+                        <button onClick={() => openNotes(v)}>Notes</button>
                         <button onClick={() => openBlocks(v)}>Blocks</button>
                         {v.status !== "retired" && <button className="danger" onClick={() => retire(v)}>Retire</button>}
                       </div></td>
@@ -388,6 +435,47 @@ export default function FleetPage() {
           <button className="btn" style={{ width: "auto" }}>Add block</button>
         </form>
         <p className="muted fleet-block-hint">Leave 00:00 for full days.</p>
+      </Drawer>
+
+      <Drawer
+        open={notesFor !== null}
+        onClose={() => setNotesFor(null)}
+        title="Notes"
+        description={notesFor ? `${notesFor.plate} · ${notesFor.name}` : undefined}
+        size="md"
+        footer={<button type="button" className="btn btn--quiet" onClick={() => setNotesFor(null)}>Close</button>}
+      >
+        <form className="inline-form fleet-note-form" onSubmit={addNote}>
+          <label>New note<br />
+            <input data-autofocus required maxLength={500} value={noteBody} onChange={(e) => setNoteBody(e.target.value)} placeholder="e.g. customer says brakes feel soft" />
+          </label>
+          <button className="btn" style={{ width: "auto" }}>Add note</button>
+        </form>
+        {notes.length === 0 ? (
+          <p className="muted">No notes for this car yet. Complaints and future maintenance go here.</p>
+        ) : (
+          <ul className="fleet-notes">
+            {notes.map((n) => (
+              <li key={n.id} className={`fleet-note ${n.resolvedAt ? "is-resolved" : ""}`}>
+                <p className="fleet-note__body">{n.body}</p>
+                <div className="fleet-note__meta">
+                  <span>{new Date(n.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  {n.resolvedAt ? <span className="tag on">resolved</span> : <span className="tag def">open</span>}
+                </div>
+                <div className="row-actions">
+                  {n.resolvedAt === null ? (
+                    <>
+                      <button onClick={() => resolveNote(n, true)}>Resolve</button>
+                      <button onClick={() => escalateNote(n)}>Block car for this</button>
+                    </>
+                  ) : (
+                    <button onClick={() => resolveNote(n, false)}>Reopen</button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Drawer>
     </>
   );
