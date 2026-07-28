@@ -27,3 +27,6 @@ npm-debug.log*
 
 # TypeScript incremental build state
 *.tsbuildinfo
+
+# local object-storage driver (STORAGE_DRIVER=local)
+.dev-storage

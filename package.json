@@ -24,6 +24,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.2",
+    "@react-pdf/renderer": "^4.5.1",
+    "@supabase/supabase-js": "^2.110.9",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "argon2": "0.41.1",

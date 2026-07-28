@@ -205,6 +205,25 @@ const EnvSchema = z
     WHATSAPP_TOKEN: z.string().optional().default(""),
     WHATSAPP_PHONE_ID: z.string().optional().default(""),
     WHATSAPP_OWNER_TO: z.string().optional().default(""),
+
+    // Object storage for inspection photos, licence copies, signatures, and
+    // contract PDFs. 'local' writes under LOCAL_STORAGE_DIR (dev/test);
+    // 'supabase' uses a PRIVATE Supabase Storage bucket via the service-role
+    // key (prod). Media is always PRIVATE; the app streams it to admins only.
+    STORAGE_DRIVER: z.enum(["supabase", "local"]).default("local"),
+    SUPABASE_URL: z.string().url().optional().or(z.literal("")).default(""),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default(""),
+    STORAGE_BUCKET: z.string().optional().default("fleet-docs"),
+    LOCAL_STORAGE_DIR: z.string().optional().default(".dev-storage"),
+  })
+  .superRefine((v, ctx) => {
+    if (v.STORAGE_DRIVER === "supabase" && (!v.SUPABASE_URL || !v.SUPABASE_SERVICE_ROLE_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["STORAGE_DRIVER"],
+        message: "STORAGE_DRIVER=supabase requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY",
+      });
+    }
   });
 
 export type Env = z.infer<typeof EnvSchema>;
