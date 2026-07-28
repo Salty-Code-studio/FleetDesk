@@ -10,7 +10,7 @@ import {
   useConfirm,
   registerPaletteAction,
 } from "@/app/admin/_ui";
-import { DatePicker, TimeSelect } from "@/components/ui";
+import { DatePicker, MoneyInput, TimeSelect } from "@/components/ui";
 import "./settings.css";
 
 interface Settings {
@@ -117,8 +117,6 @@ export default function SettingsPage() {
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
   }
 
-  const dollars = (c: number) => (c / 100).toString();
-
   return (
     <>
       <header className="set-head">
@@ -170,8 +168,8 @@ export default function SettingsPage() {
                   onChange={(e) => setS({ ...s, depositPercent: Number(e.target.value) })} />
               </label>
               <label>Minimum deposit ({s.currency})
-                <input type="number" step="0.01" min="0" value={dollars(s.depositMinCents)}
-                  onChange={(e) => setS({ ...s, depositMinCents: Math.round(Number(e.target.value) * 100) })} />
+                <MoneyInput cents={s.depositMinCents} ariaLabel="Minimum deposit"
+                  onChange={(cents) => setS({ ...s, depositMinCents: cents })} />
               </label>
               <label>Free cancellation window (hours before pickup)
                 <input type="number" step="1" min="0" max="720" value={s.cancellationWindowHours}
@@ -190,8 +188,8 @@ export default function SettingsPage() {
                   onChange={(e) => setS({ ...s, youngDriverAge: Number(e.target.value) })} />
               </label>
               <label>Young driver fee per day ({s.currency})
-                <input type="number" step="0.01" min="0" value={dollars(s.youngDriverFeeCentsPerDay)}
-                  onChange={(e) => setS({ ...s, youngDriverFeeCentsPerDay: Math.round(Number(e.target.value) * 100) })} />
+                <MoneyInput cents={s.youngDriverFeeCentsPerDay} ariaLabel="Young driver fee per day"
+                  onChange={(cents) => setS({ ...s, youngDriverFeeCentsPerDay: cents })} />
               </label>
               <label>Turnaround buffer (hours)
                 <input type="number" min="0" max="168" value={s.turnaroundBufferHours}
