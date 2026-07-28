@@ -74,7 +74,7 @@ export async function createBookingCheckout(bookingId: string, origin: string): 
           currency: charge.currency.toLowerCase(),
           unit_amount: charge.amountCents,
           product_data: {
-            name: `${LABEL[charge.type]} — ${vehicle?.name ?? `${siteConfig.siteName} rental`}`,
+            name: `${LABEL[charge.type]}: ${vehicle?.name ?? `${siteConfig.siteName} rental`}`,
             description: `${formatDateTime(booking.startAt)} to ${formatDateTime(booking.endAt)}`,
           },
         },
@@ -136,7 +136,7 @@ export async function createExtensionCheckout(
         currency: currency.toLowerCase(),
         unit_amount: deltaCents,
         product_data: {
-          name: `Rental extension — ${vehicle?.name ?? `${siteConfig.siteName} rental`}`,
+          name: `Rental extension: ${vehicle?.name ?? `${siteConfig.siteName} rental`}`,
           description: `${formatDateTime(booking.startAt)} to ${formatDateTime(booking.endAt)}`,
         },
       },

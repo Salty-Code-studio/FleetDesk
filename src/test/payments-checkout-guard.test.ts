@@ -1,9 +1,27 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings, payments } from "@/lib/db/schema";
-import { createBookingCheckout } from "@/lib/payments/checkout";
+import { createBookingCheckout, createExtensionCheckout } from "@/lib/payments/checkout";
 import { atAruba } from "@/lib/time/format";
+
+// Both existing guard tests below throw BEFORE any Stripe network call, but the
+// house-style line-item-name regression test needs to actually reach
+// stripe.checkout.sessions.create and inspect what it was called with, so the
+// whole file stubs Stripe like the other payment tests do (see
+// extend-booking.test.ts). A fresh session id per call: stripeCheckoutSessionId
+// is unique in the schema.
+let stripeSessionCursor = 0;
+let lastCreateParams: unknown;
+const stripeSessionCreate = vi.fn(async (params: unknown) => {
+  stripeSessionCursor += 1;
+  lastCreateParams = params;
+  return { id: `cs_co_test_${stripeSessionCursor}`, url: "https://checkout.stripe.test/co" };
+});
+const stripeSessionExpire = vi.fn(async () => ({}));
+vi.mock("@/lib/payments/stripe-client", () => ({
+  getStripe: () => ({ checkout: { sessions: { create: stripeSessionCreate, expire: stripeSessionExpire } } }),
+}));
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "", customerId = "";
@@ -48,5 +66,43 @@ describe("createBookingCheckout guards", () => {
     });
     // throws BEFORE any Stripe network call
     await expect(createBookingCheckout(b!.id, "http://localhost")).rejects.toThrow(/already paid/i);
+  });
+});
+
+describe("Stripe line-item names (dash-free house style)", () => {
+  it("createBookingCheckout never puts an em-dash in the line-item name shown on the Stripe checkout page", async () => {
+    const [b] = await db.insert(bookings).values({
+      vehicleId, customerId,
+      startAt: atAruba("2028-03-01", "09:00"), endAt: atAruba("2028-03-05", "09:00"), bufferEndAt: atAruba("2028-03-06", "09:00"),
+      status: "pending", priceBreakdown: breakdown, paymentOption: "deposit",
+      acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "co-3",
+    }).returning();
+
+    await createBookingCheckout(b!.id, "http://localhost");
+
+    const call = lastCreateParams as {
+      line_items: Array<{ price_data: { product_data: { name: string } } }>;
+    };
+    const name = call.line_items[0]!.price_data.product_data.name;
+    expect(name).not.toContain("—"); // em-dash
+    expect(name).toContain("CO Car");
+  });
+
+  it("createExtensionCheckout never puts an em-dash in the line-item name shown on the Stripe checkout page", async () => {
+    const [b] = await db.insert(bookings).values({
+      vehicleId, customerId,
+      startAt: atAruba("2028-04-01", "09:00"), endAt: atAruba("2028-04-05", "09:00"), bufferEndAt: atAruba("2028-04-06", "09:00"),
+      status: "confirmed", priceBreakdown: breakdown, paymentOption: "deposit",
+      acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "co-4",
+    }).returning();
+
+    await createExtensionCheckout(b!, 5000);
+
+    const call = lastCreateParams as {
+      line_items: Array<{ price_data: { product_data: { name: string } } }>;
+    };
+    const name = call.line_items[0]!.price_data.product_data.name;
+    expect(name).not.toContain("—"); // em-dash
+    expect(name).toContain("CO Car");
   });
 });
