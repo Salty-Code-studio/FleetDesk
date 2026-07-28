@@ -14,7 +14,7 @@ import {
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, formatTime, parseTs } from "@/lib/time/format";
 import { barSpan, barState } from "@/lib/admin/bar-span";
-import { createDragClickGuard } from "@/lib/admin/drag-click-guard";
+import { createDragClickGuard, type DragClickGuard } from "@/lib/admin/drag-click-guard";
 import { BookingDrawer } from "./booking-drawer";
 import "./dashboard.css";
 
@@ -68,8 +68,12 @@ export default function AdminDashboard() {
   const trackRectRef = useRef<DOMRect | null>(null);
   // Swallows the browser's synthetic click that follows a real drag, so a
   // drag-move doesn't re-open the BookingDrawer right after it moved (see
-  // drag-click-guard.ts for the full story). Created once per mount.
-  const dragClickGuard = useRef(createDragClickGuard()).current;
+  // drag-click-guard.ts for the full story). Lazily created once per mount --
+  // `useRef(createDragClickGuard())` would call the factory on every render
+  // (only the first result is ever kept), which is wasteful busywork.
+  const dragClickGuardRef = useRef<DragClickGuard | null>(null);
+  if (dragClickGuardRef.current === null) dragClickGuardRef.current = createDragClickGuard();
+  const dragClickGuard = dragClickGuardRef.current;
 
   async function load(f?: string, t?: string) {
     setLoading(true);
@@ -227,6 +231,16 @@ export default function AdminDashboard() {
   }
 
   function onBarPointerDown(e: ReactPointerEvent, v: Vehicle, b: Bar) {
+    // Every pointerdown on a bar starts a fresh interaction -- drop any stale
+    // armed state a previous gesture left behind *before* any early return
+    // below, not just inside beginGesture(). completed/picked_up bars and
+    // touch taps never reach beginGesture() (they either bubble to the track,
+    // for completed/picked_up, or bail out below for touch, which is left to
+    // the click → detail/move form). Without this reset here, a guard armed
+    // by an earlier gesture (e.g. a touch drag-to-create) stays armed and
+    // wrongly swallows the next plain tap's click on this bar, leaving the
+    // drawer stuck closed.
+    dragClickGuard.reset();
     // Only pending/confirmed bookings can move (the backend rejects the rest);
     // a picked-up car is already out with the customer, a completed one is done.
     if (e.button !== 0 || b.status === "completed" || b.status === "picked_up") return;
