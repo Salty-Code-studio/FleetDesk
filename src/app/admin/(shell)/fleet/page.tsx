@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, api, apiPatch, apiDelete, type ApiError } from "../../client";
 import {
   Modal,
@@ -20,6 +20,7 @@ interface Vehicle {
   transmission: "Automatic" | "Manual"; ac: boolean; doors: number; photos: string[];
   priceDayCents: number; priceWeekCents: number; priceMonthCents: number;
   depositCents: number | null; status: "active" | "maintenance" | "retired";
+  insuranceExpiresOn: string | null; inspectionDueOn: string | null;
 }
 interface Block { id: string; startDate: string; endDate: string; type: string; reason: string }
 
@@ -28,6 +29,7 @@ const BLOCK_TYPES = ["maintenance", "carwash", "cleaning", "out_of_service", "ot
 const empty = {
   slug: "", plate: "", class: "Economy", name: "", seats: "5", transmission: "Automatic",
   ac: true, doors: "4", day: "", week: "", month: "", deposit: "", status: "active",
+  insurance: "", inspection: "",
 };
 
 export default function FleetPage() {
@@ -39,11 +41,19 @@ export default function FleetPage() {
   const [blocksFor, setBlocksFor] = useState<Vehicle | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [bo, setBo] = useState({ startDate: "", startTime: "00:00", endDate: "", endTime: "00:00", type: "maintenance", reason: "" });
+  const [alertDays, setAlertDays] = useState(30);
 
   const toast = useToast();
   const confirm = useConfirm();
 
-  async function load() { setVehicles(await apiGet<Vehicle[]>("/api/admin/vehicles")); }
+  async function load() {
+    const [vs, s] = await Promise.all([
+      apiGet<Vehicle[]>("/api/admin/vehicles"),
+      apiGet<{ complianceAlertDays: number }>("/api/admin/settings"),
+    ]);
+    setVehicles(vs);
+    setAlertDays(s.complianceAlertDays);
+  }
   useEffect(() => { void load().finally(() => setLoading(false)); }, []);
 
   function openAdd() {
@@ -75,6 +85,8 @@ export default function FleetPage() {
       priceMonthCents: Math.round(Number(f.month) * 100),
       depositCents: f.deposit === "" ? null : Math.round(Number(f.deposit) * 100),
       status: f.status,
+      insuranceExpiresOn: f.insurance === "" ? null : f.insurance,
+      inspectionDueOn: f.inspection === "" ? null : f.inspection,
     };
     try {
       if (editId) await apiPatch(`/api/admin/vehicles/${editId}`, body);
@@ -95,6 +107,7 @@ export default function FleetPage() {
       month: (v.priceMonthCents / 100).toString(),
       deposit: v.depositCents === null ? "" : (v.depositCents / 100).toString(),
       status: v.status,
+      insurance: v.insuranceExpiresOn ?? "", inspection: v.inspectionDueOn ?? "",
     });
     setFormOpen(true);
   }
@@ -147,6 +160,18 @@ export default function FleetPage() {
   const money = (c: number) => `$${(c / 100).toFixed(0)}`;
   const statusTag = (s: Vehicle["status"]) =>
     s === "active" ? "on" : s === "retired" ? "off" : "def";
+  const today = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(new Date()), []);
+  const daysLeft = (dueOn: string) => Math.round((Date.parse(`${dueOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  function complianceBadges(v: Vehicle) {
+    const out: { key: string; label: string; overdue: boolean }[] = [];
+    for (const [name, dueOn] of [["Insurance", v.insuranceExpiresOn], ["Inspection", v.inspectionDueOn]] as const) {
+      if (!dueOn) continue;
+      const d = daysLeft(dueOn);
+      if (d > alertDays) continue;
+      out.push({ key: name, label: d < 0 ? `${name} overdue` : `${name} ${d}d`, overdue: d < 0 });
+    }
+    return out;
+  }
 
   return (
     <>
@@ -200,7 +225,15 @@ export default function FleetPage() {
               {vehicles.map((v) => (
                 <tr key={v.id}>
                   <td><b>{v.plate}</b></td>
-                  <td>{v.name}<div className="fleet-slug">{v.slug}</div></td>
+                  <td>{v.name}<div className="fleet-slug">{v.slug}</div>
+                    {complianceBadges(v).length > 0 && (
+                      <div className="fleet-compliance">
+                        {complianceBadges(v).map((b) => (
+                          <span key={b.key} className={`tag ${b.overdue ? "off" : "warn"}`}>{b.label}</span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                   <td>{v.class}</td>
                   <td className="num">{money(v.priceDayCents)}</td>
                   <td className="num">{money(v.priceWeekCents)}</td>
@@ -245,6 +278,8 @@ export default function FleetPage() {
             <label>Price / week (USD)<input type="number" step="0.01" min="0" required value={f.week} onChange={(e) => setF({ ...f, week: e.target.value })} /></label>
             <label>Price / month (USD)<input type="number" step="0.01" min="0" required value={f.month} onChange={(e) => setF({ ...f, month: e.target.value })} /></label>
             <label>Deposit (USD, blank = TBC)<input type="number" step="0.01" min="0" value={f.deposit} onChange={(e) => setF({ ...f, deposit: e.target.value })} /></label>
+            <label>Insurance expires<DatePicker value={f.insurance} onChange={(iso) => setF({ ...f, insurance: iso })} ariaLabel="Insurance expires" placeholder="Not tracked" /></label>
+            <label>Inspection due<DatePicker value={f.inspection} onChange={(iso) => setF({ ...f, inspection: iso })} ariaLabel="Inspection due" placeholder="Not tracked" /></label>
             <label>Status<Select value={f.status} onChange={(v) => setF({ ...f, status: v })} options={[{ value: "active", label: "active" }, { value: "maintenance", label: "maintenance" }, { value: "retired", label: "retired" }]} /></label>
             <label className="check fleet-check"><input type="checkbox" checked={f.ac} onChange={(e) => setF({ ...f, ac: e.target.checked })} /> Air conditioning</label>
           </div>

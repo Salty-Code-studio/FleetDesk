@@ -68,3 +68,12 @@
 /* Availability blocks drawer: the add-block form sits below the table with a
    little breathing room. */
 .fleet-block-form { margin-top: 1rem; }
+
+/* Compliance badges under the vehicle name (wave 03): amber = due soon within
+   the warning window, red = overdue. */
+.fleet-grid .fleet-compliance {
+  display: flex;
+  gap: .3rem;
+  margin-top: .25rem;
+  flex-wrap: wrap;
+}
