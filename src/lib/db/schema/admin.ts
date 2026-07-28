@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, boolean, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, boolean, smallint, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { bytea } from "./licenses";
 
 export const adminRole = pgEnum("admin_role", ["owner", "staff"]);
@@ -22,6 +22,19 @@ export const adminUsers = pgTable("admin_users", {
   // headers the way the IP/fingerprint rate limit can.
   mfaFailedAttempts: integer("mfa_failed_attempts").notNull().default(0),
   mfaLockedUntil: timestamp("mfa_locked_until", { withTimezone: true }),
+  // Staff logins (feature wave workstream 8). A staff person signs in with a
+  // personal 6-digit code stored ONLY as sha256("staff-code:" + code), same
+  // hashing pattern as login_tokens.codeHash. `name` labels the person in UI
+  // and audit views (staff rows carry a synthesized placeholder email).
+  // The lockout pair defends the small code space: wrong codes cannot be
+  // pinned on one row, so failures count against every active staff row and
+  // the whole staff-code path locks after the threshold (see
+  // src/lib/auth/staff-login.ts). `active=false` is instant revocation.
+  name: text("name"),
+  loginCodeHash: text("login_code_hash"),
+  codeFailedAttempts: smallint("code_failed_attempts").notNull().default(0),
+  codeLockedUntil: timestamp("code_locked_until", { withTimezone: true }),
+  active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
