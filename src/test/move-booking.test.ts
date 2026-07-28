@@ -71,6 +71,30 @@ describe("moveBooking", () => {
     await expectReject(moveBooking(bk!.id, { startAt: at("2028-05-01"), endAt: at("2028-05-05") }), /no longer be moved/i);
   });
 
+  it("rejects moving a terminal-status booking outright, without the advisory 'book anyway' override", async () => {
+    // carA is occupied 2028-09-01..05 by an active booking, so a move into
+    // this range trips checkAvailability's advisory conflict IF that check
+    // runs before the movable-status gate.
+    await createManualBooking({ vehicleId: carA, startAt: at("2028-09-01"), endAt: at("2028-09-05"), customerName: "Blocker" });
+    const [c] = await db.insert(customers).values({ email: "cancelled-move@test.com" }).returning();
+    const [bk] = await db.insert(bookings).values({
+      vehicleId: carB, customerId: c!.id, startAt: at("2028-09-20"), endAt: at("2028-09-22"), bufferEndAt: at("2028-09-23"),
+      status: "cancelled", priceBreakdown: {}, paymentOption: "full",
+      acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: "mv-cancelled-blocked",
+    }).returning();
+    try {
+      await moveBooking(bk!.id, { vehicleId: carA, startAt: at("2028-09-02"), endAt: at("2028-09-04") });
+      throw new Error("expected moveBooking to reject");
+    } catch (e) {
+      const err = e as Error & { details?: { code?: string } };
+      expect(err.message).toMatch(/no longer be moved/i);
+      // The bug being regression-tested: a terminal-status booking must never
+      // surface the advisory override offer, even into a blocked window.
+      expect(err.message).not.toMatch(/book anyway/i);
+      expect((err.details as { code?: string } | undefined)?.code).not.toBe("advisory_conflict");
+    }
+  });
+
   it("rejects a move onto a retired vehicle", async () => {
     const [ret] = await db.insert(vehicles).values({
       slug: "mv-ret", plate: "MV-RET", class: "Van", name: "Retired Mover", seats: 8, transmission: "Automatic",

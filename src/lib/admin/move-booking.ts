@@ -48,6 +48,14 @@ export async function moveBooking(id: string, input: MoveInput) {
   if (!input.override) {
     const [existing] = await db.select().from(bookings).where(eq(bookings.id, id));
     if (existing) {
+      // A terminal-status booking (cancelled/completed) can never actually be
+      // moved — the transaction below rejects it unconditionally, override or
+      // not. Check that FIRST: running the advisory block/blackout check
+      // before this gate would offer a misleading "book anyway" override on a
+      // booking no override can save.
+      if (existing.status !== "pending" && existing.status !== "confirmed") {
+        throw Errors.conflict("This booking can no longer be moved");
+      }
       const vehicleId = input.vehicleId ?? existing.vehicleId;
       const startAt = input.startAt ?? existing.startAt;
       const endAt = input.endAt ?? existing.endAt;
