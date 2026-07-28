@@ -20,6 +20,7 @@ interface Settings {
   minRentalDays: number; maxRentalDays: number;
   maxAdvanceDays: number; licenseRetentionDays: number; adminAlertRecipients: string[];
   complianceAlertDays: number;
+  youngDriverAge: number; youngDriverFeeCentsPerDay: number;
 }
 interface Blackout { id: string; startDate: string; endDate: string; reason: string }
 
@@ -81,6 +82,8 @@ export default function SettingsPage() {
         maxAdvanceDays: s.maxAdvanceDays,
         licenseRetentionDays: s.licenseRetentionDays,
         complianceAlertDays: s.complianceAlertDays,
+        youngDriverAge: s.youngDriverAge,
+        youngDriverFeeCentsPerDay: s.youngDriverFeeCentsPerDay,
         adminAlertRecipients: recipients.split(",").map((r) => r.trim()).filter(Boolean),
       });
       setS(updated);
@@ -130,7 +133,7 @@ export default function SettingsPage() {
           <div className="panel">
             <div className="set-panel-head"><h2>Fees &amp; guardrails</h2></div>
             <div className="form-grid">
-              {Array.from({ length: 14 }).map((_, i) => (
+              {Array.from({ length: 16 }).map((_, i) => (
                 <label key={i}><Skeleton width="55%" height={11} /><Skeleton height={38} radius={9} /></label>
               ))}
             </div>
@@ -181,6 +184,14 @@ export default function SettingsPage() {
               <label>Minimum driver age
                 <input type="number" min="16" max="99" value={s.minDriverAge}
                   onChange={(e) => setS({ ...s, minDriverAge: Number(e.target.value) })} />
+              </label>
+              <label>Young driver age threshold (under this pays the fee)
+                <input type="number" min="16" max="99" value={s.youngDriverAge}
+                  onChange={(e) => setS({ ...s, youngDriverAge: Number(e.target.value) })} />
+              </label>
+              <label>Young driver fee per day ({s.currency})
+                <input type="number" step="0.01" min="0" value={dollars(s.youngDriverFeeCentsPerDay)}
+                  onChange={(e) => setS({ ...s, youngDriverFeeCentsPerDay: Math.round(Number(e.target.value) * 100) })} />
               </label>
               <label>Turnaround buffer (hours)
                 <input type="number" min="0" max="168" value={s.turnaroundBufferHours}
