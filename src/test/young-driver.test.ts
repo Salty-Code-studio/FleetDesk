@@ -138,6 +138,7 @@ describe("extendBooking keeps the young-driver fee", () => {
     await extendBooking(booking.id, {
       endAt: "2027-06-06T09:00:00-04:00", // now 5 days
       payment: "desk",
+      role: "owner",
     });
 
     const [updated] = await db.select().from(bookings).where(eq(bookings.id, booking.id));

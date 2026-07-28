@@ -8,7 +8,13 @@ import { atAruba } from "@/lib/time/format";
 
 // The link path stands up a Stripe Checkout session; every Stripe call funnels
 // through this one module, so we stub it like the other payment tests do.
-const stripeSessionCreate = vi.fn(async () => ({ id: "cs_ext_test", url: "https://checkout.stripe.test/ext" }));
+// A fresh session id per call: stripeCheckoutSessionId is unique in the
+// schema, and more than one test in this file now takes the link path.
+let stripeSessionCursor = 0;
+const stripeSessionCreate = vi.fn(async () => {
+  stripeSessionCursor += 1;
+  return { id: `cs_ext_test_${stripeSessionCursor}`, url: "https://checkout.stripe.test/ext" };
+});
 vi.mock("@/lib/payments/stripe-client", () => ({
   getStripe: () => ({ checkout: { sessions: { create: stripeSessionCreate } } }),
 }));
@@ -71,7 +77,7 @@ describe("extendBooking", () => {
       breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
     });
 
-    const r = await extendBooking(b.id, { endAt: atAruba("2026-08-04", "09:00"), payment: "desk" });
+    const r = await extendBooking(b.id, { endAt: atAruba("2026-08-04", "09:00"), payment: "desk", role: "owner" });
 
     expect(r.deltaCents).toBe(8000);
     expect(r.booking.endAt).toContain("2026-08-04");
@@ -100,7 +106,7 @@ describe("extendBooking", () => {
       breakdown: breakdownFor(6, 48000), amountPaidCents: 48000,
     });
 
-    const r = await extendBooking(b.id, { endAt: atAruba("2026-08-17", "09:00"), payment: "desk" });
+    const r = await extendBooking(b.id, { endAt: atAruba("2026-08-17", "09:00"), payment: "desk", role: "owner" });
 
     expect(r.deltaCents).toBe(0);
     // no extension payment row for a zero delta
@@ -128,7 +134,7 @@ describe("extendBooking", () => {
       breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
     });
 
-    await expect(extendBooking(b.id, { endAt: atAruba("2026-08-26", "09:00"), payment: "desk" }))
+    await expect(extendBooking(b.id, { endAt: atAruba("2026-08-26", "09:00"), payment: "desk", role: "owner" }))
       .rejects.toMatchObject({ status: 409 });
 
     // b unchanged after the refusal
@@ -144,7 +150,7 @@ describe("extendBooking", () => {
       breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
     });
 
-    const r = await extendBooking(b.id, { endAt: atAruba("2026-09-04", "09:00"), payment: "link" });
+    const r = await extendBooking(b.id, { endAt: atAruba("2026-09-04", "09:00"), payment: "link", role: "owner" });
 
     expect(r.deltaCents).toBe(8000);
     expect(r.checkoutUrl).toMatch(/^https:/);
@@ -169,7 +175,7 @@ describe("extendBooking", () => {
       start: atAruba("2026-10-01", "09:00"), end: atAruba("2026-10-03", "09:00"), buffer: atAruba("2026-10-04", "09:00"),
       breakdown: breakdownFor(2, 16000), amountPaidCents: 0,
     });
-    await expect(extendBooking(pending.id, { endAt: atAruba("2026-10-04", "09:00"), payment: "desk" }))
+    await expect(extendBooking(pending.id, { endAt: atAruba("2026-10-04", "09:00"), payment: "desk", role: "owner" }))
       .rejects.toMatchObject({ status: 409 });
 
     const vehicleId2 = await makeVehicle({ day: 8000, week: 100000, month: 400000 });
@@ -178,7 +184,7 @@ describe("extendBooking", () => {
       start: atAruba("2026-10-10", "09:00"), end: atAruba("2026-10-12", "09:00"), buffer: atAruba("2026-10-13", "09:00"),
       breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
     });
-    await expect(extendBooking(completed.id, { endAt: atAruba("2026-10-13", "09:00"), payment: "desk" }))
+    await expect(extendBooking(completed.id, { endAt: atAruba("2026-10-13", "09:00"), payment: "desk", role: "owner" }))
       .rejects.toMatchObject({ status: 409 });
   });
 
@@ -189,7 +195,7 @@ describe("extendBooking", () => {
       start: atAruba("2026-11-01", "09:00"), end: atAruba("2026-11-03", "09:00"), buffer: atAruba("2026-11-04", "09:00"),
       breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
     });
-    const r = await extendBooking(b.id, { endAt: atAruba("2026-11-04", "09:00"), payment: "desk" });
+    const r = await extendBooking(b.id, { endAt: atAruba("2026-11-04", "09:00"), payment: "desk", role: "owner" });
     expect(r.deltaCents).toBe(8000);
     expect(r.booking.status).toBe("picked_up");
   });
@@ -201,7 +207,7 @@ describe("extendBooking", () => {
       start: atAruba("2026-12-01", "09:00"), end: atAruba("2026-12-03", "09:00"), buffer: atAruba("2026-12-04", "09:00"),
       breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
     });
-    await expect(extendBooking(b.id, { endAt: atAruba("2026-12-03", "09:00"), payment: "desk" }))
+    await expect(extendBooking(b.id, { endAt: atAruba("2026-12-03", "09:00"), payment: "desk", role: "owner" }))
       .rejects.toMatchObject({ status: 400 });
   });
 
@@ -240,7 +246,7 @@ describe("extendBooking", () => {
 
     // Extend to 3 days: vehicle 24000 + insurance 3*1500=4500
     //   + baby seat per_day 1000*3*1=3000 + GPS per_rental 500*2=1000 = 32500
-    const r = await extendBooking(b.id, { endAt: atAruba("2027-01-04", "09:00"), payment: "desk" });
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-01-04", "09:00"), payment: "desk", role: "owner" });
     expect(r.deltaCents).toBe(10500);
 
     const bd = r.booking.priceBreakdown as { subtotalCents: number; insuranceCents: number; addOns: { id: string; cents: number }[] };
@@ -263,7 +269,7 @@ describe("extendBooking", () => {
       breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
     });
 
-    const r = await extendBooking(b.id, { endAt: atAruba("2027-02-04", "09:00"), payment: "desk", dryRun: true });
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-02-04", "09:00"), payment: "desk", dryRun: true, role: "owner" });
     expect(r.deltaCents).toBe(8000);
     expect(r.checkoutUrl).toBeNull();
 
@@ -280,9 +286,93 @@ describe("extendBooking", () => {
 
     // Stripe was never called for a dryRun preview, even with payment: "link"
     const callsBefore = stripeSessionCreate.mock.calls.length;
-    const rLink = await extendBooking(b.id, { endAt: atAruba("2027-02-04", "09:00"), payment: "link", dryRun: true });
+    const rLink = await extendBooking(b.id, { endAt: atAruba("2027-02-04", "09:00"), payment: "link", dryRun: true, role: "owner" });
     expect(rLink.deltaCents).toBe(8000);
     expect(rLink.checkoutUrl).toBeNull();
     expect(stripeSessionCreate.mock.calls.length).toBe(callsBefore);
+  });
+});
+
+// Regression: staff could record a succeeded desk payment via extend-booking,
+// bypassing the owner-only money gate that the parallel recordDeskBalancePayment
+// capability already enforces. Desk settlement is cash-in-hand money movement;
+// a Stripe link merely makes the CUSTOMER pay, so staff keep that path.
+describe("extendBooking money gate: desk settlement is owner-only", () => {
+  it("rejects staff + payment:desk with 403, and writes nothing", async () => {
+    const vehicleId = await makeVehicle({ day: 8000, week: 100000, month: 400000 });
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-03-01", "09:00"), end: atAruba("2027-03-03", "09:00"), buffer: atAruba("2027-03-04", "09:00"),
+      breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
+    });
+
+    await expect(
+      extendBooking(b.id, { endAt: atAruba("2027-03-04", "09:00"), payment: "desk", role: "staff" }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    // no phantom desk payment, no bump to the paid ledger, dates untouched
+    const rows = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, b.id), eq(payments.type, "extension")));
+    expect(rows.length).toBe(0);
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.amountPaidCents).toBe(16000);
+    expect(after!.endAt).toContain("2027-03-03");
+  });
+
+  it("allows staff + payment:link (the customer pays, not the desk)", async () => {
+    const vehicleId = await makeVehicle({ day: 8000, week: 100000, month: 400000 });
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-03-10", "09:00"), end: atAruba("2027-03-12", "09:00"), buffer: atAruba("2027-03-13", "09:00"),
+      breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
+    });
+
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-03-13", "09:00"), payment: "link", role: "staff" });
+    expect(r.deltaCents).toBe(8000);
+    expect(r.checkoutUrl).toMatch(/^https:/);
+
+    const [pay] = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, b.id), eq(payments.type, "extension")));
+    expect(pay?.method).toBe("stripe");
+    expect(pay?.status).toBe("pending");
+
+    // link path never credits amountPaidCents directly (the webhook does)
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.amountPaidCents).toBe(16000);
+  });
+
+  it("allows owner + payment:desk (the settled path this gate protects)", async () => {
+    const vehicleId = await makeVehicle({ day: 8000, week: 100000, month: 400000 });
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-03-20", "09:00"), end: atAruba("2027-03-22", "09:00"), buffer: atAruba("2027-03-23", "09:00"),
+      breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
+    });
+
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-03-23", "09:00"), payment: "desk", role: "owner" });
+    expect(r.deltaCents).toBe(8000);
+
+    const [pay] = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, b.id), eq(payments.type, "extension")));
+    expect(pay?.method).toBe("desk");
+    expect(pay?.status).toBe("succeeded");
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.amountPaidCents).toBe(24000);
+  });
+
+  it("still allows a staff dryRun preview with payment:desk (no write either way)", async () => {
+    // The drawer's live preview always calls with payment:"desk" regardless of
+    // who is signed in, purely to show the delta number before commit.
+    const vehicleId = await makeVehicle({ day: 8000, week: 100000, month: 400000 });
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-03-25", "09:00"), end: atAruba("2027-03-27", "09:00"), buffer: atAruba("2027-03-28", "09:00"),
+      breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
+    });
+
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-03-28", "09:00"), payment: "desk", dryRun: true, role: "staff" });
+    expect(r.deltaCents).toBe(8000);
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.amountPaidCents).toBe(16000);
   });
 });

@@ -20,16 +20,16 @@ export const POST = withRoute(async (req, { params }) => {
   // Live delta preview: no write, no audit entry, so this goes through read()
   // rather than mutate() even though the HTTP verb is POST.
   if (body.dryRun) {
-    const r = await read(req, () => extendBooking(id, body), { roles: ["owner", "staff"] });
+    const r = await read(req, (ctx) => extendBooking(id, { ...body, role: ctx.admin.role }), { roles: ["owner", "staff"] });
     return json({ deltaCents: r.deltaCents }, req);
   }
 
-  const result = await mutate(req, "admin.booking_extended", async () => {
-    const r = await extendBooking(id, body);
+  const result = await mutate(req, "admin.booking_extended", async (ctx) => {
+    const r = await extendBooking(id, { ...body, role: ctx.admin.role });
     return {
       result: r, entity: "booking", entityId: id,
       before: { endAt: r.previousEndAt },
-      after: { endAt: r.booking.endAt, deltaCents: r.deltaCents },
+      after: { endAt: r.booking.endAt, deltaCents: r.deltaCents, payment: body.payment },
     };
   }, { roles: ["owner", "staff"] });
 

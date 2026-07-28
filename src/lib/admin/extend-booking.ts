@@ -8,6 +8,7 @@ import { checkAvailability } from "@/lib/booking/availability";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
 import { createExtensionCheckout } from "@/lib/payments/checkout";
 import { addHoursIso, parseTs } from "@/lib/time/format";
+import type { AdminRole } from "@/lib/auth/admin-auth";
 
 /**
  * Push a live rental's return date out. Only a booking that is on the road or
@@ -43,7 +44,7 @@ class DryRunPreview extends Error {
 
 export async function extendBooking(
   id: string,
-  opts: { endAt: string; payment: "link" | "desk"; dryRun?: boolean },
+  opts: { endAt: string; payment: "link" | "desk"; dryRun?: boolean; role: AdminRole },
 ): Promise<ExtendResult> {
   const db = await getDb();
   const settings = await getSettings();
@@ -58,6 +59,16 @@ export async function extendBooking(
   if (!existing) throw Errors.notFound("Booking not found");
   if (!isExtendable(existing.status)) throw Errors.conflict("Only a confirmed or picked-up booking can be extended");
   if (parseTs(newEndAt) <= parseTs(existing.endAt)) throw Errors.badRequest("The new return must be after the current return");
+
+  // Money gate: settling the delta at the desk records a SUCCEEDED cash
+  // payment and immediately bumps amountPaidCents, same as the owner-only
+  // recordDeskBalancePayment capability. Staff may still send a Stripe link
+  // (that makes the CUSTOMER pay; it never touches the ledger here). Skipped
+  // for a dryRun: it never writes, and the drawer always previews with
+  // payment:"desk" regardless of role just to show the live delta number.
+  if (!opts.dryRun && opts.payment === "desk" && opts.role !== "owner") {
+    throw Errors.forbidden("Only an owner can record a desk payment for a booking extension");
+  }
 
   // Only the ADDED tail [currentEndAt, newEndAt) has to be free; exclude this
   // booking's own row so it never clashes with itself.
