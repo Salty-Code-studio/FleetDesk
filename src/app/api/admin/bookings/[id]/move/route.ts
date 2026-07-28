@@ -22,7 +22,7 @@ export const PATCH = withRoute(async (req, { params }) => {
       result: row, entity: "booking", entityId: id,
       after: { vehicleId: row.vehicleId, startAt: row.startAt, endAt: row.endAt },
     };
-  });
+  }, { roles: ["owner", "staff"] });
   return json(
     { id: updated.id, vehicleId: updated.vehicleId, startAt: updated.startAt, endAt: updated.endAt },
     req,

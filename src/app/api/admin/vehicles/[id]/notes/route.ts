@@ -12,7 +12,7 @@ const ParamsSchema = z.object({ id: z.string().uuid() });
 
 export const GET = withRoute(async (req, { params }) => {
   const { id } = parseParams(await params, ParamsSchema);
-  return json(await read(req, () => listNotes(id)), req);
+  return json(await read(req, () => listNotes(id), { roles: ["owner", "staff"] }), req);
 });
 
 export const POST = withRoute(async (req, { params }) => {
@@ -21,6 +21,6 @@ export const POST = withRoute(async (req, { params }) => {
   const created = await mutate(req, "admin.vehicle_note_created", async (ctx) => {
     const row = await createNote(id, input, ctx.admin.id);
     return { result: row, entity: "vehicle_note", entityId: row.id, after: row };
-  });
+  }, { roles: ["owner", "staff"] });
   return json(created, req, { status: 201 });
 });

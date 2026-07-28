@@ -20,6 +20,6 @@ export const POST = withRoute(async (req, { params }) => {
       ? await completePickup(id, { actorId: ctx.admin.id, overrideNote: body.overrideNote })
       : await completeReturn(id, { actorId: ctx.admin.id });
     return { result: row, entity: "booking", entityId: id, after: { status: row.status } };
-  });
+  }, { roles: ["owner", "staff"] });
   return json({ id: updated.id, status: updated.status }, req);
 });

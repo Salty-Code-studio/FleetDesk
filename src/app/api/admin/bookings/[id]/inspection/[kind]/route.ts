@@ -17,6 +17,6 @@ export const PUT = withRoute(async (req, { params }) => {
   const updated = await mutate(req, "admin.inspection_updated", async (ctx) => {
     const { before, after } = await upsertInspection(id, kind, patch, ctx.admin.id);
     return { result: after, entity: "inspection", entityId: after.id, before, after };
-  });
+  }, { roles: ["owner", "staff"] });
   return json(updated, req);
 });

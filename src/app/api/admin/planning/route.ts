@@ -23,5 +23,6 @@ export const GET = withRoute(async (req) => {
   const maxTo = new Date(Date.parse(`${from}T00:00:00Z`) + 59 * 86_400_000).toISOString().slice(0, 10);
   if (to > maxTo) to = maxTo;
   if (to < from) to = from;
-  return json(await read(req, () => getPlanning(from, to)), req);
+  // Staff opt-in (workstream 8): the planning board is the staff home surface.
+  return json(await read(req, () => getPlanning(from, to), { roles: ["owner", "staff"] }), req);
 });

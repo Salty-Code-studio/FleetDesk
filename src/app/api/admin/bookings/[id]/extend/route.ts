@@ -20,7 +20,7 @@ export const POST = withRoute(async (req, { params }) => {
   // Live delta preview: no write, no audit entry, so this goes through read()
   // rather than mutate() even though the HTTP verb is POST.
   if (body.dryRun) {
-    const r = await read(req, () => extendBooking(id, body));
+    const r = await read(req, () => extendBooking(id, body), { roles: ["owner", "staff"] });
     return json({ deltaCents: r.deltaCents }, req);
   }
 
@@ -31,7 +31,7 @@ export const POST = withRoute(async (req, { params }) => {
       before: { endAt: r.previousEndAt },
       after: { endAt: r.booking.endAt, deltaCents: r.deltaCents },
     };
-  });
+  }, { roles: ["owner", "staff"] });
 
   // Best-effort customer email + bell (never blocks the extension), carrying the
   // pay-by-link url when the desk chose "link" so the customer can settle the delta.

@@ -47,6 +47,6 @@ export const POST = withRoute(async (req) => {
       entityId: fields.bookingId,
       after: { key, category: fields.category, label: fields.label, bytes: file.size },
     };
-  });
+  }, { roles: ["owner", "staff"] });
   return json(result, req, { status: 201 });
 });

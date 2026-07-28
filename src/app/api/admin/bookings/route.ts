@@ -20,6 +20,6 @@ export const POST = withRoute(async (req) => {
       result: row, entity: "booking", entityId: row.id,
       after: { source: "manual", vehicleId: row.vehicleId, startAt: row.startAt, endAt: row.endAt },
     };
-  });
+  }, { roles: ["owner", "staff"] });
   return json({ id: booking.id }, req, { status: 201 });
 });
