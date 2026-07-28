@@ -62,7 +62,24 @@
 .bd-dates { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-bottom: .7rem; }
 .bd-dates label { margin: 0; }
 
+/* Extend modal: new-return date/time pair, the live delta preview line, and
+   the payment-link result (url + copy button). */
+.bd-extend-fields { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-bottom: .7rem; }
+.bd-extend-fields label { margin: 0; }
+.bd-extend-preview {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+  padding: .7rem .8rem; background: var(--fill); border-radius: 10px; margin: 0;
+}
+.bd-extend-preview span { font-size: .8rem; color: var(--ink-soft); }
+.bd-extend-preview strong { font-family: var(--font-mono); font-size: 1rem; }
+.bd-extend-link { display: flex; gap: .5rem; margin-top: .6rem; }
+.bd-extend-link input {
+  flex: 1; min-width: 0; padding: .45rem .58rem; border: 1.5px solid var(--line);
+  border-radius: 9px; font-family: var(--font-mono); font-size: .82rem; background: var(--fill);
+}
+
 @media (max-width: 640px) {
   .bd-summary { grid-template-columns: 1fr; }
   .bd-dates { grid-template-columns: 1fr; }
+  .bd-extend-fields { grid-template-columns: 1fr; }
 }

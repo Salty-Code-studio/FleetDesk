@@ -254,4 +254,35 @@ describe("extendBooking", () => {
       .where(and(eq(bookingAddOns.bookingId, b.id), eq(bookingAddOns.addOnId, perDay!.id)));
     expect(snap!.priceSnapshotCents).toBe(3000);
   });
+
+  it("dryRun previews the delta without writing anything", async () => {
+    const vehicleId = await makeVehicle({ day: 8000, week: 100000, month: 400000 });
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-02-01", "09:00"), end: atAruba("2027-02-03", "09:00"), buffer: atAruba("2027-02-04", "09:00"),
+      breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
+    });
+
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-02-04", "09:00"), payment: "desk", dryRun: true });
+    expect(r.deltaCents).toBe(8000);
+    expect(r.checkoutUrl).toBeNull();
+
+    // no DB writes: the booking's endAt, breakdown, and amountPaidCents are all untouched
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.endAt).toContain("2027-02-03");
+    expect(after!.amountPaidCents).toBe(16000);
+    expect((after!.priceBreakdown as { subtotalCents: number }).subtotalCents).toBe(16000);
+
+    // no extension payment row was created either
+    const rows = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, b.id), eq(payments.type, "extension")));
+    expect(rows.length).toBe(0);
+
+    // Stripe was never called for a dryRun preview, even with payment: "link"
+    const callsBefore = stripeSessionCreate.mock.calls.length;
+    const rLink = await extendBooking(b.id, { endAt: atAruba("2027-02-04", "09:00"), payment: "link", dryRun: true });
+    expect(rLink.deltaCents).toBe(8000);
+    expect(rLink.checkoutUrl).toBeNull();
+    expect(stripeSessionCreate.mock.calls.length).toBe(callsBefore);
+  });
 });

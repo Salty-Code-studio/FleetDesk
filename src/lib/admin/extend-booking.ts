@@ -32,9 +32,18 @@ export interface ExtendResult {
   previousEndAt: string;
 }
 
+// Thrown INSIDE the transaction to unwind it (dryRun mode): Drizzle rolls back
+// every statement run so far when the callback throws, so this guarantees zero
+// writes while still letting us carry the computed delta back out.
+class DryRunPreview extends Error {
+  constructor(readonly deltaCents: number) {
+    super("dry run: no write performed");
+  }
+}
+
 export async function extendBooking(
   id: string,
-  opts: { endAt: string; payment: "link" | "desk" },
+  opts: { endAt: string; payment: "link" | "desk"; dryRun?: boolean },
 ): Promise<ExtendResult> {
   const db = await getDb();
   const settings = await getSettings();
@@ -102,6 +111,10 @@ export async function extendBooking(
       const deltaCents = Math.max(0, newBreakdown.subtotalCents - (oldBreakdown.subtotalCents ?? 0));
       // ── end re-quote block ──
 
+      // dryRun: the caller only wants the live preview number. Unwind the
+      // transaction (nothing has been written yet) instead of committing.
+      if (opts.dryRun) throw new DryRunPreview(deltaCents);
+
       const bufferEndAt = addHoursIso(newEndAt, settings.turnaroundBufferHours);
       const isDeskPaid = opts.payment === "desk" && deltaCents > 0;
       const [updated] = await tx.update(bookings)
@@ -140,6 +153,9 @@ export async function extendBooking(
 
     return { booking, deltaCents, checkoutUrl, previousEndAt };
   } catch (e) {
+    if (e instanceof DryRunPreview) {
+      return { booking: existing, deltaCents: e.deltaCents, checkoutUrl: null, previousEndAt: existing.endAt };
+    }
     const t = translateDbError(e); // 23P01 overlap+buffer → 409 backstop
     if (t) throw t;
     throw e;
