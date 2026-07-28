@@ -5,6 +5,7 @@ import { apiGet, api, apiPatch, type ApiError } from "../client";
 import { Drawer, Modal, useToast, SkeletonRows } from "@/app/admin/_ui";
 import { DatePicker, Select, TimeSelect } from "@/components/ui";
 import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, parseTs } from "@/lib/time/format";
+import { InspectionPanel } from "./inspection-panel";
 import "./booking-drawer.css";
 
 interface BookingDetailPayment {
@@ -337,7 +338,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
               <p className="bd-balance">Paid {money(b.amountPaidCents)} · Balance due at pickup {money(detail.balanceDueCents)}</p>
             </section>
 
-            {extraSections}
+            {extraSections ?? <InspectionPanel bookingId={b.id} onChanged={onChanged} />}
 
             <section className="bd-section">
               <h3>Actions</h3>
