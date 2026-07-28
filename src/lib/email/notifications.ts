@@ -109,9 +109,13 @@ export async function notifyBookingCancelled(
     const ctx = await context(bookingId);
     if (!ctx) return;
     const settings = await getSettings();
+    const breakdown = ctx.booking.priceBreakdown as QuoteBreakdown;
+    const db = await getDb();
+    const [pay] = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, bookingId), eq(payments.status, "succeeded")));
     const emailArgs = {
       vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
-      refund, cancellationWindowHours: settings.cancellationWindowHours, currency: settings.currency,
+      refund, cancellationWindowHours: settings.cancellationWindowHours, currency: pay?.currency ?? breakdown.currency,
     };
 
     await sendAndLog({ to: ctx.customerEmail, type: "booking_cancelled", ...bookingCancelledEmail(emailArgs) });
