@@ -10,7 +10,7 @@ interface AddOn { id: string; name: string; description: string; priceCents: num
 interface Breakdown {
   days: number; vehicleCents: number; insuranceCents: number;
   addOns: { id: string; name: string; qty: number; cents: number }[];
-  addOnsCents: number; subtotalCents: number; depositCents: number | null; depositPercent: number; depositMinCents: number; youngDriverCents: number; currency: string;
+  addOnsCents: number; subtotalCents: number; depositCents: number | null; depositPercent: number; depositMinCents: number; youngDriverCents: number; youngDriver: boolean; currency: string;
   // /api/quote always sends this now (Task 11): the cancellation window and the
   // vehicle's refundable at-pickup security deposit, sourced from the same
   // settings + vehicle rows the price itself was computed from.

@@ -72,3 +72,34 @@ describe("quote", () => {
     expect(b.subtotalCents).toBe(b.vehicleCents);
   });
 });
+
+describe("quote young driver surcharge", () => {
+  it("adds feePerDay times days and folds it into the subtotal", () => {
+    const b = quote({
+      days: 7, vehicle: rates, addOns: [], depositPercent: 25, depositMinCents: 3000, currency: "USD",
+      youngDriver: true, youngDriverFeeCentsPerDay: 1000,
+    });
+    expect(b.youngDriver).toBe(true);
+    expect(b.youngDriverCents).toBe(7000);
+    expect(b.subtotalCents).toBe(b.vehicleCents + b.insuranceCents + b.addOnsCents + 7000);
+  });
+
+  it("charges nothing when the flag is off or omitted", () => {
+    const off = quote({
+      days: 7, vehicle: rates, addOns: [], depositPercent: 25, depositMinCents: 3000, currency: "USD",
+      youngDriver: false, youngDriverFeeCentsPerDay: 1000,
+    });
+    expect(off.youngDriver).toBe(false);
+    expect(off.youngDriverCents).toBe(0);
+    const omitted = quote({ days: 7, vehicle: rates, addOns: [], depositPercent: 25, depositMinCents: 3000, currency: "USD" });
+    expect(omitted.youngDriver).toBe(false);
+    expect(omitted.youngDriverCents).toBe(0);
+    expect(omitted.subtotalCents).toBe(omitted.vehicleCents + omitted.insuranceCents + omitted.addOnsCents);
+  });
+
+  it("keeps the flag true with a zero fee (surcharge disabled) without charging", () => {
+    const b = quote({ days: 3, vehicle: rates, addOns: [], depositPercent: 25, depositMinCents: 3000, currency: "USD", youngDriver: true });
+    expect(b.youngDriver).toBe(true);
+    expect(b.youngDriverCents).toBe(0);
+  });
+});

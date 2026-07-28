@@ -3,7 +3,7 @@ import { paymentAmounts, chargeForBooking, depositSettingsFromSnapshot } from "@
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 
 const breakdown: QuoteBreakdown = {
-  days: 7, vehicleCents: 34800, insuranceCents: 0, addOns: [], addOnsCents: 0, youngDriverCents: 0,
+  days: 7, vehicleCents: 34800, insuranceCents: 0, addOns: [], addOnsCents: 0, youngDriverCents: 0, youngDriver: false,
   subtotalCents: 34800, depositCents: 25000, depositPercent: 25, depositMinCents: 3000, currency: "USD",
 };
 

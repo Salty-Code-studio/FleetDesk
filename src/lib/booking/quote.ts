@@ -32,6 +32,10 @@ export interface QuoteInput {
   depositPercent: number;
   depositMinCents: number;
   currency: string;
+  /** Young-driver surcharge (workstream 5). Flag decided server-side from the
+   *  licence DOB at booking time; the wizard's claim only drives live quotes. */
+  youngDriver?: boolean;
+  youngDriverFeeCentsPerDay?: number;
 }
 
 export interface QuoteAddOnLine {
@@ -51,8 +55,10 @@ export interface QuoteBreakdown {
   subtotalCents: number;
   /** Refundable security hold; null until the owner sets a per-class deposit. */
   depositCents: number | null;
-  /** Young-driver surcharge line. Always 0 until the young-driver workstream wires it. */
+  /** Young-driver surcharge line. Always 0 unless the flag below is true. */
   youngDriverCents: number;
+  /** True when the young-driver per-day fee was applied (snapshotted decision). */
+  youngDriver: boolean;
   /** Deposit settings snapshotted at quote time; they drive the pay-now math forever after. */
   depositPercent: number;
   depositMinCents: number;
@@ -95,14 +101,18 @@ export function quote(input: QuoteInput): QuoteBreakdown {
   }));
   const addOnsCents = addOnLines.reduce((sum, l) => sum + l.cents, 0);
 
+  const youngDriver = input.youngDriver ?? false;
+  const youngDriverCents = youngDriver ? (input.youngDriverFeeCentsPerDay ?? 0) * days : 0;
+
   return {
     days,
     vehicleCents,
     insuranceCents,
     addOns: addOnLines,
     addOnsCents,
-    youngDriverCents: 0,
-    subtotalCents: vehicleCents + insuranceCents + addOnsCents,
+    youngDriver,
+    youngDriverCents,
+    subtotalCents: vehicleCents + insuranceCents + addOnsCents + youngDriverCents,
     depositCents: vehicle.depositCents,
     depositPercent,
     depositMinCents,
