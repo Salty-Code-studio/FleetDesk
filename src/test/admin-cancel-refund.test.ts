@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, settings, customers, bookings, payments } from "@/lib/db/schema";
@@ -11,6 +12,28 @@ const stripeRefundCreate = vi.fn(async () => ({ id: "re_test" }));
 vi.mock("@/lib/payments/stripe-client", () => ({
   getStripe: () => ({ refunds: { create: stripeRefundCreate } }),
 }));
+
+// Injects a "concurrent refund" that lands between cancelBookingAdmin's
+// pre-transaction select and its call into refundPayment, so the regression
+// test below can prove the returned/emailed refundCents comes from
+// refundPayment's own applied delta and not a stale pre-read. When
+// raceAmountCents is 0 (every other test in this file) this is a transparent
+// passthrough to the real refundPayment.
+let raceAmountCents = 0;
+vi.mock("@/lib/payments/refunds", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/payments/refunds")>();
+  return {
+    ...actual,
+    refundPayment: async (paymentId: string, opts?: { amountCents?: number }) => {
+      if (raceAmountCents > 0) {
+        const amount = raceAmountCents;
+        raceAmountCents = 0; // fire once per test
+        await actual.refundPayment(paymentId, { amountCents: amount }); // the "other admin's" refund
+      }
+      return actual.refundPayment(paymentId, opts);
+    },
+  };
+});
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "", customerId = "";
@@ -78,6 +101,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   stripeRefundCreate.mockClear();
+  raceAmountCents = 0;
 });
 
 describe("admin cancel gains a refund choice", () => {
@@ -122,5 +146,25 @@ describe("admin cancel gains a refund choice", () => {
     expect(lateResult.policySaysFree).toBe(false);
 
     expect(stripeRefundCreate).not.toHaveBeenCalled();
+  });
+
+  it("reports the delta refundPayment actually applied, not a stale pre-read, under a concurrent refund", async () => {
+    const { booking, window: w } = await makeBooking(5000);
+    const payment = await makePayment(booking.id, 5000);
+    const nowIso = atAruba(`${w.year}-${w.month}-07`, "21:00"); // inside window, irrelevant: refund:true is a goodwill override
+
+    // Simulate another refund of 1000 cents on this same payment landing in
+    // the gap between cancelBookingAdmin's pre-transaction select and its
+    // call into refundPayment. The only correct reported/emailed amount for
+    // THIS cancellation is the 4000 cents its own refundPayment call
+    // applied, not 5000 (which is what you get by diffing against the stale
+    // pre-read).
+    raceAmountCents = 1000;
+
+    const result = await cancelBookingAdmin(booking.id, true, nowIso);
+
+    expect(result.refundCents).toBe(4000);
+    const [after] = await db.select().from(payments).where(eq(payments.id, payment.id));
+    expect(after!.refundedCents).toBe(5000); // ledger total is still correct
   });
 });

@@ -197,9 +197,12 @@ export async function cancelBookingAdmin(id: string, refund: boolean, nowIso: st
       .where(and(eq(payments.bookingId, id), eq(payments.status, "succeeded")));
     for (const p of succeeded) {
       try {
-        const before = p.refundedCents;
+        // Use the delta refundPayment actually applied inside its own locked
+        // transaction, not a difference against this pre-transaction `p`
+        // read: a concurrent refund between the select above and this call
+        // would otherwise inflate the reported/emailed refundCents.
         const r = await refundPayment(p.id);
-        refundCents += r.refundedCents - before;
+        refundCents += r.appliedCents;
       } catch (e) {
         refundError = true;
         logger.error("admin_cancel_refund_failed", { bookingId: id, paymentId: p.id, error: (e as Error).message });
