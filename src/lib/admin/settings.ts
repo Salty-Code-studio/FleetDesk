@@ -9,7 +9,11 @@ import { isoDate } from "@/lib/validation/iso-date";
 export type Settings = typeof settings.$inferSelect;
 export type BlackoutDate = typeof blackoutDates.$inferSelect;
 
-const TIME_HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+// Minutes are restricted to :00/:30 to match the TimeSelect grid and
+// validateDates' 30-minute-step guardrail — an off-grid stored time (e.g.
+// 08:15) would make date-only /api/quote requests throw and would leave
+// TimeSelect unable to render the persisted value.
+const TIME_HHMM = /^([01]\d|2[0-3]):(00|30)$/;
 
 /** Partial update — every field optional, each independently range-checked. */
 export const SettingsPatchSchema = z.object({

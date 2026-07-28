@@ -71,4 +71,16 @@ describe("admin settings", () => {
     // stored state unchanged
     expect((await getSettings()).minRentalDays).toBe(1);
   });
+
+  it("rejects off-grid opening/closing times so TimeSelect and date-only quotes stay valid", () => {
+    // Off-grid minutes must be rejected — matches the TimeSelect 30-minute grid
+    // and validateDates' 30-minute-step guardrail (see business-hours.test.ts).
+    expect(SettingsPatchSchema.safeParse({ openingTime: "08:15" }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ closingTime: "18:45" }).success).toBe(false);
+    // On-grid minutes remain accepted
+    expect(SettingsPatchSchema.safeParse({ openingTime: "08:00" }).success).toBe(true);
+    expect(SettingsPatchSchema.safeParse({ openingTime: "08:30" }).success).toBe(true);
+    expect(SettingsPatchSchema.safeParse({ closingTime: "18:00" }).success).toBe(true);
+    expect(SettingsPatchSchema.safeParse({ closingTime: "18:30" }).success).toBe(true);
+  });
 });
