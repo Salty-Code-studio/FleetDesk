@@ -26,6 +26,7 @@ export const SettingsPatchSchema = z.object({
   maxAdvanceDays: z.number().int().min(1).max(1095).optional(),
   licenseRetentionDays: z.number().int().min(1).max(3650).optional(),
   adminAlertRecipients: z.array(z.string().trim().toLowerCase().email()).max(20).optional(),
+  complianceAlertDays: z.number().int().min(1).max(365).optional(),
 }).strict().refine(
   (v) => v.minRentalDays === undefined || v.maxRentalDays === undefined || v.minRentalDays <= v.maxRentalDays,
   { message: "minRentalDays must be ≤ maxRentalDays", path: ["minRentalDays"] },

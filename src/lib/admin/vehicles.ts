@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db/client";
 import { vehicles, availabilityBlocks } from "@/lib/db/schema";
 import { centsField, optionalCentsField } from "@/lib/admin/money";
 import { Errors } from "@/lib/http/errors";
-import { isoDateTime } from "@/lib/validation/iso-date";
+import { isoDate, isoDateTime } from "@/lib/validation/iso-date";
 import { arubaDateOf, parseTs } from "@/lib/time/format";
 
 export type Vehicle = typeof vehicles.$inferSelect;
@@ -30,6 +30,9 @@ export const VehicleCreateSchema = z.object({
   priceMonthCents: centsField,
   depositCents: optionalCentsField,
   status: z.enum(["active", "maintenance", "retired"]).default("active"),
+  // Compliance (wave 03): document expiry dates. Null or absent = not tracked.
+  insuranceExpiresOn: isoDate.nullable().optional(),
+  inspectionDueOn: isoDate.nullable().optional(),
 }).strict();
 
 export const VehiclePatchSchema = VehicleCreateSchema.partial().strict();
@@ -68,7 +71,16 @@ export async function updateVehicle(id: string, patch: z.infer<typeof VehiclePat
     const clash = await db.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.slug, patch.slug));
     if (clash.length > 0) throw Errors.conflict("A vehicle with that slug already exists");
   }
-  const [row] = await db.update(vehicles).set({ ...patch, updatedAt: new Date() }).where(eq(vehicles.id, id)).returning();
+  // Compliance dedup (wave 03): a CHANGED document date restarts its alert
+  // ladder, so entering next year's inspection date re-arms the reminders.
+  const stageResets: { insuranceAlertStage?: number; inspectionAlertStage?: number } = {};
+  if (patch.insuranceExpiresOn !== undefined && patch.insuranceExpiresOn !== current.insuranceExpiresOn) {
+    stageResets.insuranceAlertStage = 0;
+  }
+  if (patch.inspectionDueOn !== undefined && patch.inspectionDueOn !== current.inspectionDueOn) {
+    stageResets.inspectionAlertStage = 0;
+  }
+  const [row] = await db.update(vehicles).set({ ...patch, ...stageResets, updatedAt: new Date() }).where(eq(vehicles.id, id)).returning();
   return row!;
 }
 
