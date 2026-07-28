@@ -63,6 +63,35 @@ describe("staff code login", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("keeps the lock shared: a login success on one account doesn't exempt it from a lock the rest just tripped", async () => {
+    // Normalize counters so earlier tests cannot skew the threshold.
+    await db.update(adminUsers).set({ codeFailedAttempts: 0, codeLockedUntil: null });
+    const a = await createStaff("Zola");
+    const b = await createStaff("Milo");
+    const bad = await wrongCode();
+    const t0 = new Date();
+
+    // One short of the threshold: every active row (including A and B) is
+    // now sitting at STAFF_LOCK_THRESHOLD - 1 failed attempts.
+    for (let i = 0; i < STAFF_LOCK_THRESHOLD - 1; i++) {
+      expect((await loginStaff(bad, {}, t0)).ok).toBe(false);
+    }
+
+    // A successful login resets counters/lock on ONLY the matched row (A).
+    const success = await loginStaff(a.code, {}, t0);
+    expect(success).toEqual({ ok: true, adminId: a.id, name: "Zola" });
+
+    // One more collective failure trips the lock on every row still at the
+    // threshold (B and any other staff row) but NOT on A's row, which was
+    // just reset to 0. The lockout is only genuinely shared if that doesn't
+    // matter: A's own code must be rejected too, or an attacker gets extra
+    // guesses by interleaving against whichever account logged in most
+    // recently.
+    expect((await loginStaff(bad, {}, t0)).ok).toBe(false);
+    expect((await loginStaff(a.code, {}, t0)).ok).toBe(false);
+    expect((await loginStaff(b.code, {}, t0)).ok).toBe(false);
+  });
+
   it("audit-logs failures, lockout engagement, and rejections", async () => {
     const rows = await db.select().from(auditLog);
     const actions = new Set(rows.map((r) => r.action));

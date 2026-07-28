@@ -11,9 +11,20 @@
  * code_failed_attempts on EVERY active staff row (the recordMfaFailure
  * CASE-WHEN pattern from the MFA verify route); reaching
  * STAFF_LOCK_THRESHOLD sets code_locked_until = now + STAFF_LOCK_SECONDS and
- * resets the counter in the same UPDATE. All rows move in lockstep, so the
- * whole staff-code path locks together for 15 minutes. The owner's
- * password + TOTP login is never affected, so the desk always has a way in.
+ * resets the counter in the same UPDATE. All rows move in lockstep FOR
+ * FAILURES, so the whole staff-code path locks together for 15 minutes.
+ *
+ * A successful login, however, only touches the ONE row that matched (it
+ * resets that row's own counter/lock so its owner isn't punished for
+ * everyone else's failed guesses). That row can then drift out of lockstep
+ * with the rest: if the group trips the shared lock right after, the
+ * just-reset row's OWN code_locked_until stays null even though the fleet is
+ * collectively locked. Acceptance therefore never trusts a single row's own
+ * lock field in isolation; it gates on the MAX(code_locked_until) across all
+ * active staff rows (see sharedLockUntil below), so a lock anywhere locks
+ * every code, including the one that most recently logged in successfully.
+ * The owner's password + TOTP login is never affected, so the desk always
+ * has a way in.
  */
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
@@ -49,6 +60,27 @@ async function recordStaffFailure(now: Date): Promise<boolean> {
   return rows.some((r) => r.lockedUntil !== null && r.lockedUntil.getTime() > now.getTime());
 }
 
+/** The collective lock horizon: the latest code_locked_until across every
+ *  active staff row. Read through the normal typed column (like
+ *  recordStaffFailure's `.returning()` above) rather than a raw SQL max() so
+ *  timestamps decode identically on PGlite and Postgres. Reducing in JS over
+ *  a handful of staff rows is cheap and side-steps any driver-specific
+ *  aggregate-decoding differences. */
+async function sharedLockUntil(): Promise<Date | null> {
+  const db = await getDb();
+  const rows = await db.select({ lockedUntil: adminUsers.codeLockedUntil }).from(adminUsers)
+    .where(and(
+      eq(adminUsers.role, "staff"),
+      eq(adminUsers.active, true),
+      isNotNull(adminUsers.loginCodeHash),
+    ));
+  return rows.reduce<Date | null>((max, r) => {
+    if (!r.lockedUntil) return max;
+    if (!max || r.lockedUntil.getTime() > max.getTime()) return r.lockedUntil;
+    return max;
+  }, null);
+}
+
 /** Verify a staff code. Generic { ok: false } on EVERY failure mode (no match,
  *  deactivated, locked) so the response never reveals which one it was; the
  *  audit log records the specific reason. `now` is injectable for tests. */
@@ -81,7 +113,8 @@ export async function loginStaff(
     return { ok: false };
   }
 
-  if (match.codeLockedUntil && match.codeLockedUntil.getTime() > now.getTime()) {
+  const lockedUntil = await sharedLockUntil();
+  if (lockedUntil && lockedUntil.getTime() > now.getTime()) {
     await audit({
       actor: match.id, action: "admin.staff_login_rejected_locked",
       entity: "admin_user", entityId: match.id, req: ctx.req,
