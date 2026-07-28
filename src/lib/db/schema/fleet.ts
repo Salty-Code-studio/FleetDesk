@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, boolean, timestamp, uuid, jsonb, check } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, boolean, timestamp, date, uuid, jsonb, check, smallint } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const vehicleStatus = pgEnum("vehicle_status", ["active", "maintenance", "retired"]);
@@ -21,6 +21,13 @@ export const vehicles = pgTable("vehicles", {
   priceMonthCents: integer("price_month_cents").notNull(),
   depositCents: integer("deposit_cents"), // null until owner confirms per class (spec §16)
   status: vehicleStatus("status").notNull().default("active"),
+  // Compliance (wave 03): document expiry dates + alert-stage dedup markers.
+  // Stage: 0=none fired, 1=first warning fired (settings.complianceAlertDays out),
+  // 2=one-week warning fired, 3=overdue fired. Editing a date resets its stage.
+  insuranceExpiresOn: date("insurance_expires_on"),
+  inspectionDueOn: date("inspection_due_on"),
+  insuranceAlertStage: smallint("insurance_alert_stage").notNull().default(0),
+  inspectionAlertStage: smallint("inspection_alert_stage").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

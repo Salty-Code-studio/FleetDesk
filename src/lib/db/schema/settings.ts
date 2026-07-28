@@ -23,6 +23,9 @@ export const settings = pgTable("settings", {
   maxAdvanceDays: integer("max_advance_days").notNull().default(365),
   licenseRetentionDays: integer("license_retention_days").notNull().default(90), // auto-delete licence docs this long after return (spec §8/§16)
   adminAlertRecipients: jsonb("admin_alert_recipients").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  // Days before a vehicle document expiry at which the FIRST compliance warning
+  // fires (wave 03). The one-week and overdue stages are fixed.
+  complianceAlertDays: integer("compliance_alert_days").notNull().default(30),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [check("settings_singleton", sql`${t.id} = 1`)]);
 
