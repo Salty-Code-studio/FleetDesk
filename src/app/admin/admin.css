@@ -111,6 +111,13 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .btn:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
 .btn--accent { background: var(--coral); color: var(--teal); box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
 .btn--accent:hover { background: var(--coral-600); }
+/* Dedicated affirmative-confirm style (ConfirmDialog, non-danger). Same
+   solid dark-teal family as the default .btn (Apply / Sign in / Check in) --
+   spelled out explicitly so a confirm button never drifts onto the coral
+   `--accent` used for one-per-view emphasis elsewhere (Schedule service /
+   Save move / Year PDF), which would blend the confirm action into the UI. */
+.btn--confirm { background: var(--teal); color: var(--sand); box-shadow: 0 8px 18px -10px rgba(14,58,64,.6); }
+.btn--confirm:hover { background: var(--teal-700); }
 .btn--quiet { background: transparent; color: var(--ink-soft); font-weight: 600; width: auto; padding: .45rem .65rem; box-shadow: none; }
 .btn--quiet:hover { background: var(--fill); color: var(--teal); transform: none; }
 .btn.danger { background: var(--danger); color: #fff; box-shadow: 0 8px 18px -10px rgba(192,71,58,.7); }

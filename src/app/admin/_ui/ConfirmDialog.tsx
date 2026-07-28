@@ -23,6 +23,20 @@ export interface ConfirmOptions {
 
 export type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
 
+/**
+ * Class name for the confirm dialog's affirmative button. Danger confirms
+ * (Retire / Delete / Cancel) stay the red `danger` style. Non-danger
+ * confirms must NOT reuse `btn--accent` -- that is the single coral
+ * interface accent used elsewhere for Schedule service / Save move / Year
+ * PDF, so a coral confirm button blends into the rest of the UI instead of
+ * standing out as the affirmative action. `btn--confirm` is a dedicated
+ * solid dark-teal variant (same family as Apply / Sign in / Check in) so it
+ * reads clearly as the action that actually happens on confirm.
+ */
+export function confirmButtonClassName(danger?: boolean): string {
+  return `btn${danger ? " danger" : " btn--confirm"}`;
+}
+
 const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 interface ConfirmState extends ConfirmOptions {
@@ -77,7 +91,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             </button>
             <button
               type="button"
-              className={`btn${state.danger ? " danger" : " btn--accent"}`}
+              className={confirmButtonClassName(state.danger)}
               onClick={() => settle(true)}
               data-autofocus
             >
