@@ -120,3 +120,23 @@ export function adminPaymentEmail(args: { vehicleName: string; startAt: string; 
       <p><strong>${args.vehicleName}</strong><br>${formatDateTime(args.startAt)} to ${formatDateTime(args.endAt)}<br>${money(args.amountCents, args.currency)} from ${args.customerEmail}</p>`),
   };
 }
+
+export function adminDocumentExpiringEmail(args: {
+  vehicleName: string; plate: string; kind: "insurance" | "inspection"; dueOn: string; daysLeft: number;
+}): RenderedEmail {
+  const doc = args.kind === "insurance" ? "Insurance" : "Inspection";
+  const overdue = args.daysLeft < 0;
+  const when = overdue
+    ? `was due on ${args.dueOn} and is now overdue`
+    : args.daysLeft === 0
+      ? `is due today (${args.dueOn})`
+      : `is due in ${args.daysLeft} ${args.daysLeft === 1 ? "day" : "days"} (${args.dueOn})`;
+  return {
+    subject: overdue
+      ? `${doc} overdue: ${args.vehicleName} (${args.plate})`
+      : `${doc} due soon: ${args.vehicleName} (${args.plate})`,
+    html: shell(overdue ? `${doc} overdue` : `${doc} due soon`, `
+      <p>The ${doc.toLowerCase()} for <strong>${args.vehicleName}</strong> (${args.plate}) ${when}.</p>
+      <p>Once it is renewed, enter the new date in Fleet and the reminders reset for the next cycle.</p>`),
+  };
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   loginCodeEmail, bookingConfirmedEmail, bookingCancelledEmail, adminNewBookingEmail, adminPaymentEmail,
+  adminDocumentExpiringEmail,
 } from "@/lib/email/templates";
 import { atAruba, formatDateTime } from "@/lib/time/format";
 
@@ -13,6 +14,8 @@ const all = [
   bookingCancelledEmail({ vehicleName: "Kia Picanto", startAt, endAt: atAruba("2026-07-05", "09:00"), refund: { refunded: true, refundCents: 4000 }, cancellationWindowHours: 48, currency: "USD" }),
   adminNewBookingEmail({ vehicleName: "Kia Sportage", startAt, endAt, customerEmail: "a@b.com", paymentOption: "deposit" }),
   adminPaymentEmail({ vehicleName: "Kia Sportage", startAt, endAt, amountCents: 4000, currency: "USD", customerEmail: "a@b.com" }),
+  adminDocumentExpiringEmail({ vehicleName: "Hyundai Creta", plate: "A-9876", kind: "insurance", dueOn: "2026-08-20", daysLeft: 7 }),
+  adminDocumentExpiringEmail({ vehicleName: "Hyundai Creta", plate: "A-9876", kind: "inspection", dueOn: "2026-06-01", daysLeft: -3 }),
 ];
 
 describe("email templates", () => {
@@ -89,5 +92,20 @@ describe("email templates", () => {
     });
     expect(overrideDenied.html).toContain("not refunded");
     expect(overrideDenied.html).not.toContain("Cancelled within 48 hours of pickup");
+  });
+
+  it("document expiring email states the document, the car, and the timing", () => {
+    const soon = adminDocumentExpiringEmail({ vehicleName: "Kia Picanto", plate: "A-1234", kind: "insurance", dueOn: "2026-08-20", daysLeft: 24 });
+    expect(soon.subject).toContain("Insurance due soon");
+    expect(soon.subject).toContain("A-1234");
+    expect(soon.html).toContain("24 days");
+    expect(soon.html).toContain("2026-08-20");
+
+    const today = adminDocumentExpiringEmail({ vehicleName: "Kia Picanto", plate: "A-1234", kind: "inspection", dueOn: "2026-07-27", daysLeft: 0 });
+    expect(today.html).toContain("due today");
+
+    const over = adminDocumentExpiringEmail({ vehicleName: "Kia Picanto", plate: "A-1234", kind: "inspection", dueOn: "2026-07-01", daysLeft: -5 });
+    expect(over.subject).toContain("Inspection overdue");
+    expect(over.html).toContain("overdue");
   });
 });
