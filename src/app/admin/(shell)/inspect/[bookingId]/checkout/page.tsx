@@ -191,6 +191,7 @@ export default function CheckoutWizard() {
           onNext={guarded(async () => {
             if (received !== null) {
               if (!borgChoice) throw new Error("Pick a borg outcome first");
+              if (borgChoice === "partial" && !partialReturned.trim()) throw new Error("Enter the amount returned");
               const returned = borgChoice === "full" ? received : borgChoice === "withheld" ? 0 : Number(partialReturned) * 100;
               if (!Number.isInteger(returned) || returned < 0 || returned > received) throw new Error("Returned amount must be between 0 and what was received");
               const withheld = received - returned;
@@ -203,7 +204,7 @@ export default function CheckoutWizard() {
             }
             setStep(5);
           })}
-          nextDisabled={busy}
+          nextDisabled={busy || (borgChoice === "partial" && !partialReturned.trim())}
         >
           {received !== null ? (
             <>
