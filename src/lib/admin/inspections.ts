@@ -5,7 +5,7 @@
  * the audited admin routes; this module owns validation + transactions.
  */
 import { z } from "zod";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { bookings, vehicles, customers, payments, inspections, driverLicenses } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
@@ -459,4 +459,35 @@ export async function sweepInspectionMedia(now = new Date()): Promise<number> {
     purged++;
   }
   return purged;
+}
+
+/**
+ * Licence retention sweep. createBooking (src/lib/booking/create.ts) writes
+ * driver_licenses.retainUntil = endAt + licenseRetentionDays as a documented
+ * auto-delete timer, but nothing ever consumed it: bookings are never
+ * row-deleted (so the driver_licenses ON DELETE CASCADE never fires), and
+ * sweepInspectionMedia above only ever touched inspection media, not the
+ * licences table. Left alone, the encrypted licence number/DOB and the
+ * PLAINTEXT name-on-licence would be retained forever, breaking the stated
+ * retention guarantee.
+ *
+ * Deleting the whole row (rather than nulling columns) is the safe move here:
+ * nameOnLicense/licenseNumberEnc/issuingCountry/issueDate/expiryDate/dobEnc
+ * are all NOT NULL, so nulling them would need a schema change; the row has
+ * no downstream foreign keys pointing at it; and getHandover already treats
+ * a missing licence as `license: null`. Gating on booking status "completed"
+ * (the same guard sweepInspectionMedia uses) means an active or upcoming
+ * rental is never touched even in the edge case where extendBooking pushed
+ * endAt out without recomputing retainUntil. Runs from the daily cron.
+ */
+export async function sweepDriverLicenses(now = new Date()): Promise<number> {
+  const db = await getDb();
+  const rows = await db.select({ id: driverLicenses.id })
+    .from(driverLicenses)
+    .innerJoin(bookings, eq(driverLicenses.bookingId, bookings.id))
+    .where(and(eq(bookings.status, "completed"), lt(driverLicenses.retainUntil, now)));
+  if (rows.length === 0) return 0;
+
+  await db.delete(driverLicenses).where(inArray(driverLicenses.id, rows.map((r) => r.id)));
+  return rows.length;
 }
