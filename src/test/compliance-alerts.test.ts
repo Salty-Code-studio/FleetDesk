@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/vehicles";
 import { listNotifications } from "@/lib/admin/notifications-feed";
 import { runComplianceAlerts, complianceOverview, daysUntil, targetStage } from "@/lib/admin/compliance";
+import { GET as cronGet } from "@/app/api/cron/compliance-alerts/route";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 
@@ -230,5 +231,22 @@ describe("complianceOverview", () => {
     expect(schemaCar!.dueOn).toBe("2027-03-01");
     expect(schemaCar!.name).toBe("Comp Car");
     expect(typeof schemaCar!.vehicleId).toBe("string");
+  });
+});
+
+describe("cron route GET /api/cron/compliance-alerts", () => {
+  it("refuses to run without the CRON_SECRET bearer", async () => {
+    const bare = await cronGet(new Request("http://localhost/api/cron/compliance-alerts"));
+    expect(bare.status).toBe(401);
+    // In tests CRON_SECRET is unset (empty), so even a matching empty bearer
+    // must be refused: the endpoint fails closed when no secret is configured.
+    const empty = await cronGet(new Request("http://localhost/api/cron/compliance-alerts", {
+      headers: { authorization: "Bearer " },
+    }));
+    expect(empty.status).toBe(401);
+    const wrong = await cronGet(new Request("http://localhost/api/cron/compliance-alerts", {
+      headers: { authorization: "Bearer nope" },
+    }));
+    expect(wrong.status).toBe(401);
   });
 });
