@@ -53,3 +53,29 @@
 /* Keep the blackout action column tidy and right-aligned. */
 .grid td.set-actions { white-space: nowrap; }
 .grid td.set-actions .row-actions { justify-content: flex-end; }
+
+/* Labelled sub-sections inside the fees & guardrails form: one concern per
+   group, each with a small mono header and a one-line hint, separated by a
+   hairline. Mirrors the .bd-section pattern used in the booking drawer. */
+.set-section {
+  padding-bottom: 1.3rem;
+  margin-bottom: 1.3rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+.set-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.set-section__head { margin-bottom: .8rem; }
+.set-section__head h3 {
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  color: var(--ink-mute);
+  margin: 0;
+}
+.set-section__hint {
+  margin: .25rem 0 0;
+  font-size: .82rem;
+  color: var(--ink-soft);
+  max-width: 60ch;
+}
