@@ -140,3 +140,47 @@ export function adminDocumentExpiringEmail(args: {
       <p>Once it is renewed, enter the new date in Fleet and the reminders reset for the next cycle.</p>`),
   };
 }
+
+export function bookingPickedUpEmail(args: {
+  vehicleName: string; periodStart: string; periodEnd: string;
+  balanceDueCents: number; borgReceivedCents: number | null; currency: string;
+}): RenderedEmail {
+  const balanceLine = args.balanceDueCents > 0
+    ? `<br>Still open: <strong>${money(args.balanceDueCents, args.currency)}</strong>`
+    : "";
+  const borgLine = args.borgReceivedCents
+    ? `<br>Security deposit received: ${money(args.borgReceivedCents, args.currency)} (refundable at return)`
+    : "";
+  return {
+    subject: `You are on the road: ${args.vehicleName}`,
+    html: shell("Enjoy the ride", `
+      <p>Your ${args.vehicleName} is checked out and ready. Your signed rental contract is attached to this email.</p>
+      <p><strong>${args.vehicleName}</strong><br>${args.periodStart} to ${args.periodEnd}${balanceLine}${borgLine}</p>
+      <p>Questions during your rental? Just reply here or message us on WhatsApp.</p>`),
+  };
+}
+
+export function bookingReturnSummaryEmail(args: {
+  vehicleName: string; returnedAt: string; newDamage: boolean;
+  borgReturnedCents: number | null; borgWithheldCents: number | null;
+  borgWithheldReason: string | null; currency: string;
+}): RenderedEmail {
+  const damagePara = args.newDamage
+    ? `<p>We noted new damage at return and documented it with photos. Our team will be in touch if anything more is needed.</p>`
+    : `<p>The car came back in great shape. Thank you for taking care of it.</p>`;
+  const borgPara = args.borgReturnedCents !== null || args.borgWithheldCents !== null
+    ? `<p>Security deposit: <strong>${money(args.borgReturnedCents ?? 0, args.currency)}</strong> returned${
+        args.borgWithheldCents
+          ? `, ${money(args.borgWithheldCents, args.currency)} withheld (${args.borgWithheldReason ?? "see notes"})`
+          : ""
+      }.</p>`
+    : "";
+  return {
+    subject: `Thanks for riding with us: ${args.vehicleName} returned`,
+    html: shell("Rental completed", `
+      <p>Your ${args.vehicleName} was returned on ${args.returnedAt}.</p>
+      ${damagePara}
+      ${borgPara}
+      <p>We would love to see you again next trip.</p>`),
+  };
+}

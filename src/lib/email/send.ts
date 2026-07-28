@@ -14,6 +14,8 @@ export interface OutboundEmail {
   type: string; // e.g. "login_code", "booking_confirmed", "admin_new_booking"
   subject: string;
   html: string;
+  /** Optional attachments (base64 content), e.g. the rental contract PDF. */
+  attachments?: Array<{ filename: string; content: string }>;
 }
 
 export type SendStatus = "sent" | "failed" | "skipped";
@@ -39,6 +41,7 @@ export async function sendAndLog(msg: OutboundEmail): Promise<SendStatus> {
       to: msg.to,
       subject: msg.subject,
       html: msg.html,
+      ...(msg.attachments ? { attachments: msg.attachments } : {}),
     });
     if (error) {
       logger.error("email_send_failed", { type: msg.type, error: error.message });
