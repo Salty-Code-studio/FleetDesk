@@ -89,6 +89,12 @@ export default function BookPage() {
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "" });
   const [paymentOption, setPaymentOption] = useState<"deposit" | "full">("deposit");
   const [acceptTerms, setAcceptTerms] = useState(false);
+  // wave-05: booking-config knobs (age band labels + fee) and the wizard's
+  // claimed age band — a PRICING HINT ONLY; the licence DOB decides at submit.
+  const [cfg, setCfg] = useState({ minDriverAge: 18, youngDriverAge: 21, youngDriverFeeCentsPerDay: 0 });
+  const [driverAge, setDriverAge] = useState<"" | "young" | "standard">("");
+  const [priceNotice, setPriceNotice] = useState("");
+  const priceAcknowledged = useRef(false);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -148,6 +154,13 @@ export default function BookPage() {
       const cls = p.get("class") || p.get("car"); // car is legacy; both resolve to a type
       if (cls) { const m = c.find((x) => x.class.toLowerCase() === cls.toLowerCase()); if (m) setSelectedClass(m.class); }
     }).catch(() => setError("Could not load the fleet. Please refresh."));
+
+    // Independent of the Promise.all above: a config hiccup must never block
+    // the fleet from loading, so this fetch is not part of that tuple.
+    fetch("/api/booking-config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => { if (c) setCfg(c); })
+      .catch(() => {});
     // Mount-only: intentionally reads the `hours` default in effect at load time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -177,14 +190,14 @@ export default function BookPage() {
   // Live USD quote whenever the (resolved) car, dates, times, insurance or extras change.
   useEffect(() => {
     if (!carSlug || !pickup || !ret || ret <= pickup) { setBreakdown(null); return; }
-    const body = { vehicleSlug: carSlug, startAt, endAt, insuranceTierId: tierId || null, addOns: addOnsBody };
+    const body = { vehicleSlug: carSlug, startAt, endAt, insuranceTierId: tierId || null, addOns: addOnsBody, youngDriver: driverAge === "young" };
     let live = true;
     fetch("/api/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => { if (live) { setBreakdown(b); if (b?.meta) setHours(b.meta); } })
       .catch(() => {});
     return () => { live = false; };
-  }, [carSlug, pickup, ret, startAt, endAt, tierId, addOnsBody]);
+  }, [carSlug, pickup, ret, startAt, endAt, tierId, addOnsBody, driverAge]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -197,10 +210,24 @@ export default function BookPage() {
           vehicleSlug: carSlug, startAt, endAt, customer,
           insuranceTierId: tierId || null, addOns: addOnsBody, license,
           acceptTerms, paymentOption, idempotencyKey: idemKey,
+          // The claimed age band, so the server's mismatch check compares the
+          // claim against the licence DOB truth instead of always assuming "no".
+          youngDriver: driverAge === "young",
         }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data?.error?.message ?? "We could not create your booking."); setBusy(false); return; }
+      if (data.priceAdjusted && !priceAcknowledged.current) {
+        priceAcknowledged.current = true;
+        if (data.breakdown) setBreakdown(data.breakdown);
+        setPriceNotice(
+          data.breakdown?.youngDriverCents > 0
+            ? "We checked the driver's date of birth on the licence and added the young driver fee. Your updated total is shown in the summary. Tap the button again to confirm and pay."
+            : "We checked the driver's date of birth on the licence and the young driver fee does not apply. Your updated, lower total is shown in the summary. Tap the button again to confirm and pay.",
+        );
+        setBusy(false);
+        return;
+      }
       const checkout = await fetch(`/api/bookings/${data.id}/checkout`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
       });
@@ -284,6 +311,7 @@ export default function BookPage() {
       if (ret <= pickup) { focusField("#ret"); return "The return date must be after the pick-up date."; }
       if (!pickupTime) { focusField("#pickup-time"); return "Please choose a pick-up time."; }
       if (!retTime) { focusField("#ret-time"); return "Please choose a return time."; }
+      if (!driverAge) return "Please tell us the main driver's age so we can show the right price.";
       if (avail && !avail.available) return avail.reason;
       if (selectedClass && !avail) return "Please choose your pick-up and return dates.";
     }
@@ -427,6 +455,22 @@ export default function BookPage() {
                   <label className="fld">Return date<DatePicker id="ret" name="ret" required min={pickup || todayISO()} value={ret} onChange={(iso) => { setRet(iso); setStepError(""); }} ariaLabel="Return date" /></label>
                   <label className="fld">Return time<TimeSelect id="ret-time" ariaLabel="Return time" min={hours.openingTime} max={hours.closingTime} value={retTime} onChange={(t) => { setRetTime(t); setStepError(""); }} /></label>
                 </div>
+                <div className="age-band" role="radiogroup" aria-label="Main driver's age">
+                  <p className="note" style={{ marginBottom: 6 }}>Main driver&apos;s age</p>
+                  <label className="opt">
+                    <input type="radio" name="driver-age" checked={driverAge === "young"}
+                      onChange={() => { setDriverAge("young"); setStepError(""); }} />
+                    <span className="grow">Age {cfg.minDriverAge} to {cfg.youngDriverAge - 1}</span>
+                    {cfg.youngDriverFeeCentsPerDay > 0 && (
+                      <span className="price">{money(cfg.youngDriverFeeCentsPerDay, cur)}/day</span>
+                    )}
+                  </label>
+                  <label className="opt">
+                    <input type="radio" name="driver-age" checked={driverAge === "standard"}
+                      onChange={() => { setDriverAge("standard"); setStepError(""); }} />
+                    <span className="grow">Age {cfg.youngDriverAge} or older</span>
+                  </label>
+                </div>
                 {selectedClass && avail && (avail.available
                   ? <p className="avail ok">✓ A {selectedClass} car is available then</p>
                   : <p className="avail no">✕ {avail.reason}</p>)}
@@ -505,6 +549,7 @@ export default function BookPage() {
                   <div className="recap-row"><dt>Insurance</dt><dd>{tiers.find((t) => t.id === tierId)?.name ?? "Basic"}</dd></div>
                   <div className="recap-row"><dt>Extras</dt><dd>{addOnsBody.length === 0 ? "None" : addons.filter((a) => (qty[a.id] ?? 0) > 0).map((a) => `${a.name}${(qty[a.id] ?? 0) > 1 ? ` ×${qty[a.id]}` : ""}`).join(", ")}</dd></div>
                   <div className="recap-row"><dt>Driver</dt><dd>{license.nameOnLicense || "Not entered"}</dd></div>
+                  <div className="recap-row"><dt>Driver age</dt><dd>{driverAge === "young" ? `${cfg.minDriverAge} to ${cfg.youngDriverAge - 1}` : driverAge === "standard" ? `${cfg.youngDriverAge} or older` : "Not set"}</dd></div>
                   <div className="recap-row"><dt>Contact</dt><dd>{customer.name || "Not entered"}{customer.email ? ` · ${customer.email}` : ""}</dd></div>
                   {breakdown && <div className="recap-row total"><dt>Rental total</dt><dd>{money(breakdown.subtotalCents, cur)}</dd></div>}
                 </dl>
@@ -572,6 +617,7 @@ export default function BookPage() {
             <>
               <p className="note">You&apos;ll be taken to our secure Stripe checkout.</p>
               <p className="msg err">{error}</p>
+              {priceNotice && <p className="msg price-notice" role="status" aria-live="polite">{priceNotice}</p>}
             </>
           )}
         </form>
@@ -585,6 +631,9 @@ export default function BookPage() {
             {selectedClass && <div className="line"><span>{selectedClass} car</span><span></span></div>}
             <div className="line"><span>{breakdown.days} day{breakdown.days !== 1 ? "s" : ""} rental</span><span>{money(breakdown.vehicleCents, cur)}</span></div>
             {breakdown.insuranceCents > 0 && <div className="line"><span>Insurance</span><span>{money(breakdown.insuranceCents, cur)}</span></div>}
+            {breakdown.youngDriverCents > 0 && (
+              <div className="line"><span>Young driver fee</span><span>{money(breakdown.youngDriverCents, cur)}</span></div>
+            )}
             {breakdown.addOns.filter((l) => l.cents > 0).map((l) => (
               <div className="line" key={l.id}><span>{l.name}{l.qty > 1 ? ` ×${l.qty}` : ""}</span><span>{money(l.cents, cur)}</span></div>
             ))}
