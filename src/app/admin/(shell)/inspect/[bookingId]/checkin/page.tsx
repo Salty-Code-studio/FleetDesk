@@ -183,13 +183,14 @@ export default function CheckinWizard() {
           step={4} total={TOTAL} title="Odometer and fuel"
           onBack={() => setStep(3)}
           onNext={guarded(async () => {
+            if (!odometer.trim()) throw new Error("Enter the odometer reading in whole kilometers");
             const km = Number(odometer);
             if (!Number.isInteger(km) || km < 0) throw new Error("Enter the odometer reading in whole kilometers");
             if (insp?.fuelLevel === null || insp?.fuelLevel === undefined) throw new Error("Tap the fuel level");
             await put({ odometer: km });
             setStep(5);
           })}
-          nextDisabled={busy}
+          nextDisabled={busy || !odometer.trim()}
         >
           <input className="wiz-input" inputMode="numeric" placeholder="Odometer (km)" value={odometer} onChange={(e) => setOdometer(e.target.value.replace(/\D/g, ""))} />
           <FuelSelector value={insp?.fuelLevel ?? null} onChange={(v) => guarded(() => put({ fuelLevel: v }))()} />
