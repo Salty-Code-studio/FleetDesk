@@ -7,7 +7,7 @@ export function getCsrfToken(): string {
 
 export interface ApiError { status: number; message: string; code?: string; retryAfter?: string | null }
 
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
@@ -40,4 +40,5 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
 export const apiGet = <T>(path: string) => request<T>("GET", path);
 export const api = <T>(path: string, body?: unknown) => request<T>("POST", path, body);
 export const apiPatch = <T>(path: string, body?: unknown) => request<T>("PATCH", path, body);
+export const apiPut = <T>(path: string, body?: unknown) => request<T>("PUT", path, body);
 export const apiDelete = <T>(path: string) => request<T>("DELETE", path);
