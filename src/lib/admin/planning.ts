@@ -7,6 +7,7 @@ import { and, eq, ne, lt, gt, inArray, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { vehicles, bookings, customers, availabilityBlocks, blackoutDates } from "@/lib/db/schema";
 import { atAruba, arubaDateOf, arubaTimeOf, addHoursIso } from "@/lib/time/format";
+import { openNoteCounts } from "@/lib/admin/vehicle-notes";
 
 export interface PlanningBar {
   id: string;
@@ -35,6 +36,7 @@ function exclusiveEndDay(endAt: string): string {
 }
 export interface PlanningVehicle {
   id: string; name: string; slug: string; plate: string; class: string;
+  openNotes: number;
   bookings: PlanningBar[];
   blocks: PlanningBlock[];
 }
@@ -86,9 +88,11 @@ export async function getPlanning(from: string, to: string): Promise<Planning> {
   const blackoutRows = await db.select().from(blackoutDates)
     .where(and(lt(blackoutDates.startDate, toExclusive), gt(blackoutDates.endDate, from)));
 
+  const noteCounts = await openNoteCounts();
+
   const byVehicle = new Map<string, PlanningVehicle>();
   for (const v of vehicleRows) {
-    byVehicle.set(v.id, { id: v.id, name: v.name, slug: v.slug, plate: v.plate, class: v.class, bookings: [], blocks: [] });
+    byVehicle.set(v.id, { id: v.id, name: v.name, slug: v.slug, plate: v.plate, class: v.class, openNotes: noteCounts.get(v.id) ?? 0, bookings: [], blocks: [] });
   }
   for (const b of bookingRows) {
     const pv = byVehicle.get(b.vehicleId);
