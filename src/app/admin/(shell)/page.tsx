@@ -11,7 +11,7 @@ import {
   registerPaletteAction,
   type ConfirmFn,
 } from "@/app/admin/_ui";
-import { DatePicker, Select, TimeSelect } from "@/components/ui";
+import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, formatTime, parseTs } from "@/lib/time/format";
 import { barSpan, barState } from "@/lib/admin/bar-span";
 import { BookingDrawer } from "./booking-drawer";
@@ -488,7 +488,7 @@ function CreatePanel({ p, confirm, onDone, onError, onClose }: {
 }) {
   const [tab, setTab] = useState<"choose" | "rental" | "block">("choose");
   const [busy, setBusy] = useState(false);
-  const [r, setR] = useState({ name: "", phone: "", email: "", price: "", notes: "" });
+  const [r, setR] = useState({ name: "", phone: "", email: "", priceCents: null as number | null, notes: "" });
   const [times, setTimes] = useState({ pickup: "09:00", ret: "09:00" });
   const [b, setB] = useState({ type: "maintenance", reason: "" });
   const range = `${p.startDate} → ${p.endDate} (return)`;
@@ -500,7 +500,7 @@ function CreatePanel({ p, confirm, onDone, onError, onClose }: {
       startAt: atAruba(p.startDate, times.pickup), endAt: atAruba(p.endDate, times.ret),
       customerName: r.name, customerPhone: r.phone,
       ...(r.email ? { customerEmail: r.email } : {}),
-      ...(r.price ? { priceCents: Math.round(Number(r.price) * 100) } : {}),
+      ...(r.priceCents !== null ? { priceCents: r.priceCents } : {}),
       ...(r.notes ? { notes: r.notes } : {}),
     };
     try {
@@ -553,7 +553,7 @@ function CreatePanel({ p, confirm, onDone, onError, onClose }: {
           </div>
           <label>Phone<input value={r.phone} onChange={(e) => setR({ ...r, phone: e.target.value })} placeholder="+297 …" /></label>
           <label>Email (optional)<input type="email" value={r.email} onChange={(e) => setR({ ...r, email: e.target.value })} /></label>
-          <label>Price (USD, optional)<input type="number" step="0.01" min="0" value={r.price} onChange={(e) => setR({ ...r, price: e.target.value })} /></label>
+          <label>Price (USD, optional)<MoneyInput cents={r.priceCents} ariaLabel="Price (USD, optional)" onChange={(cents) => setR({ ...r, priceCents: cents })} /></label>
           <label>Note (optional)<input value={r.notes} onChange={(e) => setR({ ...r, notes: e.target.value })} placeholder="paid cash at desk" /></label>
           <div className="pl-pop-actions">
             <button className="btn btn--accent" disabled={busy}>{busy ? "Saving…" : "Add rental"}</button>

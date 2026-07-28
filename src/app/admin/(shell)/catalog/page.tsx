@@ -10,14 +10,14 @@ import {
   useConfirm,
   registerPaletteAction,
 } from "@/app/admin/_ui";
-import { Select } from "@/components/ui";
+import { MoneyInput, Select } from "@/components/ui";
 import "./catalog.css";
 
 interface AddOn { id: string; name: string; description: string; priceCents: number; pricing: "per_day" | "per_rental"; category: string; stock: number | null; active: boolean }
 interface Tier { id: string; name: string; dailyPriceCents: number; coverage: string; isDefault: boolean; active: boolean }
 
-const emptyAddOn = { name: "", description: "", price: "", pricing: "per_rental", category: "equipment", stock: "", active: true };
-const emptyTier = { name: "", price: "", coverage: "", isDefault: false, active: true };
+const emptyAddOn = { name: "", description: "", priceCents: null as number | null, pricing: "per_rental", category: "equipment", stock: "", active: true };
+const emptyTier = { name: "", priceCents: null as number | null, coverage: "", isDefault: false, active: true };
 
 export default function CatalogPage() {
   const [addons, setAddons] = useState<AddOn[]>([]);
@@ -86,8 +86,9 @@ export default function CatalogPage() {
 
   async function saveAddOn(e: FormEvent) {
     e.preventDefault();
+    if (a.priceCents === null) { toast.show({ type: "error", message: "Enter a price." }); return; }
     const body = {
-      name: a.name, description: a.description, priceCents: Math.round(Number(a.price) * 100),
+      name: a.name, description: a.description, priceCents: a.priceCents,
       pricing: a.pricing, category: a.category,
       stock: a.stock === "" ? null : Number(a.stock), active: a.active,
     };
@@ -103,7 +104,8 @@ export default function CatalogPage() {
 
   async function saveTier(e: FormEvent) {
     e.preventDefault();
-    const body = { name: t.name, dailyPriceCents: Math.round(Number(t.price) * 100), coverage: t.coverage, isDefault: t.isDefault, active: t.active };
+    if (t.priceCents === null) { toast.show({ type: "error", message: "Enter a price." }); return; }
+    const body = { name: t.name, dailyPriceCents: t.priceCents, coverage: t.coverage, isDefault: t.isDefault, active: t.active };
     try {
       const wasEdit = tId !== null;
       if (tId) await apiPatch(`/api/admin/insurance/${tId}`, body);
@@ -114,8 +116,8 @@ export default function CatalogPage() {
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
   }
 
-  const editAddOn = (x: AddOn) => { setAId(x.id); setA({ name: x.name, description: x.description, price: (x.priceCents / 100).toString(), pricing: x.pricing, category: x.category, stock: x.stock === null ? "" : x.stock.toString(), active: x.active }); setAddOnOpen(true); };
-  const editTier = (x: Tier) => { setTId(x.id); setT({ name: x.name, price: (x.dailyPriceCents / 100).toString(), coverage: x.coverage, isDefault: x.isDefault, active: x.active }); setTierOpen(true); };
+  const editAddOn = (x: AddOn) => { setAId(x.id); setA({ name: x.name, description: x.description, priceCents: x.priceCents, pricing: x.pricing, category: x.category, stock: x.stock === null ? "" : x.stock.toString(), active: x.active }); setAddOnOpen(true); };
+  const editTier = (x: Tier) => { setTId(x.id); setT({ name: x.name, priceCents: x.dailyPriceCents, coverage: x.coverage, isDefault: x.isDefault, active: x.active }); setTierOpen(true); };
 
   async function deleteAddOn(x: AddOn) {
     const ok = await confirm({
@@ -232,7 +234,7 @@ export default function CatalogPage() {
           <div className="form-grid">
             <label>Name<input data-autofocus required value={a.name} onChange={(e) => setA({ ...a, name: e.target.value })} /></label>
             <label>Category<input value={a.category} onChange={(e) => setA({ ...a, category: e.target.value })} /></label>
-            <label>Price (USD)<input type="number" step="0.01" min="0" required value={a.price} onChange={(e) => setA({ ...a, price: e.target.value })} /></label>
+            <label>Price (USD)<MoneyInput required cents={a.priceCents} ariaLabel="Price (USD)" onChange={(cents) => setA({ ...a, priceCents: cents })} /></label>
             <label>Charged<Select value={a.pricing} onChange={(value) => setA({ ...a, pricing: value })} options={[{ value: "per_rental", label: "per rental" }, { value: "per_day", label: "per day" }]} ariaLabel="Charged" /></label>
             <label>Stock (blank = unlimited)<input type="number" min="0" value={a.stock} onChange={(e) => setA({ ...a, stock: e.target.value })} /></label>
             <label className="check"><input type="checkbox" checked={a.active} onChange={(e) => setA({ ...a, active: e.target.checked })} /> Active</label>
@@ -312,7 +314,7 @@ export default function CatalogPage() {
         <form id="catalog-tier-form" onSubmit={saveTier}>
           <div className="form-grid">
             <label>Name<input data-autofocus required value={t.name} onChange={(e) => setT({ ...t, name: e.target.value })} /></label>
-            <label>Price per day (USD)<input type="number" step="0.01" min="0" required value={t.price} onChange={(e) => setT({ ...t, price: e.target.value })} /></label>
+            <label>Price per day (USD)<MoneyInput required cents={t.priceCents} ariaLabel="Price per day (USD)" onChange={(cents) => setT({ ...t, priceCents: cents })} /></label>
             <label className="full">Coverage description<input value={t.coverage} onChange={(e) => setT({ ...t, coverage: e.target.value })} /></label>
             <label className="check"><input type="checkbox" checked={t.isDefault} onChange={(e) => setT({ ...t, isDefault: e.target.checked })} /> Default tier</label>
             <label className="check"><input type="checkbox" checked={t.active} onChange={(e) => setT({ ...t, active: e.target.checked })} /> Active</label>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { apiGet, api, apiPatch, type ApiError } from "../client";
 import { Drawer, Modal, useToast, SkeletonRows } from "@/app/admin/_ui";
-import { DatePicker, Select, TimeSelect } from "@/components/ui";
+import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, parseTs } from "@/lib/time/format";
 import { InspectionPanel } from "./inspection-panel";
 import "./booking-drawer.css";
@@ -81,7 +81,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   const [mv, setMv] = useState({ vehicleId: "", startDate: "", startTime: "09:00", endDate: "", endTime: "09:00" });
 
   const [refundFor, setRefundFor] = useState<BookingDetailPayment | null>(null);
-  const [refundAmount, setRefundAmount] = useState("");
+  const [refundCents, setRefundCents] = useState<number | null>(null);
   const [refundBusy, setRefundBusy] = useState(false);
 
   const [showCancel, setShowCancel] = useState(false);
@@ -157,16 +157,16 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
   function openRefund(p: BookingDetailPayment) {
     const remaining = p.amountCents - p.refundedCents;
-    setRefundAmount((remaining / 100).toFixed(2));
+    setRefundCents(remaining);
     setRefundFor(p);
   }
 
   async function submitRefund(e: FormEvent) {
     e.preventDefault();
-    if (!refundFor) return;
+    if (!refundFor || refundCents === null) return;
     setRefundBusy(true);
     try {
-      const amountCents = Math.round(Number(refundAmount) * 100);
+      const amountCents = refundCents;
       await api(`/api/admin/payments/${refundFor.id}/refund`, { amountCents });
       toast.show({ type: "success", message: `Refunded ${money(amountCents)}.` });
       setRefundFor(null);
@@ -392,15 +392,12 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
       >
         <form id="bd-refund-form" className="pl-form" onSubmit={submitRefund}>
           <label>Amount (USD)
-            <input
-              data-autofocus
-              type="number"
-              step="0.01"
-              min="0.01"
-              max={refundFor ? (refundFor.amountCents - refundFor.refundedCents) / 100 : undefined}
+            <MoneyInput
+              autoFocus
               required
-              value={refundAmount}
-              onChange={(e) => setRefundAmount(e.target.value)}
+              cents={refundCents}
+              ariaLabel="Refund amount (USD)"
+              onChange={setRefundCents}
             />
           </label>
         </form>

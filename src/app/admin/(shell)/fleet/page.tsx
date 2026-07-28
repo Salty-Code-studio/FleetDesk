@@ -11,7 +11,7 @@ import {
   useConfirm,
   registerPaletteAction,
 } from "@/app/admin/_ui";
-import { DatePicker, Select, TimeSelect } from "@/components/ui";
+import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { atAruba } from "@/lib/time/format";
 import "./fleet.css";
 
@@ -34,7 +34,10 @@ const composeName = (make: string, model: string) => `${make} ${model}`.replace(
 const BLOCK_TYPES = ["maintenance", "carwash", "cleaning", "out_of_service", "other"];
 const empty = {
   slug: "", plate: "", class: "Economy", name: "", seats: "5", transmission: "Automatic",
-  ac: true, doors: "4", day: "", week: "", month: "", deposit: "", status: "active",
+  ac: true, doors: "4",
+  dayCents: null as number | null, weekCents: null as number | null,
+  monthCents: null as number | null, depositCents: null as number | null,
+  status: "active",
   insurance: "", inspection: "",
   make: "", model: "", year: "", color: "", nameTouched: false,
 };
@@ -113,6 +116,10 @@ export default function FleetPage() {
 
   async function save(e: FormEvent) {
     e.preventDefault();
+    if (f.dayCents === null || f.weekCents === null || f.monthCents === null) {
+      toast.show({ type: "error", message: "Enter a price for day, week, and month." });
+      return;
+    }
     const body = {
       slug: f.slug, plate: f.plate, class: f.class, name: f.name,
       make: f.make.trim() === "" ? null : f.make.trim(),
@@ -121,10 +128,10 @@ export default function FleetPage() {
       color: f.color.trim() === "" ? null : f.color.trim(),
       seats: Number(f.seats),
       transmission: f.transmission, ac: f.ac, doors: Number(f.doors),
-      priceDayCents: Math.round(Number(f.day) * 100),
-      priceWeekCents: Math.round(Number(f.week) * 100),
-      priceMonthCents: Math.round(Number(f.month) * 100),
-      depositCents: f.deposit === "" ? null : Math.round(Number(f.deposit) * 100),
+      priceDayCents: f.dayCents,
+      priceWeekCents: f.weekCents,
+      priceMonthCents: f.monthCents,
+      depositCents: f.depositCents,
       status: f.status,
       insuranceExpiresOn: f.insurance === "" ? null : f.insurance,
       inspectionDueOn: f.inspection === "" ? null : f.inspection,
@@ -144,9 +151,9 @@ export default function FleetPage() {
     setF({
       slug: v.slug, plate: v.plate, class: v.class, name: v.name, seats: v.seats.toString(),
       transmission: v.transmission, ac: v.ac, doors: v.doors.toString(),
-      day: (v.priceDayCents / 100).toString(), week: (v.priceWeekCents / 100).toString(),
-      month: (v.priceMonthCents / 100).toString(),
-      deposit: v.depositCents === null ? "" : (v.depositCents / 100).toString(),
+      dayCents: v.priceDayCents, weekCents: v.priceWeekCents,
+      monthCents: v.priceMonthCents,
+      depositCents: v.depositCents,
       status: v.status,
       insurance: v.insuranceExpiresOn ?? "", inspection: v.inspectionDueOn ?? "",
       make: v.make ?? "", model: v.model ?? "",
@@ -393,10 +400,10 @@ export default function FleetPage() {
             <label>Transmission<Select value={f.transmission} onChange={(v) => setF({ ...f, transmission: v })} options={[{ value: "Automatic", label: "Automatic" }, { value: "Manual", label: "Manual" }]} /></label>
             <label>Seats<input type="number" min="1" max="20" value={f.seats} onChange={(e) => setF({ ...f, seats: e.target.value })} /></label>
             <label>Doors<input type="number" min="1" max="8" value={f.doors} onChange={(e) => setF({ ...f, doors: e.target.value })} /></label>
-            <label>Price / day (USD)<input type="number" step="0.01" min="0" required value={f.day} onChange={(e) => setF({ ...f, day: e.target.value })} /></label>
-            <label>Price / week (USD)<input type="number" step="0.01" min="0" required value={f.week} onChange={(e) => setF({ ...f, week: e.target.value })} /></label>
-            <label>Price / month (USD)<input type="number" step="0.01" min="0" required value={f.month} onChange={(e) => setF({ ...f, month: e.target.value })} /></label>
-            <label>Deposit (USD, blank = TBC)<input type="number" step="0.01" min="0" value={f.deposit} onChange={(e) => setF({ ...f, deposit: e.target.value })} /></label>
+            <label>Price / day (USD)<MoneyInput required cents={f.dayCents} ariaLabel="Price per day (USD)" onChange={(cents) => setF({ ...f, dayCents: cents })} /></label>
+            <label>Price / week (USD)<MoneyInput required cents={f.weekCents} ariaLabel="Price per week (USD)" onChange={(cents) => setF({ ...f, weekCents: cents })} /></label>
+            <label>Price / month (USD)<MoneyInput required cents={f.monthCents} ariaLabel="Price per month (USD)" onChange={(cents) => setF({ ...f, monthCents: cents })} /></label>
+            <label>Deposit (USD, blank = TBC)<MoneyInput cents={f.depositCents} ariaLabel="Deposit (USD)" onChange={(cents) => setF({ ...f, depositCents: cents })} /></label>
             <label>Insurance expires<DatePicker value={f.insurance} onChange={(iso) => setF({ ...f, insurance: iso })} ariaLabel="Insurance expires" placeholder="Not tracked" /></label>
             <label>Inspection due<DatePicker value={f.inspection} onChange={(iso) => setF({ ...f, inspection: iso })} ariaLabel="Inspection due" placeholder="Not tracked" /></label>
             <label>Status<Select value={f.status} onChange={(v) => setF({ ...f, status: v })} options={[{ value: "active", label: "active" }, { value: "maintenance", label: "maintenance" }, { value: "retired", label: "retired" }]} /></label>

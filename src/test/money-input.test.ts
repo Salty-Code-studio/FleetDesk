@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDollarsToCents, centsToDollarsString } from "@/components/ui/MoneyInput";
+import { parseDollarsToCents, centsToDollarsString, centsToDisplayString } from "@/components/ui/MoneyInput";
 
 /**
  * Regression coverage for the admin money-input bug: an
@@ -63,5 +63,35 @@ describe("MoneyInput money parsing", () => {
     expect(centsToDollarsString(4550)).toBe("45.5");
     expect(centsToDollarsString(0)).toBe("0");
     expect(parseDollarsToCents(centsToDollarsString(4550))).toBe(4550);
+  });
+
+  /**
+   * Add-on price, insurance-tier daily price, fleet day/week/month price,
+   * fleet deposit, refund amount, and the dashboard quick-add price all
+   * adopted MoneyInput with a nullable `cents` prop so a blank "new record"
+   * form can start genuinely empty (matching their pre-existing `required`
+   * + blank-default semantics) instead of pre-filling "0" -- which would
+   * both defeat the `required` guard and let a distracted save silently
+   * persist priceCents/amountCents = 0.
+   */
+  it("displays a blank field for unset (null) cents rather than '0'", () => {
+    expect(centsToDisplayString(null)).toBe("");
+    expect(centsToDisplayString(0)).toBe("0");
+    expect(centsToDisplayString(4550)).toBe("45.5");
+  });
+
+  it("does not reset an in-progress new-record price entry to 0 or null on a decimal point", () => {
+    let committed: number | null = null;
+    const type = (raw: string) => {
+      const parsed = parseDollarsToCents(raw);
+      if (parsed !== null) committed = parsed;
+      return committed;
+    };
+
+    expect(type("4")).toBe(400);
+    expect(type("45")).toBe(4500);
+    expect(type("45.")).toBe(4500); // <- must NOT reset to 0 or null
+    expect(type("45.5")).toBe(4550);
+    expect(committed).toBe(4550);
   });
 });

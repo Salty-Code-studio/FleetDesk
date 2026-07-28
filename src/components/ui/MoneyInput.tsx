@@ -31,9 +31,18 @@ export function centsToDollarsString(cents: number): string {
   return (cents / 100).toString();
 }
 
+/** Formats a possibly-unset cents value, e.g. for a blank "new record" form. */
+export function centsToDisplayString(cents: number | null): string {
+  return cents === null ? "" : centsToDollarsString(cents);
+}
+
 export interface MoneyInputProps {
-  /** Current committed value, in integer cents. */
-  cents: number;
+  /**
+   * Current committed value, in integer cents, or `null` when nothing has
+   * been entered yet (e.g. a blank field on a new-record form) -- renders
+   * as an empty input rather than "0".
+   */
+  cents: number | null;
   /**
    * Fires with the newly committed integer-cents value. Only fires for a
    * parseable amount -- an interim "45." keeps the last committed value
@@ -46,6 +55,8 @@ export interface MoneyInputProps {
   disabled?: boolean;
   required?: boolean;
   placeholder?: string;
+  /** Renders `data-autofocus` so the shared overlay focus-trap picks this field as its initial focus target (see useOverlay.ts). */
+  autoFocus?: boolean;
 }
 
 /**
@@ -64,15 +75,16 @@ export function MoneyInput({
   disabled,
   required,
   placeholder,
+  autoFocus,
 }: MoneyInputProps) {
-  const [raw, setRaw] = useState(() => centsToDollarsString(cents));
+  const [raw, setRaw] = useState(() => centsToDisplayString(cents));
   const isFocused = useRef(false);
 
   // Reflect external updates (e.g. the settings payload reloading after
   // save) unless the user is actively typing -- otherwise this would stomp
   // an interim value like "45." back to "45" mid-keystroke.
   useEffect(() => {
-    if (!isFocused.current) setRaw(centsToDollarsString(cents));
+    if (!isFocused.current) setRaw(centsToDisplayString(cents));
   }, [cents]);
 
   function handleChange(e: ReactChangeEvent<HTMLInputElement>) {
@@ -86,7 +98,7 @@ export function MoneyInput({
     isFocused.current = false;
     const parsed = parseDollarsToCents(raw);
     const committed = parsed ?? cents;
-    setRaw(centsToDollarsString(committed));
+    setRaw(centsToDisplayString(committed));
     if (parsed !== null && parsed !== cents) onChange(parsed);
   }
 
@@ -100,6 +112,7 @@ export function MoneyInput({
       disabled={disabled}
       required={required}
       placeholder={placeholder}
+      data-autofocus={autoFocus ? true : undefined}
       value={raw}
       onFocus={() => {
         isFocused.current = true;
