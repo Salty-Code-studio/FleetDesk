@@ -164,13 +164,14 @@ export default function CheckoutWizard() {
           step={3} total={TOTAL} title="Odometer and fuel"
           onBack={() => setStep(2)}
           onNext={guarded(async () => {
+            if (!odometer.trim()) throw new Error("Enter the odometer reading in whole kilometers");
             const km = Number(odometer);
             if (!Number.isInteger(km) || km < 0) throw new Error("Enter the odometer reading in whole kilometers");
             if (ret?.fuelLevel === null || ret?.fuelLevel === undefined) throw new Error("Tap the fuel level");
             await put({ odometer: km });
             setStep(4);
           })}
-          nextDisabled={busy}
+          nextDisabled={busy || !odometer.trim()}
         >
           <input className="wiz-input" inputMode="numeric" placeholder="Odometer (km)" value={odometer} onChange={(e) => setOdometer(e.target.value.replace(/\D/g, ""))} />
           {pickup?.odometer !== null && pickup?.odometer !== undefined && odometer ? (
