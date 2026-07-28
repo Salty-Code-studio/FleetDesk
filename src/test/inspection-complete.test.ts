@@ -151,4 +151,37 @@ describe("completeReturn", () => {
     const updated = await completeReturn(b.id, { actorId: adminId });
     expect(updated.status).toBe("completed");
   });
+
+  // Regression: check-out only requires a return photo where there is NEW
+  // damage. No photo of any of the six angles should still be a completable
+  // return as long as nothing is flagged as new damage.
+  it("completes with zero return photos when nothing is flagged as new damage", async () => {
+    const b = await mkBooking("done-return-4", "confirmed");
+    await readyPickup(b.id);
+    await completePickup(b.id, { actorId: adminId });
+    await upsertInspection(b.id, "return", {
+      photos: [], odometer: 41600, fuelLevel: 6, keysReturned: true,
+      damageFlags: [],
+      borgReturnedCents: 25000, borgWithheldCents: 0,
+    }, adminId);
+    const updated = await completeReturn(b.id, { actorId: adminId });
+    expect(updated.status).toBe("completed");
+  });
+
+  it("blocks completion when a new-damage flag has no return photo", async () => {
+    const b = await mkBooking("done-return-5", "confirmed");
+    await readyPickup(b.id);
+    await completePickup(b.id, { actorId: adminId });
+    await upsertInspection(b.id, "return", {
+      photos: [], odometer: 41600, fuelLevel: 6, keysReturned: true,
+      damageFlags: [{ photoKey: "", note: "scratch on the front bumper" }],
+      borgReturnedCents: 15000, borgWithheldCents: 10000, borgWithheldReason: "front bumper scratch",
+    }, adminId);
+    await expect(completeReturn(b.id, { actorId: adminId })).rejects.toThrow(/return photo/i);
+    await upsertInspection(b.id, "return", {
+      damageFlags: [{ photoKey: `inspections/${b.id}/return/front.jpg`, note: "scratch on the front bumper" }],
+    }, adminId);
+    const updated = await completeReturn(b.id, { actorId: adminId });
+    expect(updated.status).toBe("completed");
+  });
 });

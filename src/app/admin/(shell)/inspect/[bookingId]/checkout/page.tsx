@@ -1,8 +1,11 @@
 "use client";
 
 /**
- * Check-out wizard (spec W4, 5 steps). Return photos render SIDE-BY-SIDE with
+ * Check-out wizard (spec W4, 4 steps). Return photos render SIDE-BY-SIDE with
  * the pickup photo of the same angle so new damage is obvious at a glance.
+ * A return photo is only REQUIRED where the operator flags new damage: every
+ * angle defaults to "same as pickup" (no photo needed); choosing "new damage"
+ * reveals the note field and the upload control for that angle only.
  * The borg button records returned in full / partial / withheld; a reason is
  * required whenever anything is withheld.
  */
@@ -13,12 +16,13 @@ import { useToast } from "@/app/admin/_ui";
 import {
   ANGLES, PhotoCapture, FuelSelector, StepShell,
   capturePhoto, money, fileUrl, FUEL_LABELS,
-  type Handover, type InspectionDto,
+  pendingReturnPhotoAngles,
+  type Handover, type InspectionDto, type ReturnDamageChoice,
 } from "../../wizard-ui";
 
-const TOTAL = 5;
+const TOTAL = 4;
 
-type DamageChoice = "same" | "new";
+type DamageChoice = ReturnDamageChoice;
 
 export default function CheckoutWizard() {
   const { bookingId } = useParams<{ bookingId: string }>();
@@ -29,7 +33,11 @@ export default function CheckoutWizard() {
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [odometer, setOdometer] = useState("");
-  const [choices, setChoices] = useState<Record<string, DamageChoice>>({});
+  // Every angle defaults to "same as pickup" (no photo required); the operator
+  // opts an angle INTO the photo requirement by marking it "new damage".
+  const [choices, setChoices] = useState<Record<string, DamageChoice>>(() =>
+    Object.fromEntries(ANGLES.map((a) => [a.id, "same" as DamageChoice])),
+  );
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [borgChoice, setBorgChoice] = useState<"full" | "partial" | "withheld" | null>(null);
   const [partialReturned, setPartialReturned] = useState("");
@@ -70,7 +78,12 @@ export default function CheckoutWizard() {
 
   const pickupPhoto = (angle: string) => pickup?.photos.find((p) => p.label === angle)?.key ?? null;
   const returnPhoto = (angle: string) => ret?.photos.find((p) => p.label === angle)?.key ?? null;
-  const anglesDone = useMemo(() => ANGLES.every((a) => returnPhoto(a.id)), [ret]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Return photos are required ONLY for angles marked "new damage"; angles
+  // left as "same as pickup" (the default) need none.
+  const returnPhotosReady = useMemo(
+    () => pendingReturnPhotoAngles(choices, (id) => !!returnPhoto(id)).length === 0,
+    [choices, ret], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const setAnglePhoto = (angle: string) => async (file: File) => {
     const key = await capturePhoto(file, { category: "inspection", bookingId, kind: "return", label: angle });
@@ -98,8 +111,22 @@ export default function CheckoutWizard() {
       ) : null}
 
       {!finished && step === 1 ? (
-        <StepShell step={1} total={TOTAL} title="Return photos" onNext={() => setStep(2)} nextDisabled={!anglesDone}>
-          <p className="wiz-sub">Same six angles. The pickup photo sits on the left for comparison.</p>
+        <StepShell
+          step={1} total={TOTAL} title="Return photos"
+          onNext={guarded(async () => {
+            for (const a of newDamageAngles) {
+              if (!notes[a.id]?.trim()) throw new Error(`Add a note for the new damage on: ${a.label}`);
+            }
+            const damageFlags = newDamageAngles.map((a) => ({
+              photoKey: returnPhoto(a.id) ?? "",
+              note: `${a.label}: ${notes[a.id]!.trim()}`,
+            }));
+            await put({ damageFlags });
+            setStep(2);
+          })}
+          nextDisabled={busy || !returnPhotosReady}
+        >
+          <p className="wiz-sub">Same six angles as pickup, for comparison. Mark each one same or new damage; a return photo is only required where you mark new damage.</p>
           {ANGLES.map((a) => (
             <div className="wiz-card" key={a.id}>
               <strong>{a.label}</strong>
@@ -114,36 +141,9 @@ export default function CheckoutWizard() {
                   <figcaption>Now</figcaption>
                   {returnPhoto(a.id)
                     ? <img src={fileUrl(returnPhoto(a.id)!)} alt={`${a.label} at return`} />
-                    : <div className="wiz-photo-empty">Not taken yet</div>}
+                    : <div className="wiz-photo-empty">{choices[a.id] === "new" ? "Not taken yet" : "No new damage"}</div>}
                 </figure>
               </div>
-              <PhotoCapture label={a.label} photoKey={returnPhoto(a.id)} onFile={setAnglePhoto(a.id)} />
-            </div>
-          ))}
-        </StepShell>
-      ) : null}
-
-      {!finished && step === 2 ? (
-        <StepShell
-          step={2} total={TOTAL} title="Damage review"
-          onBack={() => setStep(1)}
-          onNext={guarded(async () => {
-            if (ANGLES.some((a) => !choices[a.id])) throw new Error("Mark every angle as same or new damage");
-            for (const a of newDamageAngles) {
-              if (!notes[a.id]?.trim()) throw new Error(`Add a note for the new damage on: ${a.label}`);
-            }
-            const damageFlags = newDamageAngles.map((a) => ({
-              photoKey: returnPhoto(a.id) ?? "",
-              note: `${a.label}: ${notes[a.id]!.trim()}`,
-            }));
-            await put({ damageFlags });
-            setStep(3);
-          })}
-          nextDisabled={busy}
-        >
-          {ANGLES.map((a) => (
-            <div className="wiz-card" key={a.id}>
-              <div className="wiz-row"><strong>{a.label}</strong></div>
               <div className="wiz-choice">
                 <button type="button" className={choices[a.id] === "same" ? "on" : ""} onClick={() => setChoices({ ...choices, [a.id]: "same" })}>Same as pickup</button>
                 <button type="button" className={choices[a.id] === "new" ? "on" : ""} onClick={() => setChoices({ ...choices, [a.id]: "new" })}>New damage</button>
@@ -152,6 +152,8 @@ export default function CheckoutWizard() {
                 <>
                   <div style={{ height: 8 }} />
                   <textarea className="wiz-input" placeholder="Describe the new damage (required)" value={notes[a.id] ?? ""} onChange={(e) => setNotes({ ...notes, [a.id]: e.target.value })} />
+                  <div style={{ height: 8 }} />
+                  <PhotoCapture label={a.label} photoKey={returnPhoto(a.id)} onFile={setAnglePhoto(a.id)} />
                 </>
               ) : null}
             </div>
@@ -159,17 +161,17 @@ export default function CheckoutWizard() {
         </StepShell>
       ) : null}
 
-      {!finished && step === 3 ? (
+      {!finished && step === 2 ? (
         <StepShell
-          step={3} total={TOTAL} title="Odometer and fuel"
-          onBack={() => setStep(2)}
+          step={2} total={TOTAL} title="Odometer and fuel"
+          onBack={() => setStep(1)}
           onNext={guarded(async () => {
             if (!odometer.trim()) throw new Error("Enter the odometer reading in whole kilometers");
             const km = Number(odometer);
             if (!Number.isInteger(km) || km < 0) throw new Error("Enter the odometer reading in whole kilometers");
             if (ret?.fuelLevel === null || ret?.fuelLevel === undefined) throw new Error("Tap the fuel level");
             await put({ odometer: km });
-            setStep(4);
+            setStep(3);
           })}
           nextDisabled={busy || !odometer.trim()}
         >
@@ -184,10 +186,10 @@ export default function CheckoutWizard() {
         </StepShell>
       ) : null}
 
-      {!finished && step === 4 ? (
+      {!finished && step === 3 ? (
         <StepShell
-          step={4} total={TOTAL} title="Borg return and keys"
-          onBack={() => setStep(3)}
+          step={3} total={TOTAL} title="Borg return and keys"
+          onBack={() => setStep(2)}
           onNext={guarded(async () => {
             if (received !== null) {
               if (!borgChoice) throw new Error("Pick a borg outcome first");
@@ -202,7 +204,7 @@ export default function CheckoutWizard() {
                 borgWithheldReason: withheld > 0 ? withheldReason.trim() : null,
               });
             }
-            setStep(5);
+            setStep(4);
           })}
           nextDisabled={busy || (borgChoice === "partial" && !partialReturned.trim())}
         >
@@ -232,10 +234,10 @@ export default function CheckoutWizard() {
         </StepShell>
       ) : null}
 
-      {!finished && step === 5 ? (
+      {!finished && step === 4 ? (
         <StepShell
-          step={5} total={TOTAL} title="Finish check-out"
-          onBack={() => setStep(4)}
+          step={4} total={TOTAL} title="Finish check-out"
+          onBack={() => setStep(3)}
           onNext={guarded(async () => {
             await api(`/api/admin/bookings/${bookingId}/inspection/return/complete`, {});
             toast.show({ type: "success", message: "Checked out. Booking completed." });
@@ -246,8 +248,8 @@ export default function CheckoutWizard() {
         >
           <div className="wiz-card">
             {[
-              { label: "Six return angles", ok: anglesDone },
-              { label: "Damage review saved", ok: ANGLES.every((a) => choices[a.id]) || (ret?.damageFlags.length ?? 0) > 0 },
+              { label: "Return photos", ok: returnPhotosReady },
+              { label: "Damage review saved", ok: step > 1 },
               { label: "Odometer and fuel", ok: ret?.odometer !== null && ret?.fuelLevel !== null },
               { label: "Keys returned", ok: !!ret?.keysReturned },
               { label: "Borg settled", ok: received === null || ret?.borgReturnedCents !== null },

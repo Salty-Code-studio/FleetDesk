@@ -358,12 +358,15 @@ export async function completeReturn(
     const pickup = rows.find((i) => i.kind === "pickup") ?? null;
     const ret = rows.find((i) => i.kind === "return");
     if (!ret) throw Errors.badRequest("Start the check-out wizard first");
-    assertAnglesPresent(ret, "Return photos");
+    // Return photos are required ONLY where there is new damage (unlike the
+    // pickup walk-around, which always needs all six angles): an angle the
+    // operator left "same as pickup" needs no photo of its own.
     if (ret.odometer === null || ret.fuelLevel === null) {
       throw Errors.badRequest("Record the odometer and fuel level first");
     }
     for (const flag of ret.damageFlags) {
       if (!flag.note.trim()) throw Errors.badRequest("Every new damage flag needs a note");
+      if (!flag.photoKey.trim()) throw Errors.badRequest("Every new damage flag needs a return photo");
     }
     if (!ret.keysReturned) throw Errors.badRequest("Mark the keys as returned first");
 

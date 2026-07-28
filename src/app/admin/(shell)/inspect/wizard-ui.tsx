@@ -24,6 +24,21 @@ export type AngleId = (typeof ANGLES)[number]["id"];
 
 export const fileUrl = (key: string) => `/api/admin/files/${key}`;
 
+export type ReturnDamageChoice = "same" | "new";
+
+/**
+ * Angles the operator marked "new damage" that still lack a return photo.
+ * Check-out only requires a return photo where there is NEW damage — an
+ * angle marked "same as pickup" (the default) needs none. The wizard step
+ * can advance once this list is empty; a non-empty list names what's left.
+ */
+export function pendingReturnPhotoAngles(
+  choices: Record<string, ReturnDamageChoice | undefined>,
+  hasReturnPhoto: (angleId: AngleId) => boolean,
+): AngleId[] {
+  return ANGLES.filter((a) => choices[a.id] === "new" && !hasReturnPhoto(a.id)).map((a) => a.id);
+}
+
 /* ---------- client mirrors of the server payloads (Task 5 shapes) ---------- */
 
 export interface InspectionDto {
