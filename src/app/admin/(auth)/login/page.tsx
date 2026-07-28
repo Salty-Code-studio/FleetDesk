@@ -8,8 +8,10 @@ const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"owner" | "staff">("owner");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -46,6 +48,60 @@ export default function AdminLoginPage() {
     }
   }
 
+  async function onStaffSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await api("/api/admin/auth/staff-login", { code });
+      router.push("/admin");
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setError(
+        apiErr.status === 429
+          ? `Too many attempts. Try again in ${apiErr.retryAfter ?? "a few"} seconds.`
+          : "That code did not work. Check it and try again.",
+      );
+      setBusy(false);
+    }
+  }
+
+  function switchMode(next: "owner" | "staff") {
+    setMode(next);
+    setError("");
+    setCode("");
+  }
+
+  if (mode === "staff") {
+    return (
+      <form className="auth-card" onSubmit={onStaffSubmit}>
+        <p className="auth-brand">FleetDesk</p>
+        <h1>Staff sign in</h1>
+        <p className="sub">Enter your personal 6-digit code.</p>
+        <div className="field">
+          <label htmlFor="staff-code">Staff code</label>
+          <input
+            id="staff-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="\d{6}"
+            maxLength={6}
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+          />
+        </div>
+        <button className="btn" disabled={busy || code.length !== 6}>
+          {busy ? "Signing in…" : "Sign in with code"}
+        </button>
+        <p className="msg err" role="alert">{error}</p>
+        <button type="button" className="btn btn--quiet" onClick={() => switchMode("owner")}>
+          Owner sign in with email and password
+        </button>
+      </form>
+    );
+  }
+
   return (
     <form className="auth-card" onSubmit={onSubmit}>
       <p className="auth-brand">FleetDesk</p>
@@ -74,6 +130,9 @@ export default function AdminLoginPage() {
       </div>
       <button className="btn" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
       <p className="msg err" role="alert">{error}</p>
+      <button type="button" className="btn btn--quiet" onClick={() => switchMode("staff")}>
+        Staff member? Sign in with your code
+      </button>
     </form>
   );
 }
