@@ -56,3 +56,26 @@
   .rp-kpi:hover,
   .rp-bar:hover { transform: none; }
 }
+
+/* --- Per-car revenue matrix (wave 07) ------------------------------------ */
+/* The 12-month table needs the full content width; wide content scrolls
+   inside its own wrapper so the page never scrolls sideways. */
+.rp-percar { max-width: none; }
+.rp-percar__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.rp-percar__head h2 { margin: 0; }
+.rp-percar__tools { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.rp-matrix-wrap { overflow-x: auto; }
+.rp-matrix { border-collapse: collapse; width: 100%; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.rp-matrix th, .rp-matrix td { padding: .45rem .55rem; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+.rp-matrix thead th { font-family: var(--font-mono); font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+.rp-matrix .rp-matrix__car { text-align: left; position: sticky; left: 0; background: var(--panel); }
+.rp-matrix__group th { text-align: left; font-family: var(--font-mono); font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--teal); background: var(--fill); }
+.rp-matrix__zero { color: var(--ink-mute); }
+.rp-matrix__total { font-weight: 700; }
+.rp-matrix tfoot th, .rp-matrix tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
+
+/* Borg panel: reuse the KPI tile look; deposits stay visually separate from
+   the revenue charts above. */
+.rp-borg { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .8rem; margin-bottom: .4rem; }
+.rp-borg-items { margin: .6rem 0 0; padding: 0; list-style: none; }
+.rp-borg-items li { padding: .5rem 0; border-top: 1px solid var(--line-soft); font-size: .88rem; }
