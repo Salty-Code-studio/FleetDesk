@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { withRoute } from "@/lib/http/handler";
 import { json } from "@/lib/http/respond";
-import { parseParams, assertContentLengthWithinCap } from "@/lib/http/validate";
+import { parseParams, assertContentLengthWithinCap, parseMultipartCapped } from "@/lib/http/validate";
 import { mutate } from "@/lib/admin/guard";
 import { Errors } from "@/lib/http/errors";
 import { getDb } from "@/lib/db/client";
@@ -22,17 +22,18 @@ export const dynamic = "force-dynamic";
  */
 export const POST = withRoute(async (req) => {
   // req.formData() buffers the ENTIRE multipart body in memory before
-  // anything (including validateUploadFile's 10MB check) ever runs — with no
-  // hook to enforce a cap mid-parse the way readBodyCapped does for JSON. An
-  // authenticated staff/owner could otherwise OOM the process with a
-  // multi-GB part. Reject an oversized DECLARED Content-Length up front, so
-  // that never gets buffered in the first place.
+  // anything (including validateUploadFile's 10MB check) ever runs, with no
+  // hook of its own to enforce a cap mid-parse. An authenticated staff/owner
+  // could otherwise OOM the process with a multi-GB part. Two layers close
+  // this: a cheap header-only pre-check for the honest/common case (below),
+  // PLUS mid-stream enforcement in parseMultipartCapped that also catches an
+  // absent, chunked, or lying Content-Length — mirroring what readBodyCapped
+  // does for the JSON path. Neither layer alone is sufficient; together, the
+  // body buffered in memory is never allowed past MAX_MULTIPART_BYTES.
   assertContentLengthWithinCap(req, MAX_MULTIPART_BYTES);
 
   const result = await mutate(req, "admin.file_uploaded", async () => {
-    const form = await req.formData().catch(() => {
-      throw Errors.badRequest("Expected multipart form data");
-    });
+    const form = await parseMultipartCapped(req, MAX_MULTIPART_BYTES);
     const file = form.get("file");
     if (!(file instanceof File)) throw Errors.badRequest("file field is required");
     const fields = parseParams({

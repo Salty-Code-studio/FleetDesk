@@ -23,19 +23,25 @@ function formatZodIssues(error: z.ZodError): Array<{ path: string; message: stri
 }
 
 /**
- * Read the body while ENFORCING the byte cap mid-stream. We cannot trust
- * Content-Length: it may be absent (Transfer-Encoding: chunked) or a lie. Buffer
- * via req.text() and the whole (possibly multi-GB) payload lands in memory before
- * any size check runs. Instead, stream and abort the moment the running byte
- * total crosses the cap, so an attacker can never make us allocate past it.
+ * Read the body as raw bytes while ENFORCING the byte cap mid-stream. We
+ * cannot trust Content-Length: it may be absent (Transfer-Encoding: chunked)
+ * or a lie. Buffer via req.arrayBuffer()/req.text() and the whole (possibly
+ * multi-GB) payload lands in memory before any size check runs. Instead,
+ * stream and abort the moment the running byte total crosses the cap, so an
+ * attacker can never make us allocate past it.
+ *
+ * Shared low-level primitive behind readBodyCapped (JSON, decodes the result
+ * to utf8 text) and parseMultipartCapped (multipart, hands the raw bytes to
+ * Response#formData() so binary file data is never corrupted by a text
+ * round-trip).
  */
-async function readBodyCapped(req: Request, maxBytes: number): Promise<string> {
+async function readBodyCappedBytes(req: Request, maxBytes: number): Promise<Buffer> {
   const body = req.body;
   if (!body) {
     // No readable stream on this request (rare). Fall back, but still cap.
-    const text = await req.text();
-    if (Buffer.byteLength(text, "utf8") > maxBytes) throw Errors.badRequest("Request body too large");
-    return text;
+    const buf = Buffer.from(await req.arrayBuffer());
+    if (buf.byteLength > maxBytes) throw Errors.badRequest("Request body too large");
+    return buf;
   }
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
@@ -56,19 +62,22 @@ async function readBodyCapped(req: Request, maxBytes: number): Promise<string> {
     if (e instanceof AppError) throw e;
     throw Errors.badRequest("Could not read request body");
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks);
+}
+
+/** Text-decoding wrapper around readBodyCappedBytes for the JSON path. */
+async function readBodyCapped(req: Request, maxBytes: number): Promise<string> {
+  return (await readBodyCappedBytes(req, maxBytes)).toString("utf8");
 }
 
 /**
  * Cheap, header-only pre-check: reject a request whose DECLARED Content-Length
  * exceeds maxBytes, before any code reads the body. A present Content-Length
  * is advisory only — a client can omit it, or lie under chunked transfer — so
- * this is not a substitute for streaming enforcement where the runtime lets us
- * do that (readBodyCapped, above, for the JSON path). It exists for the cases
- * where it DOESN'T: e.g. multipart via req.formData(), which buffers the whole
- * body internally with no hook to enforce a cap mid-parse. There, this header
- * check is the only defense available before the (potentially attacker-sized)
- * body is buffered — so it must run before req.formData() is ever called.
+ * this is only a fast-path rejection for the honest/common case, NEVER the
+ * sole defense: every caller must pair it with mid-stream enforcement
+ * (readBodyCapped for JSON, parseMultipartCapped for multipart, both below)
+ * that also catches an absent, chunked, or lying Content-Length.
  */
 export function assertContentLengthWithinCap(req: Request, maxBytes: number): void {
   const lengthHeader = req.headers.get("content-length");
@@ -112,6 +121,28 @@ export async function parseJsonBody<S extends z.ZodTypeAny>(
     throw Errors.validation(formatZodIssues(result.error));
   }
   return result.data;
+}
+
+/**
+ * Parse a multipart/form-data body while ENFORCING the byte cap mid-stream —
+ * mirrors readBodyCapped's protection for the JSON path. req.formData() has
+ * no hook to enforce a cap while it internally buffers/parses the body, so
+ * instead we read the raw bytes ourselves with the cap enforced
+ * (readBodyCappedBytes, above), then hand that already-capped buffer to
+ * Response#formData() to do the actual multipart parsing. This closes the
+ * gap assertContentLengthWithinCap alone cannot: a request with an absent,
+ * chunked, or lying Content-Length can no longer make us buffer past
+ * maxBytes before any check runs.
+ */
+export async function parseMultipartCapped(req: Request, maxBytes: number): Promise<FormData> {
+  const contentType = req.headers.get("content-type") ?? "";
+  const bytes = await readBodyCappedBytes(req, maxBytes);
+  try {
+    return await new Response(bytes, { headers: { "content-type": contentType } }).formData();
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    throw Errors.badRequest("Expected multipart form data");
+  }
 }
 
 /** Validate URL search params or a route-params object. */

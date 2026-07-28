@@ -110,4 +110,24 @@ describe("POST /api/admin/uploads — Content-Length cap (memory-exhaustion guar
     const res = await multipartRequest({ fileSize: 500_000 });
     expect(res.status).toBe(201);
   });
+
+  it("rejects an oversized body streamed WITHOUT a Content-Length header before it is buffered (chunked-style bypass)", async () => {
+    // This is the actual residual attack: a client can simply omit
+    // Content-Length (or send Transfer-Encoding: chunked) and the header-only
+    // pre-check above has nothing to reject up front. If enforcement only
+    // happened there, this request would sail past it exactly like the
+    // pre-fix bug, and req.formData() would buffer the whole oversized body
+    // before validateUploadFile's per-file 10MB check ever got a chance to
+    // run. The fix must ALSO cap the body while STREAMING it (mirroring
+    // readBodyCapped for the JSON path), so this has to be rejected with the
+    // same "too large" message the streaming cap throws -- NOT the distinct
+    // "Photos must be under 10 MB" message validateUploadFile would produce
+    // if the oversized body were allowed to fully buffer first.
+    const oversized = MAX_UPLOAD_BYTES + 3 * 1024 * 1024; // past the multipart cap too
+    const res = await multipartRequest({ fileSize: oversized });
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error.message).toMatch(/too large/i);
+    expect(body.error.message).not.toMatch(/10 MB/i);
+  });
 });
