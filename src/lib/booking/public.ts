@@ -147,10 +147,16 @@ export interface PublicBookingConfig {
   youngDriverAge: number;
   youngDriverFeeCentsPerDay: number;
   currency: string;
+  /** The operator's actual pick-up/return window ("HH:MM"), so the wizard's
+   *  time pickers never offer a slot the quote will then reject. */
+  openingTime: string;
+  closingTime: string;
 }
 
 /** Non-sensitive booking settings the wizard needs before it can quote
- *  (workstream 5: the driver-age selector labels derive from these). */
+ *  (workstream 5: the driver-age selector labels derive from these; the
+ *  opening/closing hours seed the Dates step's TimeSelect min/max so an
+ *  operator with custom hours never has out-of-hours slots offered). */
 export async function publicBookingConfig(): Promise<PublicBookingConfig> {
   const s = await getSettings();
   return {
@@ -158,5 +164,7 @@ export async function publicBookingConfig(): Promise<PublicBookingConfig> {
     youngDriverAge: s.youngDriverAge,
     youngDriverFeeCentsPerDay: s.youngDriverFeeCentsPerDay,
     currency: s.currency,
+    openingTime: s.openingTime,
+    closingTime: s.closingTime,
   };
 }

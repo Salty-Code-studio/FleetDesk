@@ -36,8 +36,11 @@ describe("publicBookingConfig", () => {
     expect(cfg.youngDriverAge).toBe(21);
     expect(cfg.youngDriverFeeCentsPerDay).toBe(1000);
     expect(typeof cfg.currency).toBe("string");
+    // the wizard's business hours (fix: previously hardcoded client-side)
+    expect(cfg.openingTime).toBe("08:00");
+    expect(cfg.closingTime).toBe("18:00");
     // nothing else leaks (no admin recipients, no retention settings)
-    expect(Object.keys(cfg).sort()).toEqual(["currency", "minDriverAge", "youngDriverAge", "youngDriverFeeCentsPerDay"]);
+    expect(Object.keys(cfg).sort()).toEqual(["closingTime", "currency", "minDriverAge", "openingTime", "youngDriverAge", "youngDriverFeeCentsPerDay"]);
   });
 });
 

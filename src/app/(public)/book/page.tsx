@@ -15,9 +15,12 @@ interface Breakdown {
   // vehicle's refundable at-pickup security deposit, sourced from the same
   // settings + vehicle rows the price itself was computed from.
   policy: { cancellationWindowHours: number; securityDepositCents: number | null };
-  // wave-05 wires real hours: /api/booking-config lands this too; the quote
-  // response does not send it yet, so this stays optional until it does.
-  meta?: { openingTime: string; closingTime: string };
+}
+interface BookingConfig {
+  minDriverAge: number; youngDriverAge: number; youngDriverFeeCentsPerDay: number;
+  // The operator's actual pick-up/return window ("HH:MM") — seeds the Dates
+  // step's TimeSelect min/max so an out-of-hours slot is never offered.
+  openingTime: string; closingTime: string;
 }
 
 const money = (c: number, cur = "USD") => (cur === "USD" ? `$${(c / 100).toFixed(2)}` : `${cur} ${(c / 100).toFixed(2)}`);
@@ -81,8 +84,9 @@ export default function BookPage() {
   const [ret, setRet] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [retTime, setRetTime] = useState("");
-  // wave-05 wires real hours: /api/booking-config (see its plan) will return
-  // openingTime/closingTime and replace this default when it lands.
+  // Safe pre-load default only, for the first paint before /api/booking-config
+  // resolves; the mount effect below overwrites this with the operator's real
+  // hours so the TimeSelect controls never offer an out-of-hours slot.
   const [hours, setHours] = useState<{ openingTime: string; closingTime: string }>({ openingTime: "08:00", closingTime: "18:00" });
   const [tierId, setTierId] = useState<string>("");
   const [qty, setQty] = useState<Record<string, number>>({});
@@ -157,10 +161,18 @@ export default function BookPage() {
     }).catch(() => setError("Could not load the fleet. Please refresh."));
 
     // Independent of the Promise.all above: a config hiccup must never block
-    // the fleet from loading, so this fetch is not part of that tuple.
+    // the fleet from loading, so this fetch is not part of that tuple. This is
+    // also the wizard's ONE source of truth for the operator's real business
+    // hours: seed `hours` from it so the Dates step's TimeSelect controls (and
+    // the ?pickup/?return deep-link defaults above) never offer a slot outside
+    // it, which the quote would otherwise reject with a 4xx.
     fetch("/api/booking-config")
       .then((r) => (r.ok ? r.json() : null))
-      .then((c) => { if (c) setCfg(c); })
+      .then((c: BookingConfig | null) => {
+        if (!c) return;
+        setCfg(c);
+        setHours({ openingTime: c.openingTime, closingTime: c.closingTime });
+      })
       .catch(() => {});
     // Mount-only: intentionally reads the `hours` default in effect at load time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,8 +183,12 @@ export default function BookPage() {
     if (!pickup || !ret || ret <= pickup) return;
     let live = true;
     fetch(`/api/classes?pickup=${encodeURIComponent(startAt)}&return=${encodeURIComponent(endAt)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c: ClassOption[] | null) => { if (live && c) setClasses(c); })
+      .then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => null) }))
+      .then(({ ok, data }) => {
+        if (!live) return;
+        if (ok) { setClasses(data as ClassOption[]); setError(""); }
+        else setError(data?.error?.message ?? "Could not check availability for those dates.");
+      })
       .catch(() => {});
     return () => { live = false; };
   }, [pickup, ret, startAt, endAt]);
@@ -194,8 +210,12 @@ export default function BookPage() {
     const body = { vehicleSlug: carSlug, startAt, endAt, insuranceTierId: tierId || null, addOns: addOnsBody, youngDriver: driverAge === "young" };
     let live = true;
     fetch("/api/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => { if (live) { setBreakdown(b); if (b?.meta) setHours(b.meta); } })
+      .then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => null) }))
+      .then(({ ok, data }) => {
+        if (!live) return;
+        if (ok) { setBreakdown(data as Breakdown); setError(""); }
+        else { setBreakdown(null); setError(data?.error?.message ?? "We could not calculate your price for those dates."); }
+      })
       .catch(() => {});
     return () => { live = false; };
   }, [carSlug, pickup, ret, startAt, endAt, tierId, addOnsBody, driverAge]);
@@ -607,6 +627,11 @@ export default function BookPage() {
           {/* per-step inline validation, announced politely */}
           <p className="msg err wiz-error" role="alert" aria-live="assertive">{stepError}</p>
 
+          {/* catalog/quote errors (e.g. a 4xx from /api/quote or /api/classes) —
+              rendered on every step, not just the last, since a bad quote can
+              surface as early as the Dates step. */}
+          {error && <p className="msg err" role="alert" aria-live="assertive">{error}</p>}
+
           {/* ---------- navigation ---------- */}
           <div className="wiz-nav">
             {step > 1
@@ -622,7 +647,6 @@ export default function BookPage() {
           {step === TOTAL && (
             <>
               <p className="note">You&apos;ll be taken to our secure Stripe checkout.</p>
-              <p className="msg err">{error}</p>
               {priceNotice && <p className="msg price-notice" role="status" aria-live="polite">{priceNotice}</p>}
             </>
           )}
