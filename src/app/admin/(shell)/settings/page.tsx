@@ -19,6 +19,7 @@ interface Settings {
   turnaroundBufferHours: number; openingTime: string; closingTime: string;
   minRentalDays: number; maxRentalDays: number;
   maxAdvanceDays: number; licenseRetentionDays: number; adminAlertRecipients: string[];
+  complianceAlertDays: number;
 }
 interface Blackout { id: string; startDate: string; endDate: string; reason: string }
 
@@ -79,6 +80,7 @@ export default function SettingsPage() {
         maxRentalDays: s.maxRentalDays,
         maxAdvanceDays: s.maxAdvanceDays,
         licenseRetentionDays: s.licenseRetentionDays,
+        complianceAlertDays: s.complianceAlertDays,
         adminAlertRecipients: recipients.split(",").map((r) => r.trim()).filter(Boolean),
       });
       setS(updated);
@@ -128,7 +130,7 @@ export default function SettingsPage() {
           <div className="panel">
             <div className="set-panel-head"><h2>Fees &amp; guardrails</h2></div>
             <div className="form-grid">
-              {Array.from({ length: 13 }).map((_, i) => (
+              {Array.from({ length: 14 }).map((_, i) => (
                 <label key={i}><Skeleton width="55%" height={11} /><Skeleton height={38} radius={9} /></label>
               ))}
             </div>
@@ -207,6 +209,10 @@ export default function SettingsPage() {
               <label>Licence document retention (days after return)
                 <input type="number" min="1" max="3650" value={s.licenseRetentionDays}
                   onChange={(e) => setS({ ...s, licenseRetentionDays: Number(e.target.value) })} />
+              </label>
+              <label>Compliance first warning (days before a document expires)
+                <input type="number" min="1" max="365" value={s.complianceAlertDays}
+                  onChange={(e) => setS({ ...s, complianceAlertDays: Number(e.target.value) })} />
               </label>
               <label className="full">Admin alert recipients (comma-separated emails)
                 <input value={recipients} onChange={(e) => setRecipients(e.target.value)}
