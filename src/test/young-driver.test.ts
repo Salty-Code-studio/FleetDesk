@@ -2,9 +2,10 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
-import { vehicles, settings } from "@/lib/db/schema";
+import { vehicles, settings, bookings } from "@/lib/db/schema";
 import { publicQuote, publicBookingConfig } from "@/lib/booking/public";
 import { createBooking, type BookingCreateInput } from "@/lib/booking/create";
+import { extendBooking } from "@/lib/admin/extend-booking";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 
 let db: Awaited<ReturnType<typeof getDb>>;
@@ -122,5 +123,27 @@ describe("createBooking young-driver truth check", () => {
     expect(again.replayed).toBe(true);
     expect(again.booking.id).toBe(first.booking.id);
     expect(again.priceAdjusted).toBe(true); // still true for the same wrong claim
+  });
+});
+
+describe("extendBooking keeps the young-driver fee", () => {
+  it("re-quotes the full new duration with the snapshotted flag", async () => {
+    const { booking } = await createBooking(ydInput({
+      youngDriver: true,
+      startAt: "2027-06-01T09:00:00-04:00", endAt: "2027-06-04T09:00:00-04:00", // 3 days
+      idempotencyKey: "yd-extend-1",
+    }), TODAY);
+    await db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, booking.id));
+
+    await extendBooking(booking.id, {
+      endAt: "2027-06-06T09:00:00-04:00", // now 5 days
+      payment: "desk",
+    });
+
+    const [updated] = await db.select().from(bookings).where(eq(bookings.id, booking.id));
+    const snap = updated!.priceBreakdown as QuoteBreakdown;
+    expect(snap.youngDriver).toBe(true);
+    expect(snap.youngDriverCents).toBe(5 * 1000);
+    expect(snap.subtotalCents).toBe(snap.vehicleCents + snap.insuranceCents + snap.addOnsCents + 5000);
   });
 });

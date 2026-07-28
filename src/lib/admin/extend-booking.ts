@@ -107,6 +107,8 @@ export async function extendBooking(
         depositPercent: oldBreakdown.depositPercent ?? settings.depositPercent,
         depositMinCents: oldBreakdown.depositMinCents ?? settings.depositMinCents,
         currency: oldBreakdown.currency ?? settings.currency,
+        youngDriver: oldBreakdown.youngDriver ?? false,
+        youngDriverFeeCentsPerDay: settings.youngDriverFeeCentsPerDay,
       });
       const deltaCents = Math.max(0, newBreakdown.subtotalCents - (oldBreakdown.subtotalCents ?? 0));
       // ── end re-quote block ──
