@@ -21,7 +21,7 @@ import { getLatestPolicy } from "@/lib/admin/policies";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
 import { paymentAmounts } from "@/lib/payments/charge";
 import { validateDates, checkAvailability } from "@/lib/booking/availability";
-import { LicenseSchema, validateLicense, encryptLicense } from "@/lib/booking/license";
+import { LicenseSchema, validateLicense, encryptLicense, driverAgeBand } from "@/lib/booking/license";
 import { addHoursIso, arubaDateOf, parseTs } from "@/lib/time/format";
 import { isoDateTime } from "@/lib/validation/iso-date";
 
@@ -39,6 +39,9 @@ export const BookingCreateSchema = z.object({
   license: LicenseSchema,
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the rental terms" }) }),
   paymentOption: z.enum(["deposit", "full"]),
+  // Claimed age band from the wizard selector. A hint only: the licence DOB is
+  // the truth and createBooking reprices on mismatch (priceAdjusted).
+  youngDriver: z.boolean().optional().default(false),
   idempotencyKey: z.string().trim().min(8).max(200),
 }).strict();
 
@@ -49,6 +52,9 @@ export interface BookingResult {
   booking: Booking;
   breakdown: QuoteBreakdown;
   replayed: boolean;
+  /** True when the claimed age band did not match the licence DOB and the
+   *  snapshot was corrected (up or down) before payment. */
+  priceAdjusted: boolean;
 }
 
 export async function createBooking(input: BookingCreateInput, nowIso: string): Promise<BookingResult> {
@@ -57,7 +63,13 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
   // Idempotent replay: same key returns the same booking, never a second one.
   const [existing] = await db.select().from(bookings).where(eq(bookings.idempotencyKey, input.idempotencyKey));
   if (existing) {
-    return { booking: existing, breakdown: existing.priceBreakdown as QuoteBreakdown, replayed: true };
+    const prior = existing.priceBreakdown as QuoteBreakdown;
+    return {
+      booking: existing,
+      breakdown: prior,
+      replayed: true,
+      priceAdjusted: (prior.youngDriver ?? false) !== input.youngDriver,
+    };
   }
 
   const settings = await getSettings();
@@ -66,7 +78,14 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
 
   // Guardrails (throw 4xx on violation).
   validateDates(input.startAt, input.endAt, settings, nowIso);
-  validateLicense(input.license, { minDriverAge: settings.minDriverAge, rentalStart: arubaDateOf(input.startAt), rentalEnd: arubaDateOf(input.endAt) });
+  const pickupDateStr = arubaDateOf(input.startAt);
+  validateLicense(input.license, { minDriverAge: settings.minDriverAge, rentalStart: pickupDateStr, rentalEnd: arubaDateOf(input.endAt) });
+
+  // Young-driver truth check (workstream 5): the licence DOB decides the
+  // surcharge, never the claimed band. under_min never reaches here.
+  const band = driverAgeBand(input.license.dob, pickupDateStr, settings);
+  const youngDriver = band === "young";
+  const priceAdjusted = youngDriver !== input.youngDriver;
 
   const availability = await checkAvailability(vehicle.id, input.startAt, input.endAt, settings);
   if (!availability.available) throw Errors.conflict(availability.reason ?? "Those dates are not available");
@@ -115,6 +134,8 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
     depositPercent: settings.depositPercent,
     depositMinCents: settings.depositMinCents,
     currency: settings.currency,
+    youngDriver,
+    youngDriverFeeCentsPerDay: settings.youngDriverFeeCentsPerDay,
   });
 
   // If the owner zeroed both deposit knobs the booking could never be charged
@@ -193,13 +214,21 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
       const enc = encryptLicense(booking!.id, input.license);
       await tx.insert(driverLicenses).values({ bookingId: booking!.id, ...enc, retainUntil });
 
-      return { booking: booking!, breakdown, replayed: false };
+      return { booking: booking!, breakdown, replayed: false, priceAdjusted };
     });
   } catch (e) {
     // A same-key race: the other request won — return its booking.
     if (isUniqueViolation(e)) {
       const [winner] = await db.select().from(bookings).where(eq(bookings.idempotencyKey, input.idempotencyKey));
-      if (winner) return { booking: winner, breakdown: winner.priceBreakdown as QuoteBreakdown, replayed: true };
+      if (winner) {
+        const prior = winner.priceBreakdown as QuoteBreakdown;
+        return {
+          booking: winner,
+          breakdown: prior,
+          replayed: true,
+          priceAdjusted: (prior.youngDriver ?? false) !== input.youngDriver,
+        };
+      }
     }
     const translated = translateDbError(e);
     if (translated) throw translated; // 23P01 overlap → 409, etc.

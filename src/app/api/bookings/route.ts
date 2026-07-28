@@ -25,7 +25,7 @@ export const POST = withRoute(async (req) => {
   enforceOrigin(req);
   await enforceRateLimit(req, "global", "booking");
   const input = await parseJsonBody(req, BodySchema);
-  const { booking, breakdown, replayed } = await createBooking(input, arubaNowIso());
+  const { booking, breakdown, replayed, priceAdjusted } = await createBooking(input, arubaNowIso());
   if (!replayed) await notifyNewBooking(booking.id); // best-effort admin alert
   return json({
     id: booking.id,
@@ -35,5 +35,6 @@ export const POST = withRoute(async (req) => {
     paymentOption: booking.paymentOption,
     breakdown,
     replayed,
+    priceAdjusted,
   }, req, { status: replayed ? 200 : 201 });
 });
