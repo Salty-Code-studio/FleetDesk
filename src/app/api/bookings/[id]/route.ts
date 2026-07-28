@@ -22,6 +22,9 @@ export const GET = withRoute(async (req, { params }) => {
   const [booking] = await db.select({
     id: bookings.id, status: bookings.status, startAt: bookings.startAt,
     endAt: bookings.endAt, paymentOption: bookings.paymentOption, priceBreakdown: bookings.priceBreakdown,
+    // Additive (Task 12): lets the confirmation page show "Payment received: $X"
+    // without a second round trip. Still no PII.
+    amountPaidCents: bookings.amountPaidCents,
   }).from(bookings).where(eq(bookings.id, id));
   if (!booking) throw Errors.notFound("Booking not found");
   return json(booking, req);
