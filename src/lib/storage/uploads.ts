@@ -12,6 +12,14 @@ import { Errors } from "@/lib/http/errors";
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // ~10MB cap (spec W4)
 
+// Pre-parse guard for the multipart REQUEST as a whole (not the file part):
+// boundary markers + the small text fields (category/bookingId/kind/label) add
+// at most a few KB. This headroom is NOT "more allowed file data" — it just
+// keeps the Content-Length pre-check from rejecting a legitimate
+// MAX_UPLOAD_BYTES file for multipart framing overhead. validateUploadFile
+// still enforces the real 10MB cap on the file part itself.
+export const MAX_MULTIPART_BYTES = MAX_UPLOAD_BYTES + 2 * 1024 * 1024; // ~2MB headroom
+
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export const UploadFieldsSchema = z.object({

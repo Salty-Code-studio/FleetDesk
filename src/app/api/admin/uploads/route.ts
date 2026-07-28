@@ -1,13 +1,13 @@
 import { eq } from "drizzle-orm";
 import { withRoute } from "@/lib/http/handler";
 import { json } from "@/lib/http/respond";
-import { parseParams } from "@/lib/http/validate";
+import { parseParams, assertContentLengthWithinCap } from "@/lib/http/validate";
 import { mutate } from "@/lib/admin/guard";
 import { Errors } from "@/lib/http/errors";
 import { getDb } from "@/lib/db/client";
 import { bookings } from "@/lib/db/schema";
 import { putObject } from "@/lib/storage";
-import { UploadFieldsSchema, validateUploadFile, buildUploadKey } from "@/lib/storage/uploads";
+import { UploadFieldsSchema, validateUploadFile, buildUploadKey, MAX_MULTIPART_BYTES } from "@/lib/storage/uploads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +21,14 @@ export const dynamic = "force-dynamic";
  * manually — the browser adds the multipart boundary).
  */
 export const POST = withRoute(async (req) => {
+  // req.formData() buffers the ENTIRE multipart body in memory before
+  // anything (including validateUploadFile's 10MB check) ever runs — with no
+  // hook to enforce a cap mid-parse the way readBodyCapped does for JSON. An
+  // authenticated staff/owner could otherwise OOM the process with a
+  // multi-GB part. Reject an oversized DECLARED Content-Length up front, so
+  // that never gets buffered in the first place.
+  assertContentLengthWithinCap(req, MAX_MULTIPART_BYTES);
+
   const result = await mutate(req, "admin.file_uploaded", async () => {
     const form = await req.formData().catch(() => {
       throw Errors.badRequest("Expected multipart form data");

@@ -59,6 +59,29 @@ async function readBodyCapped(req: Request, maxBytes: number): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+/**
+ * Cheap, header-only pre-check: reject a request whose DECLARED Content-Length
+ * exceeds maxBytes, before any code reads the body. A present Content-Length
+ * is advisory only — a client can omit it, or lie under chunked transfer — so
+ * this is not a substitute for streaming enforcement where the runtime lets us
+ * do that (readBodyCapped, above, for the JSON path). It exists for the cases
+ * where it DOESN'T: e.g. multipart via req.formData(), which buffers the whole
+ * body internally with no hook to enforce a cap mid-parse. There, this header
+ * check is the only defense available before the (potentially attacker-sized)
+ * body is buffered — so it must run before req.formData() is ever called.
+ */
+export function assertContentLengthWithinCap(req: Request, maxBytes: number): void {
+  const lengthHeader = req.headers.get("content-length");
+  if (lengthHeader === null) return; // absent (e.g. chunked transfer) — nothing to check up front
+  const declared = Number(lengthHeader);
+  if (!Number.isFinite(declared) || declared < 0) {
+    throw Errors.badRequest("Invalid Content-Length");
+  }
+  if (declared > maxBytes) {
+    throw Errors.badRequest("Request body too large");
+  }
+}
+
 /** Parse + validate a JSON request body. Throws AppError on any problem. */
 export async function parseJsonBody<S extends z.ZodTypeAny>(
   req: Request,
@@ -70,19 +93,10 @@ export async function parseJsonBody<S extends z.ZodTypeAny>(
   }
 
   // Enforce a size limit defensively even if the platform also does. A declared
-  // Content-Length lets us reject early, but it is advisory only: a present value
-  // must be a sane number, and we ALWAYS enforce the real cap while streaming
-  // (covers chunked / absent / lying Content-Length).
-  const lengthHeader = req.headers.get("content-length");
-  if (lengthHeader !== null) {
-    const declared = Number(lengthHeader);
-    if (!Number.isFinite(declared) || declared < 0) {
-      throw Errors.badRequest("Invalid Content-Length");
-    }
-    if (declared > MAX_BODY_BYTES) {
-      throw Errors.badRequest("Request body too large");
-    }
-  }
+  // Content-Length lets us reject early, but it is advisory only, so we ALWAYS
+  // ALSO enforce the real cap while streaming (covers chunked / absent /
+  // lying Content-Length) via readBodyCapped below.
+  assertContentLengthWithinCap(req, MAX_BODY_BYTES);
 
   const raw = await readBodyCapped(req, MAX_BODY_BYTES);
 
