@@ -18,7 +18,7 @@ let seq = 1;
 
 const DAY = 86_400_000;
 
-async function mkBooking(status: "completed" | "confirmed", endInMs: number) {
+async function mkBooking(status: "completed" | "confirmed" | "cancelled", endInMs: number) {
   const n = seq++;
   const end = new Date(Date.now() + endInMs);
   const [b] = await db.insert(bookings).values({
@@ -91,7 +91,7 @@ describe("sweepDriverLicenses", () => {
     expect(second).toBe(0);
   });
 
-  it("never touches a licence on a booking that is not completed, even if retainUntil has lapsed", async () => {
+  it("never touches a licence on a live (non-terminal) booking, even if retainUntil has lapsed", async () => {
     // Models a live/extended booking whose endAt moved out after retainUntil
     // was first computed: the timer looks expired, but the rental is still on.
     const b = await mkBooking("confirmed", 10 * DAY);
@@ -101,5 +101,33 @@ describe("sweepDriverLicenses", () => {
 
     const [row] = await db.select().from(driverLicenses).where(eq(driverLicenses.bookingId, b.id));
     expect(row).toBeDefined();
+  });
+
+  it("purges a driver_licenses row past its retainUntil on a CANCELLED booking (abandoned-checkout path)", async () => {
+    // The dominant real-world case: createBooking always writes a licence on a
+    // brand-new "pending" booking, and expireStaleHolds (or an admin/customer
+    // cancel) flips an unpaid hold straight to "cancelled" via UPDATE, never a
+    // row delete. "cancelled" is terminal (no outgoing transitions), so this
+    // booking will never reach "completed" — a completed-only gate would have
+    // retained this PII forever.
+    const b = await mkBooking("cancelled", -10 * DAY);
+    await mkLicense(b.id, new Date(Date.now() - DAY)); // retainUntil was yesterday
+
+    const purged = await sweepDriverLicenses();
+    expect(purged).toBeGreaterThanOrEqual(1);
+
+    const [row] = await db.select().from(driverLicenses).where(eq(driverLicenses.bookingId, b.id));
+    expect(row).toBeUndefined(); // PII gone, not retained forever
+  });
+
+  it("leaves a cancelled booking's licence untouched while still within its retention window", async () => {
+    const b = await mkBooking("cancelled", 60 * DAY);
+    await mkLicense(b.id, new Date(Date.now() + 30 * DAY)); // retainUntil 30 days out
+
+    await sweepDriverLicenses();
+
+    const [row] = await db.select().from(driverLicenses).where(eq(driverLicenses.bookingId, b.id));
+    expect(row).toBeDefined();
+    expect(row!.nameOnLicense).toBe("Jane Driver");
   });
 });

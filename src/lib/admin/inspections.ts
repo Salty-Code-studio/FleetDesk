@@ -475,17 +475,24 @@ export async function sweepInspectionMedia(now = new Date()): Promise<number> {
  * nameOnLicense/licenseNumberEnc/issuingCountry/issueDate/expiryDate/dobEnc
  * are all NOT NULL, so nulling them would need a schema change; the row has
  * no downstream foreign keys pointing at it; and getHandover already treats
- * a missing licence as `license: null`. Gating on booking status "completed"
- * (the same guard sweepInspectionMedia uses) means an active or upcoming
- * rental is never touched even in the edge case where extendBooking pushed
- * endAt out without recomputing retainUntil. Runs from the daily cron.
+ * a missing licence as `license: null`. Gating on the two TERMINAL booking
+ * statuses ("completed" and "cancelled" — see transitions.ts, both have no
+ * outgoing transitions) means an active or upcoming rental is never touched
+ * even in the edge case where extendBooking pushed endAt out without
+ * recomputing retainUntil. "cancelled" has to be included, not just
+ * "completed": createBooking always writes a licence on a brand-new
+ * "pending" booking, and the dominant way a booking never gets paid is
+ * expireStaleHolds/a cancel flow flipping it straight to "cancelled" via
+ * UPDATE (never a row delete, so the ON DELETE CASCADE never fires and a
+ * "completed"-only gate would retain that PII forever). Runs from the daily
+ * cron.
  */
 export async function sweepDriverLicenses(now = new Date()): Promise<number> {
   const db = await getDb();
   const rows = await db.select({ id: driverLicenses.id })
     .from(driverLicenses)
     .innerJoin(bookings, eq(driverLicenses.bookingId, bookings.id))
-    .where(and(eq(bookings.status, "completed"), lt(driverLicenses.retainUntil, now)));
+    .where(and(inArray(bookings.status, ["completed", "cancelled"]), lt(driverLicenses.retainUntil, now)));
   if (rows.length === 0) return 0;
 
   await db.delete(driverLicenses).where(inArray(driverLicenses.id, rows.map((r) => r.id)));
