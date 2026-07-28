@@ -12,5 +12,6 @@ const ParamsSchema = z.object({ id: z.string().uuid() });
 
 export const GET = withRoute(async (req, { params }) => {
   const { id } = parseParams(await params, ParamsSchema);
-  return json(await read(req, () => getHandover(id)), req);
+  // Staff opt-in (workstream 8): this read bootstraps the check-in/check-out flow.
+  return json(await read(req, () => getHandover(id), { roles: ["owner", "staff"] }), req);
 });

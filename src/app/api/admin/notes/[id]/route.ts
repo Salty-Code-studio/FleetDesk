@@ -18,6 +18,6 @@ export const PATCH = withRoute(async (req, { params }) => {
     const before = await getNote(id);
     const after = await setNoteResolved(id, resolved);
     return { result: after, entity: "vehicle_note", entityId: id, before, after };
-  });
+  }, { roles: ["owner", "staff"] });
   return json(updated, req);
 });
