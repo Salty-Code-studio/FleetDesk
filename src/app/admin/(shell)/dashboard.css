@@ -67,3 +67,25 @@
   .pl-head-action.btn { width: 100%; }
   .pl-service-dates { grid-template-columns: 1fr; }
 }
+
+/* ---- Compliance card (wave 03): documents coming due, amber soon / red overdue.
+   Rendered only when at least one document is inside the warning window. ---- */
+.pl-compliance { margin-bottom: 1.1rem; }
+.pl-compliance__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .55rem;
+}
+.pl-compliance__head h2 { margin: 0; }
+.pl-compliance__head a { font-size: .8rem; white-space: nowrap; }
+.pl-compliance ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.pl-compliance li { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.pl-compliance li small { color: var(--ink-mute); }
+.pl-compliance__due {
+  margin-left: auto;
+  font-size: .75rem;
+  color: var(--ink-mute);
+  font-family: var(--font-mono);
+}

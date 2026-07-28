@@ -184,6 +184,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .tag.on { background: var(--ok-bg); color: var(--ok); }
 .tag.off { background: var(--danger-bg); color: var(--danger); }
 .tag.def { background: rgba(79,168,201,.16); color: #2E7A96; }
+.tag.warn { background: rgba(201,138,51,.16); color: #9A6A24; }
 .row-actions { display: flex; gap: .4rem; }
 .row-actions button { font-size: .76rem; padding: .32rem .6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; color: var(--ink-soft); font-weight: 500; transition: all .15s var(--ease); }
 .row-actions button:hover { border-color: var(--teal); color: var(--teal); background: var(--fill); }

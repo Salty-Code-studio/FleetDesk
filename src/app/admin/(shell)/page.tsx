@@ -26,6 +26,7 @@ interface Planning {
   categories: Category[];
   blackouts: { id: string; start: string; end: string; reason: string }[];
 }
+interface ComplianceItem { vehicleId: string; name: string; plate: string; kind: "insurance" | "inspection"; dueOn: string; daysLeft: number }
 
 const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const BLOCK_TYPES = ["maintenance", "carwash", "cleaning", "out_of_service", "other"];
@@ -54,6 +55,7 @@ export default function AdminDashboard() {
   // live drag previews (re-rendered): a selection rectangle, or a moving booking ghost
   const [sel, setSel] = useState<{ vehicleId: string; startDate: string; endDate: string } | null>(null);
   const [moveCand, setMoveCand] = useState<{ bookingId: string; vehicleId: string; startDate: string; endDate: string } | null>(null);
+  const [compliance, setCompliance] = useState<ComplianceItem[]>([]);
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -74,6 +76,13 @@ export default function AdminDashboard() {
     setLoading(false);
   }
   useEffect(() => { void load(); }, []);
+
+  // Compliance card data. Best-effort: the board must render even if this call fails.
+  useEffect(() => {
+    apiGet<{ items: ComplianceItem[] }>("/api/admin/compliance")
+      .then((d) => setCompliance(d.items))
+      .catch(() => {});
+  }, []);
 
   // Page-scoped command-palette action: "Schedule service".
   useEffect(
@@ -255,6 +264,26 @@ export default function AdminDashboard() {
         <div className="s"><b>{stats.confirmed}</b><span>confirmed</span></div>
         <div className="s"><b>{stats.pending}</b><span>awaiting payment</span></div>
       </div>
+
+      {compliance.length > 0 && (
+        <div className="panel pl-compliance" role="status">
+          <div className="pl-compliance__head">
+            <h2>Compliance</h2>
+            <a href="/admin/fleet">Open Fleet</a>
+          </div>
+          <ul>
+            {compliance.map((c) => (
+              <li key={`${c.vehicleId}-${c.kind}`}>
+                <span className={`tag ${c.daysLeft < 0 ? "off" : "warn"}`}>
+                  {c.kind === "insurance" ? "Insurance" : "Inspection"} {c.daysLeft < 0 ? "overdue" : `${c.daysLeft}d`}
+                </span>
+                <b>{c.plate}</b> <small>{c.name}</small>
+                <span className="pl-compliance__due">due {c.dueOn}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="pl-toolbar">
         <label>From <DatePicker value={from} onChange={setFrom} /></label>
