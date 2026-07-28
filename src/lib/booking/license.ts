@@ -30,6 +30,25 @@ export function ageOn(dob: string, onDate: string): number {
   return age;
 }
 
+export type DriverAgeBand = "under_min" | "young" | "standard";
+
+/**
+ * Classify the main driver's age at pick-up against the operator's thresholds
+ * (workstream 5). under_min hard-rejects (validateLicense), young pays the
+ * per-day fee, standard pays nothing extra. Pure so it is trivially testable
+ * and reusable at quote and create time.
+ */
+export function driverAgeBand(
+  dob: string,
+  pickupDate: string,
+  s: { minDriverAge: number; youngDriverAge: number },
+): DriverAgeBand {
+  const age = ageOn(dob, pickupDate);
+  if (age < s.minDriverAge) return "under_min";
+  if (age < s.youngDriverAge) return "young";
+  return "standard";
+}
+
 /**
  * Enforce the licence rules: it must stay valid through the return date, the
  * driver must meet the minimum age at pick-up, and issue must precede expiry.

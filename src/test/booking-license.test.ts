@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ageOn, validateLicense, encryptLicense, LicenseSchema } from "@/lib/booking/license";
+import { ageOn, validateLicense, encryptLicense, LicenseSchema, driverAgeBand } from "@/lib/booking/license";
 import { decryptField } from "@/lib/crypto/fields";
 
 const valid = {
@@ -53,5 +53,26 @@ describe("encryptLicense", () => {
     expect(decryptField(cols.dobEnc, "driver_licenses:booking-xyz:dob")).toBe("2000-05-17");
     // wrong context fails (swap protection)
     expect(() => decryptField(cols.licenseNumberEnc, "driver_licenses:other:license_number")).toThrow();
+  });
+});
+
+describe("driverAgeBand", () => {
+  const s = { minDriverAge: 18, youngDriverAge: 21 };
+  it("classifies under the minimum age", () => {
+    expect(driverAgeBand("2010-01-01", "2026-07-01", s)).toBe("under_min");
+    expect(driverAgeBand("2008-07-02", "2026-07-01", s)).toBe("under_min"); // 18th birthday one day after pick-up
+  });
+  it("classifies the young band, boundaries included", () => {
+    expect(driverAgeBand("2008-07-01", "2026-07-01", s)).toBe("young"); // turns 18 on pick-up day
+    expect(driverAgeBand("2005-07-02", "2026-07-01", s)).toBe("young"); // 20, turns 21 one day after pick-up
+  });
+  it("classifies standard at and above youngDriverAge", () => {
+    expect(driverAgeBand("2005-07-01", "2026-07-01", s)).toBe("standard"); // turns 21 on pick-up day
+    expect(driverAgeBand("1990-01-01", "2026-07-01", s)).toBe("standard");
+  });
+  it("an empty young band (youngDriverAge at or below minDriverAge) never returns young", () => {
+    const flat = { minDriverAge: 21, youngDriverAge: 21 };
+    expect(driverAgeBand("2007-01-01", "2026-07-01", flat)).toBe("under_min");
+    expect(driverAgeBand("2000-01-01", "2026-07-01", flat)).toBe("standard");
   });
 });
