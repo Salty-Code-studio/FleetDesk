@@ -57,6 +57,7 @@ export default async function ShellLayout({ children }: { children: ReactNode })
   const db = await getDb();
   const [admin] = await db.select().from(adminUsers).where(eq(adminUsers.id, session.subjectId));
   if (!admin) redirect("/admin/login");
+  if (!admin.active) redirect("/admin/login"); // deactivated staff: instant revocation
   if (!admin.mfaEnabled) redirect("/admin/mfa"); // enrollment is mandatory
 
   return (
@@ -74,15 +75,15 @@ export default async function ShellLayout({ children }: { children: ReactNode })
             <span className="logo-word">FleetDesk</span>
             <span className="logo-tag">Admin</span>
           </div>
-          <SideNav />
+          <SideNav role={admin.role} />
           <div className="foot">
-            <span className="foot-acct">{admin.email} · {admin.role}</span>
+            <span className="foot-acct">{admin.name ?? admin.email} · {admin.role}</span>
             <span className="foot-by">a saltycodestudio product</span>
           </div>
         </aside>
         <main className="main">
           <div className="topbar">
-            <NotificationBell />
+            {admin.role === "owner" && <NotificationBell />}
             <LogoutButton />
           </div>
           {children}
