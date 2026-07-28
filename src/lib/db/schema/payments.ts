@@ -4,8 +4,9 @@ import { bookings } from "./bookings";
 
 // reservation_fee + deposit exist only on historical (pre-wave) rows.
 // New charges are rental_deposit (partial, holds the car), rental_full
-// (whole rental paid online), or extension (delta for added days).
-export const paymentType = pgEnum("payment_type", ["reservation_fee", "deposit", "rental_deposit", "rental_full", "extension"]);
+// (whole rental paid online), extension (delta for added days), or balance
+// (desk-collected balance-due at check-in, wave 06).
+export const paymentType = pgEnum("payment_type", ["reservation_fee", "deposit", "rental_deposit", "rental_full", "extension", "balance"]);
 export const paymentStatus = pgEnum("payment_status", ["pending", "succeeded", "failed", "refunded"]);
 export const paymentMethod = pgEnum("payment_method", ["stripe", "desk"]);
 
