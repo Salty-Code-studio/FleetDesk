@@ -11,7 +11,10 @@
  * also lowers a stale stage quietly, so any write path self-heals.
  *
  * Firing is best-effort by construction: notifyAdmin() and alertOwner() never
- * throw, so a notification failure cannot break the cron run.
+ * throw, so a notification failure cannot break the cron run. The stage
+ * marker is written BEFORE dispatch (persist-then-notify), so a crash
+ * between the two can only skip a notification, never re-fire and
+ * double-alert an already-committed stage on the next run.
  */
 import { eq, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
@@ -100,11 +103,17 @@ export async function runComplianceAlerts(now = new Date()): Promise<{ fired: nu
         ? `Was due on ${doc.dueOn}.`
         : `Due on ${doc.dueOn} (${daysLeft} ${daysLeft === 1 ? "day" : "days"} left).`;
 
+      // Persist the stage marker BEFORE dispatching. If we notified first, a
+      // crash between the notify and the write (process kill, serverless
+      // timeout, transient DB error) would leave the stage stuck at the old
+      // value, so the next cron run would see target > recorded again and
+      // fire (and send) this exact stage a second time. Writing first means
+      // a crash can only ever skip the notification, never duplicate it.
+      await db.update(vehicles).set({ ...stagePatch, updatedAt: now }).where(eq(vehicles.id, v.id));
+      fired++;
       await notifyAdmin({ level: overdue ? "critical" : "warning", type: "vehicle.document_expiring", title, body });
       const email = adminDocumentExpiringEmail({ vehicleName: v.name, plate: v.plate, kind: doc.kind, dueOn: doc.dueOn, daysLeft });
       await alertOwner({ type: "vehicle.document_expiring", subject: email.subject, html: email.html, whatsappText: `${title}. ${body}` });
-      await db.update(vehicles).set({ ...stagePatch, updatedAt: now }).where(eq(vehicles.id, v.id));
-      fired++;
     }
   }
   return { fired };
