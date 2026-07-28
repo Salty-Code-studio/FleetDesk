@@ -9,7 +9,7 @@
 import { env } from "@/env";
 import { assertSafeKey, type StorageDriver } from "./shared";
 
-export { assertSafeKey, contentTypeForKey, type StorageDriver } from "./shared";
+export { assertSafeKey, contentTypeForKey, isObjectNotFoundError, type StorageDriver } from "./shared";
 
 let driverPromise: Promise<StorageDriver> | null = null;
 

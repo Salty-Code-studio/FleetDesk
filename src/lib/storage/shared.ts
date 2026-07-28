@@ -34,3 +34,19 @@ export function contentTypeForKey(key: string): string {
   const dot = key.lastIndexOf(".");
   return (dot >= 0 ? CONTENT_TYPES[key.slice(dot).toLowerCase()] : undefined) ?? "application/octet-stream";
 }
+
+/**
+ * True ONLY when a getObject() failure means the object genuinely does not
+ * exist -- Node's ENOENT from the local driver, or Supabase's semantic 404
+ * (surfaced as `statusCode: "404"` on the underlying StorageApiError, which
+ * the Supabase driver preserves as `cause`) -- as opposed to a real outage
+ * (5xx, network fault, a rotated/invalid service-role key, an
+ * assertSafeKey() badRequest). Callers must let anything else propagate
+ * unchanged so it surfaces as a 500 (or its own AppError status) and logs at
+ * error level, instead of a benign 404 that hides a real incident.
+ */
+export function isObjectNotFoundError(e: unknown): boolean {
+  if (e && typeof e === "object" && (e as { code?: unknown }).code === "ENOENT") return true;
+  const cause = e && typeof e === "object" ? (e as { cause?: unknown }).cause : undefined;
+  return !!cause && typeof cause === "object" && (cause as { statusCode?: unknown }).statusCode === "404";
+}

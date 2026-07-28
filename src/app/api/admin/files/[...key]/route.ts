@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withRoute } from "@/lib/http/handler";
 import { read } from "@/lib/admin/guard";
 import { Errors } from "@/lib/http/errors";
-import { getObject } from "@/lib/storage";
+import { getObject, isObjectNotFoundError } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +23,14 @@ export const GET = withRoute<{ key: string[] }>(async (req, { params }) =>
     req,
     async () => {
       const key = (params.key ?? []).join("/");
-      const { data, contentType } = await getObject(key).catch(() => {
-        throw Errors.notFound("File not found");
+      const { data, contentType } = await getObject(key).catch((e: unknown) => {
+        // Only a GENUINE driver not-found becomes a 404. Everything else (a
+        // Supabase 5xx, a network fault, a rotated service-role key, an
+        // assertSafeKey() badRequest for a malformed key) must propagate
+        // unchanged so it surfaces as a 500 (or its own real status) and logs
+        // at error level -- not a benign 404 that hides a real outage.
+        if (isObjectNotFoundError(e)) throw Errors.notFound("File not found", e);
+        throw e;
       });
       const headers: Record<string, string> = {
         "Content-Type": contentType,

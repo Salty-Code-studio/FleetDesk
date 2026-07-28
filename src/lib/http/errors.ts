@@ -73,7 +73,7 @@ export const Errors = {
   unauthorized: (msg = "Authentication required") =>
     new AppError("unauthorized", msg, { headers: { "WWW-Authenticate": "Bearer" } }),
   forbidden: (msg = "You do not have access to this resource") => new AppError("forbidden", msg),
-  notFound: (msg = "Resource not found") => new AppError("not_found", msg),
+  notFound: (msg = "Resource not found", cause?: unknown) => new AppError("not_found", msg, { cause }),
   conflict: (msg = "Conflict", details?: unknown) => new AppError("conflict", msg, { details }),
   rateLimited: (retryAfterSeconds: number, msg = "Too many requests") =>
     new AppError("rate_limited", msg, { headers: { "Retry-After": String(retryAfterSeconds) } }),

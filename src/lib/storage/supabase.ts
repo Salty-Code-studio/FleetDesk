@@ -26,7 +26,13 @@ export function supabaseDriver(): StorageDriver {
     },
     async getObject(key) {
       const { data, error } = await bucket().download(key);
-      if (error || !data) throw new Error(`storage download failed for ${key}: ${error?.message ?? "no data"}`);
+      // Preserve the original Supabase StorageError as `cause` (not just its
+      // message) so callers can distinguish a genuine "object not found"
+      // (statusCode "404") from a real outage -- 5xx, network fault, a
+      // rotated/invalid service-role key -- instead of losing that signal.
+      if (error || !data) {
+        throw new Error(`storage download failed for ${key}: ${error?.message ?? "no data"}`, { cause: error });
+      }
       return { data: new Uint8Array(await data.arrayBuffer()), contentType: data.type || contentTypeForKey(key) };
     },
     async getSignedUrl(key, ttlSeconds) {
