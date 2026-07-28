@@ -5,15 +5,16 @@
  * the audited admin routes; this module owns validation + transactions.
  */
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { bookings, vehicles, customers, payments, inspections, driverLicenses } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
 import { getLatestPolicy, getPolicyVersion } from "@/lib/admin/policies";
+import { getSettings } from "@/lib/admin/settings";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 import { assertBookingTransition } from "@/lib/booking/transitions";
 import { renderContractPdf } from "@/lib/pdf/contract";
-import { putObject, getObject } from "@/lib/storage";
+import { putObject, getObject, deleteObject } from "@/lib/storage";
 import { bookingPickedUpEmail, bookingReturnSummaryEmail } from "@/lib/email/templates";
 import { sendAndLog } from "@/lib/email/send";
 import { notifyAdmin } from "@/lib/notify";
@@ -413,4 +414,49 @@ export async function completeReturn(
     });
   }
   return done.booking;
+}
+
+/**
+ * Retention sweep (spec open-detail A: follow the licenseRetentionDays
+ * pattern). Once a completed rental is older than the retention window, the
+ * PII-bearing media (walk-around photos, licence photo, signature) is deleted
+ * from storage and the keys blanked. Damage NOTES stay (business record, no
+ * PII), and the CONTRACT PDF stays (the signed agreement is the proof the
+ * versioned-policies system exists for). Runs from the daily cron.
+ */
+export async function sweepInspectionMedia(now = new Date()): Promise<number> {
+  const db = await getDb();
+  const settings = await getSettings();
+  const cutoff = new Date(now.getTime() - settings.licenseRetentionDays * 86_400_000);
+
+  const rows = await db.select({ insp: inspections })
+    .from(inspections)
+    .innerJoin(bookings, eq(inspections.bookingId, bookings.id))
+    // bookings.endAt is a `mode: "string"` timestamptz column, so compare
+    // against an ISO string like every other endAt comparison in this codebase.
+    .where(and(eq(bookings.status, "completed"), lt(bookings.endAt, cutoff.toISOString())));
+
+  let purged = 0;
+  for (const { insp } of rows) {
+    const keys = [
+      ...insp.photos.map((p) => p.key),
+      insp.licensePhotoKey,
+      insp.signatureKey,
+    ].filter((k): k is string => !!k);
+    if (keys.length === 0) continue; // already purged — idempotent
+
+    for (const key of keys) {
+      await deleteObject(key).catch((e) =>
+        logger.warn("inspection_media_delete_failed", { key, error: (e as Error).message }),
+      );
+    }
+    await db.update(inspections).set({
+      photos: [],
+      licensePhotoKey: null,
+      signatureKey: null,
+      damageFlags: insp.damageFlags.map((f) => ({ photoKey: "", note: f.note })),
+    }).where(eq(inspections.id, insp.id));
+    purged++;
+  }
+  return purged;
 }
