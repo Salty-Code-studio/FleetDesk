@@ -6,36 +6,9 @@ import { Drawer, Modal, useToast, SkeletonRows } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, parseTs } from "@/lib/time/format";
 import { InspectionPanel } from "./inspection-panel";
+import type { BookingDetail, BookingDetailPayment } from "@/lib/admin/booking-detail";
 import "./booking-drawer.css";
 
-interface BookingDetailPayment {
-  id: string;
-  type: string;
-  method: string;
-  amountCents: number;
-  refundedCents: number;
-  status: string;
-  createdAt: string;
-  stripePaymentIntentId: string | null;
-}
-interface BookingDetail {
-  booking: {
-    id: string;
-    status: string;
-    source: string;
-    startAt: string;
-    endAt: string;
-    paymentOption: string;
-    notes: string | null;
-    priceBreakdown: { subtotalCents: number; depositCents: number | null; currency: string };
-    amountPaidCents: number;
-  };
-  customer: { name: string; email: string; phone: string };
-  vehicle: { id: string; name: string; plate: string };
-  payments: BookingDetailPayment[];
-  balanceDueCents: number;
-  policySaysFree: boolean;
-}
 interface VehicleOption { id: string; plate: string; name: string }
 
 export interface BookingDrawerProps {
