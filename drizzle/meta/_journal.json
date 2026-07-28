@@ -134,6 +134,13 @@
       "when": 1785201242039,
       "tag": "0018_watery_stark_industries",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785204618511,
+      "tag": "0019_perpetual_the_fury",
+      "breakpoints": true
     }
   ]
 }

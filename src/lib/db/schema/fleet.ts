@@ -11,6 +11,10 @@ export const vehicles = pgTable("vehicles", {
   plate: text("plate").notNull().unique(), // registration; the row ID on the ops board
   class: text("class").notNull(),
   name: text("name").notNull(),
+  make: text("make"),
+  model: text("model"),
+  year: integer("year"),
+  color: text("color"),
   seats: integer("seats").notNull(),
   transmission: text("transmission").notNull(),
   ac: boolean("ac").notNull().default(true),
