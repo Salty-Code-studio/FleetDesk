@@ -7,7 +7,7 @@ import { Select } from "@/components/ui";
 import "./audit.css";
 
 interface AuditRow {
-  id: string; actor: string; action: string; entity: string;
+  id: string; actor: string; actorLabel: string; action: string; entity: string;
   entityId: string | null; ip: string | null; createdAt: string;
 }
 
@@ -21,8 +21,9 @@ export default function AuditPage() {
     apiGet<AuditRow[]>("/api/admin/audit?limit=100").then(setRows).finally(() => setLoading(false));
   }, []);
 
-  const actor = (a: string) =>
-    a === "anonymous" || a === "system" ? a : a.slice(0, 8);
+  const actor = (r: AuditRow) =>
+    r.actorLabel !== r.actor ? r.actorLabel :
+    r.actor === "anonymous" || r.actor === "system" ? r.actor : r.actor.slice(0, 8);
 
   // Distinct actions in the loaded set, for the filter dropdown. Purely a view
   // of the data already fetched; no extra API call.
@@ -40,6 +41,7 @@ export default function AuditPage() {
       if (!q) return true;
       return (
         r.actor.toLowerCase().includes(q) ||
+        r.actorLabel.toLowerCase().includes(q) ||
         r.action.toLowerCase().includes(q) ||
         r.entity.toLowerCase().includes(q) ||
         (r.entityId ?? "").toLowerCase().includes(q) ||
@@ -131,7 +133,7 @@ export default function AuditPage() {
                 <tr key={r.id}>
                   <td className="audit-when">{new Date(r.createdAt).toLocaleString()}</td>
                   <td>
-                    <span className="audit-actor">{actor(r.actor)}</span>
+                    <span className="audit-actor">{actor(r)}</span>
                   </td>
                   <td><span className="tag audit-action">{r.action}</span></td>
                   <td>
