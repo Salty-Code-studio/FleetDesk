@@ -7,9 +7,13 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/admin/auth/me — session state for the admin shell router. */
 export const GET = withRoute(async (req) => {
-  const { admin, session } = await requireAdmin(req, { allowMfaPending: true });
+  const { admin, session } = await requireAdmin(req, {
+    allowMfaPending: true,
+    roles: ["owner", "staff"],
+  });
   return json({
     email: admin.email,
+    name: admin.name,
     role: admin.role,
     mfaEnabled: admin.mfaEnabled,
     mfaPending: session.mfaPending,

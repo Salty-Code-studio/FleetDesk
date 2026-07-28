@@ -50,6 +50,9 @@ export async function requireAdmin(
   const db = await getDb();
   const [admin] = await db.select().from(adminUsers).where(eq(adminUsers.id, session.subjectId));
   if (!admin) throw Errors.unauthorized("Account no longer exists");
+  // Instant revocation (workstream 8): a deactivated account is dead even if a
+  // session somehow survived the destroy-all at deactivation time.
+  if (!admin.active) throw Errors.unauthorized("Account is deactivated");
   if (admin.lockedUntil && admin.lockedUntil.getTime() > Date.now()) {
     throw Errors.unauthorized("Account is locked");
   }

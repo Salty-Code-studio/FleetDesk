@@ -110,5 +110,9 @@ export const POST = withRoute(async (req) => {
   }
 
   const rotated = await rotateSession(session, { mfaPending: false });
+  // Canonical who-logged-in marker (seams: `admin.login` on BOTH login paths;
+  // the staff-login route writes the same action), so "who logged in when" is
+  // a single audit filter.
+  await audit({ actor: admin.id, action: "admin.login", entity: "admin_user", entityId: admin.id, req });
   return applySessionCookies(json({ ok: true }, req), rotated);
 });

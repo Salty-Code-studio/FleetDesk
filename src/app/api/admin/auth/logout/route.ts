@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 /** POST /api/admin/auth/logout — server-side revocation + cookie clear. */
 export const POST = withRoute(async (req) => {
-  const { admin } = await requireAdmin(req, { allowMfaPending: true });
+  const { admin } = await requireAdmin(req, { allowMfaPending: true, roles: ["owner", "staff"] });
   const cookieStore = await cookies();
   await destroySession(cookieStore.get(SESSION_COOKIE)?.value);
   await audit({ actor: admin.id, action: "admin.logout", entity: "admin_user", entityId: admin.id, req });
