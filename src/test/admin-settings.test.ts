@@ -14,6 +14,13 @@ describe("admin settings", () => {
     expect(s.currency).toBe("USD");
   });
 
+  it("defaults the young-driver settings and the new minimum age", async () => {
+    const s = await getSettings();
+    expect(s.minDriverAge).toBe(18);
+    expect(s.youngDriverAge).toBe(21);
+    expect(s.youngDriverFeeCentsPerDay).toBe(1000);
+  });
+
   it("applies a partial update", async () => {
     const updated = await patchSettings({ depositMinCents: 3500, minDriverAge: 23 });
     expect(updated.depositMinCents).toBe(3500);
@@ -29,6 +36,21 @@ describe("admin settings", () => {
     expect(SettingsPatchSchema.safeParse({ minRentalDays: 10, maxRentalDays: 3 }).success).toBe(false);
     expect(SettingsPatchSchema.safeParse({ currency: "US" }).success).toBe(false);
     expect(SettingsPatchSchema.safeParse({ adminAlertRecipients: ["a@b.com"] }).success).toBe(true);
+  });
+
+  it("patches the young-driver settings", async () => {
+    const updated = await patchSettings({ youngDriverAge: 23, youngDriverFeeCentsPerDay: 1500 });
+    expect(updated.youngDriverAge).toBe(23);
+    expect(updated.youngDriverFeeCentsPerDay).toBe(1500);
+    // restore so later files that share the test database see the defaults
+    await patchSettings({ youngDriverAge: 21, youngDriverFeeCentsPerDay: 1000 });
+  });
+
+  it("range-checks the young-driver settings", () => {
+    expect(SettingsPatchSchema.safeParse({ youngDriverAge: 12 }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ youngDriverAge: 120 }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ youngDriverFeeCentsPerDay: -1 }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ youngDriverAge: 21, youngDriverFeeCentsPerDay: 1000 }).success).toBe(true);
   });
 
   it("creates, lists, and deletes blackout windows", async () => {

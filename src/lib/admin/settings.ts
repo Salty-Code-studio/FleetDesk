@@ -18,6 +18,8 @@ export const SettingsPatchSchema = z.object({
   cancellationWindowHours: z.number().int().min(0).max(720).optional(),
   currency: z.string().trim().toUpperCase().length(3, "3-letter currency code").optional(),
   minDriverAge: z.number().int().min(16).max(99).optional(),
+  youngDriverAge: z.number().int().min(16).max(99).optional(),
+  youngDriverFeeCentsPerDay: centsField.optional(),
   turnaroundBufferHours: z.number().int().min(0).max(168).optional(),
   openingTime: z.string().regex(TIME_HHMM, "must be HH:MM").optional(),
   closingTime: z.string().regex(TIME_HHMM, "must be HH:MM").optional(),

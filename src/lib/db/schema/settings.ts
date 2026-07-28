@@ -14,7 +14,11 @@ export const settings = pgTable("settings", {
   // Free cancellation until this many hours before pickup; inside it, no refund.
   cancellationWindowHours: integer("cancellation_window_hours").notNull().default(48),
   currency: text("currency").notNull().default("USD"),
-  minDriverAge: integer("min_driver_age").notNull().default(21),
+  minDriverAge: integer("min_driver_age").notNull().default(18),
+  // Drivers at least minDriverAge but under youngDriverAge pay the per-day
+  // young-driver fee (workstream 5). Set the fee to 0 to disable the surcharge.
+  youngDriverAge: integer("young_driver_age").notNull().default(21),
+  youngDriverFeeCentsPerDay: integer("young_driver_fee_cents_per_day").notNull().default(1000),
   turnaroundBufferHours: integer("turnaround_buffer_hours").notNull().default(24),
   openingTime: text("opening_time").notNull().default("08:00"),
   closingTime: text("closing_time").notNull().default("18:00"),
