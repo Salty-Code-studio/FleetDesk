@@ -15,6 +15,7 @@ const BodySchema = (openingTime: string) => z.preprocess(mapLegacyDateKeys, z.ob
   endAt: z.string().transform((v) => normalizeTs(v, openingTime)).pipe(isoDateTime),
   insuranceTierId: z.string().uuid().nullable().optional(),
   addOns: z.array(z.object({ addOnId: z.string().uuid(), qty: z.number().int().min(1).max(10) })).max(20).optional(),
+  youngDriver: z.boolean().optional(),
 }).strict());
 
 /** POST /api/quote — server-computed price for a prospective booking. */

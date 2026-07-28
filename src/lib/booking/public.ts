@@ -82,6 +82,9 @@ export interface QuoteRequest {
   endAt: string;
   insuranceTierId?: string | null;
   addOns?: Array<{ addOnId: string; qty: number }>;
+  /** Claimed age band from the wizard selector; drives the live quote only.
+   *  createBooking re-derives the truth from the licence DOB. */
+  youngDriver?: boolean;
 }
 
 /** Policy facts alongside the quote: what the customer can rely on when
@@ -126,6 +129,8 @@ export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<Qu
     depositPercent: settings.depositPercent,
     depositMinCents: settings.depositMinCents,
     currency: settings.currency,
+    youngDriver: req.youngDriver ?? false,
+    youngDriverFeeCentsPerDay: settings.youngDriverFeeCentsPerDay,
   });
 
   return {
@@ -134,5 +139,24 @@ export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<Qu
       cancellationWindowHours: settings.cancellationWindowHours,
       securityDepositCents: vehicle.depositCents,
     },
+  };
+}
+
+export interface PublicBookingConfig {
+  minDriverAge: number;
+  youngDriverAge: number;
+  youngDriverFeeCentsPerDay: number;
+  currency: string;
+}
+
+/** Non-sensitive booking settings the wizard needs before it can quote
+ *  (workstream 5: the driver-age selector labels derive from these). */
+export async function publicBookingConfig(): Promise<PublicBookingConfig> {
+  const s = await getSettings();
+  return {
+    minDriverAge: s.minDriverAge,
+    youngDriverAge: s.youngDriverAge,
+    youngDriverFeeCentsPerDay: s.youngDriverFeeCentsPerDay,
+    currency: s.currency,
   };
 }
