@@ -19,7 +19,7 @@ import "./dashboard.css";
 
 interface Bar { id: string; start: string; end: string; startAt: string; endAt: string; status: string; source: string; label: string; notes: string | null }
 interface Block { id: string; start: string; end: string; startAt: string; endAt: string; type: string; reason: string }
-interface Vehicle { id: string; name: string; slug: string; plate: string; class: string; bookings: Bar[]; blocks: Block[] }
+interface Vehicle { id: string; name: string; slug: string; plate: string; class: string; openNotes: number; bookings: Bar[]; blocks: Block[] }
 interface Category { class: string; vehicles: Vehicle[] }
 interface Planning {
   from: string; to: string; days: string[];
@@ -351,7 +351,7 @@ export default function AdminDashboard() {
                 <div className="pl-cat">{cat.class}</div>
                 {cat.vehicles.map((v) => (
                   <div className="pl-row" key={v.id}>
-                    <div className="pl-label"><b>{v.plate}</b><small>{v.name}</small></div>
+                    <div className="pl-label"><b>{v.plate}{v.openNotes > 0 && <span className="pl-note-badge" title={`${v.openNotes} open ${v.openNotes === 1 ? "note" : "notes"}`}>{v.openNotes}</span>}</b><small>{v.name}</small></div>
                     <div
                       className="pl-track"
                       data-vehicle={v.id}
