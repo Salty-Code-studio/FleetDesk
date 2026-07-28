@@ -14,6 +14,7 @@ import {
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, formatTime, parseTs } from "@/lib/time/format";
 import { barSpan, barState } from "@/lib/admin/bar-span";
+import { createDragClickGuard } from "@/lib/admin/drag-click-guard";
 import { BookingDrawer } from "./booking-drawer";
 import "./dashboard.css";
 
@@ -65,6 +66,10 @@ export default function AdminDashboard() {
 
   const gestureRef = useRef<Gesture | null>(null);
   const trackRectRef = useRef<DOMRect | null>(null);
+  // Swallows the browser's synthetic click that follows a real drag, so a
+  // drag-move doesn't re-open the BookingDrawer right after it moved (see
+  // drag-click-guard.ts for the full story). Created once per mount.
+  const dragClickGuard = useRef(createDragClickGuard()).current;
 
   async function load(f?: string, t?: string) {
     setLoading(true);
@@ -123,6 +128,10 @@ export default function AdminDashboard() {
   function beginGesture(e: ReactPointerEvent, trackEl: HTMLElement, g: Gesture) {
     trackRectRef.current = trackEl.getBoundingClientRect();
     gestureRef.current = g;
+    // Drop any stale armed state a previous gesture left behind (its echo
+    // click may never have reached a guarded onClick), so it can't wrongly
+    // swallow a click from this brand-new interaction.
+    dragClickGuard.reset();
     const cleanup = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -163,6 +172,12 @@ export default function AdminDashboard() {
     const g = gestureRef.current;
     gestureRef.current = null;
     if (!g) return;
+    // A real drag (select-to-create or move) is about to be followed by the
+    // browser's own synthetic click on whatever sits under the pointer. Arm
+    // the guard now, synchronously -- gestureRef is already null by the time
+    // that click fires, so it can no longer tell "just dragged" from "plain
+    // click" on its own.
+    if (g.moved) dragClickGuard.armAfterMove();
     if (g.kind === "select") {
       const anchor = g.anchorDay;
       const cur = g.moved ? dayAt(ev.clientX) : anchor;
@@ -381,7 +396,7 @@ export default function AdminDashboard() {
                           <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} ${dimmed ? "dragging" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
                             title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.source === "manual" ? " · manual" : ""}`}
                             onPointerDown={(e) => onBarPointerDown(e, v, b)}
-                            onClick={() => { if (!gestureRef.current) setDrawerBookingId(b.id); }}>
+                            onClick={() => { if (dragClickGuard.consumeSuppressed()) return; setDrawerBookingId(b.id); }}>
                             {b.label}
                           </div>
                         ) : null;
