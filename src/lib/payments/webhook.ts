@@ -147,7 +147,19 @@ export async function processStripeEvent(event: Stripe.Event): Promise<ProcessRe
       logger.error("stripe_webhook_surplus_payment_needs_refund", {
         bookingId: booking.id, bookingStatus: booking.status, paymentIntentId, sessionId: session.id, eventId: event.id,
       });
-      if (paymentIntentId) surplusRefund = { paymentIntentId, sessionId: session.id };
+      if (paymentIntentId) {
+        // Pre-write the refund on THIS surplus row (mirrors refundPayment) in
+        // the same transaction, BEFORE the PI is auto-refunded after commit.
+        // The surplus was never credited to amount_paid_cents, so when the
+        // resulting charge.refunded arrives, reconcileRefund sees
+        // delta = amount_refunded - refundedCents = 0 and leaves the booking's
+        // real paid balance untouched. This commits before the refund even
+        // exists, so it is correct even if charge.refunded races ahead.
+        await tx.update(payments)
+          .set({ refundedCents: expected.amountCents, status: "refunded", updatedAt: new Date() })
+          .where(eq(payments.stripeCheckoutSessionId, session.id));
+        surplusRefund = { paymentIntentId, sessionId: session.id };
+      }
       result = { handled: true, bookingConfirmed: false };
     }
   });
