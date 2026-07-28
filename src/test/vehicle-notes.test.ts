@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { eq } from "drizzle-orm";
 import { runMigrations } from "@/lib/db/migrate";
 import { getDb } from "@/lib/db/client";
-import { adminUsers, vehicleNotes } from "@/lib/db/schema";
+import { adminUsers, vehicleNotes, availabilityBlocks } from "@/lib/db/schema";
 import { createVehicle, VehicleCreateSchema } from "@/lib/admin/vehicles";
-import { createNote, listNotes, setNoteResolved, openNoteCounts, NoteCreateSchema } from "@/lib/admin/vehicle-notes";
+import { createNote, listNotes, setNoteResolved, openNoteCounts, NoteCreateSchema, escalateNoteToBlock } from "@/lib/admin/vehicle-notes";
+import { arubaToday } from "@/lib/booking/public";
 import { expectReject } from "./util";
 
 const base = {
@@ -74,5 +76,29 @@ describe("vehicle notes", () => {
     const counts = await openNoteCounts();
     expect(counts.get(a.id)).toBe(2);
     expect(counts.get(b.id)).toBeUndefined();
+  });
+});
+
+describe("escalate note to availability block", () => {
+  it("creates a 7 day maintenance block starting today in Aruba; the note stays open", async () => {
+    const v = await makeVehicle();
+    const n = await createNote(v.id, { body: "Brakes feel soft" }, adminId);
+    const { block } = await escalateNoteToBlock(n.id);
+    expect(block.vehicleId).toBe(v.id);
+    expect(block.type).toBe("maintenance");
+    expect(block.reason).toBe("Brakes feel soft");
+    const expectedStart = new Date(`${arubaToday()}T00:00:00-04:00`);
+    expect(new Date(block.startAt).getTime()).toBe(expectedStart.getTime());
+    expect(new Date(block.endAt).getTime() - new Date(block.startAt).getTime()).toBe(7 * 86_400_000);
+    // the note stays open so the badge keeps nagging until the work is done
+    const counts = await openNoteCounts();
+    expect(counts.get(v.id)).toBe(1);
+    // and the block is a perfectly normal availability block row
+    const rows = await db.select().from(availabilityBlocks).where(eq(availabilityBlocks.vehicleId, v.id));
+    expect(rows.length).toBe(1);
+  });
+
+  it("rejects an unknown note", async () => {
+    await expectReject(escalateNoteToBlock("00000000-0000-0000-0000-000000000000"), /not found/i);
   });
 });
