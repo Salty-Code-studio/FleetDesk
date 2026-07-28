@@ -77,3 +77,59 @@
   margin-top: .25rem;
   flex-wrap: wrap;
 }
+
+/* Search + class filter chips above the vehicles table. */
+.fleet-filters {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.fleet-search {
+  flex: 1 1 220px;
+  max-width: 340px;
+  padding: .5rem .8rem;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+.fleet-search:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(14,58,64,.12); }
+.fleet-chips { display: flex; gap: .4rem; flex-wrap: wrap; }
+.fleet-chip {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .04em;
+  padding: .3rem .7rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.fleet-chip:hover { border-color: var(--teal); color: var(--ink); }
+.fleet-chip.is-on { background: var(--teal); border-color: var(--teal); color: var(--sand); }
+
+/* Class group header rows: sticky while their group scrolls under them. */
+.fleet-group-row td {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--sand-2);
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: .45rem .75rem;
+}
+.fleet-group-row .fleet-group-count {
+  margin-left: .6rem;
+  color: var(--ink-mute);
+  font-weight: 400;
+  letter-spacing: .02em;
+  text-transform: none;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, api, apiPatch, apiDelete, type ApiError } from "../../client";
 import {
   Modal,
@@ -27,6 +27,7 @@ interface Vehicle {
 interface Block { id: string; startDate: string; endDate: string; type: string; reason: string }
 
 const CLASSES = ["Economy", "Compact", "SUV", "4x4", "Van"];
+const SPAN_ALL = 99; // colSpan that always covers every column, even ones other plans add
 const composeName = (make: string, model: string) => `${make} ${model}`.replace(/\s+/g, " ").trim();
 const BLOCK_TYPES = ["maintenance", "carwash", "cleaning", "out_of_service", "other"];
 const empty = {
@@ -46,6 +47,24 @@ export default function FleetPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [bo, setBo] = useState({ startDate: "", startTime: "00:00", endDate: "", endTime: "00:00", type: "maintenance", reason: "" });
   const [alertDays, setAlertDays] = useState(30);
+
+  const [q, setQ] = useState("");
+  const [classFilter, setClassFilter] = useState<string | null>(null);
+
+  const visibleVehicles = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return vehicles.filter((v) => {
+      if (classFilter && v.class !== classFilter) return false;
+      if (!needle) return true;
+      return [v.plate, v.name, v.make ?? "", v.model ?? ""].some((s) => s.toLowerCase().includes(needle));
+    });
+  }, [vehicles, q, classFilter]);
+
+  const groups = useMemo(() => {
+    const order = (c: string) => { const i = CLASSES.indexOf(c); return i < 0 ? 99 : i; };
+    const classes = [...new Set(visibleVehicles.map((v) => v.class))].sort((a, b) => order(a) - order(b));
+    return classes.map((cls) => ({ class: cls, vehicles: visibleVehicles.filter((v) => v.class === cls) }));
+  }, [visibleVehicles]);
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -214,6 +233,25 @@ export default function FleetPage() {
           </div>
         </div>
 
+        {!loading && vehicles.length > 0 && (
+          <div className="fleet-filters">
+            <input
+              type="search"
+              className="fleet-search"
+              placeholder="Search plate, make, model or name"
+              aria-label="Search vehicles"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <div className="fleet-chips" role="group" aria-label="Filter by class">
+              <button type="button" className={`fleet-chip ${classFilter === null ? "is-on" : ""}`} onClick={() => setClassFilter(null)}>All</button>
+              {CLASSES.map((c) => (
+                <button key={c} type="button" className={`fleet-chip ${classFilter === c ? "is-on" : ""}`} onClick={() => setClassFilter(classFilter === c ? null : c)}>{c}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <table className="grid fleet-grid" aria-busy="true">
             <thead><tr><th>Plate</th><th>Name</th><th>Class</th><th className="num">Day</th><th className="num">Week</th><th className="num">Month</th><th className="num">Deposit</th><th>Status</th><th></th></tr></thead>
@@ -243,30 +281,39 @@ export default function FleetPage() {
           <table className="grid fleet-grid">
             <thead><tr><th>Plate</th><th>Name</th><th>Class</th><th className="num">Day</th><th className="num">Week</th><th className="num">Month</th><th className="num">Deposit</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {vehicles.map((v) => (
-                <tr key={v.id}>
-                  <td><b>{v.plate}</b></td>
-                  <td>{v.name}<div className="fleet-slug">{v.slug}</div>
-                    {complianceBadges(v).length > 0 && (
-                      <div className="fleet-compliance">
-                        {complianceBadges(v).map((b) => (
-                          <span key={b.key} className={`tag ${b.overdue ? "off" : "warn"}`}>{b.label}</span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td>{v.class}</td>
-                  <td className="num">{money(v.priceDayCents)}</td>
-                  <td className="num">{money(v.priceWeekCents)}</td>
-                  <td className="num">{money(v.priceMonthCents)}</td>
-                  <td className="num">{v.depositCents === null ? "TBC" : money(v.depositCents)}</td>
-                  <td><span className={`tag ${statusTag(v.status)}`}>{v.status}</span></td>
-                  <td className="fleet-actions"><div className="row-actions">
-                    <button onClick={() => edit(v)}>Edit</button>
-                    <button onClick={() => openBlocks(v)}>Blocks</button>
-                    {v.status !== "retired" && <button className="danger" onClick={() => retire(v)}>Retire</button>}
-                  </div></td>
-                </tr>
+              {groups.length === 0 ? (
+                <tr><td colSpan={SPAN_ALL} className="muted">No cars match. Try a different search or clear the class filter.</td></tr>
+              ) : groups.map((g) => (
+                <Fragment key={g.class}>
+                  <tr className="fleet-group-row">
+                    <td colSpan={SPAN_ALL}>{g.class}<span className="fleet-group-count">{g.vehicles.length} {g.vehicles.length === 1 ? "car" : "cars"}</span></td>
+                  </tr>
+                  {g.vehicles.map((v) => (
+                    <tr key={v.id}>
+                      <td><b>{v.plate}</b></td>
+                      <td>{v.name}<div className="fleet-slug">{v.slug}</div>
+                        {complianceBadges(v).length > 0 && (
+                          <div className="fleet-compliance">
+                            {complianceBadges(v).map((b) => (
+                              <span key={b.key} className={`tag ${b.overdue ? "off" : "warn"}`}>{b.label}</span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td>{v.class}</td>
+                      <td className="num">{money(v.priceDayCents)}</td>
+                      <td className="num">{money(v.priceWeekCents)}</td>
+                      <td className="num">{money(v.priceMonthCents)}</td>
+                      <td className="num">{v.depositCents === null ? "TBC" : money(v.depositCents)}</td>
+                      <td><span className={`tag ${statusTag(v.status)}`}>{v.status}</span></td>
+                      <td className="fleet-actions"><div className="row-actions">
+                        <button onClick={() => edit(v)}>Edit</button>
+                        <button onClick={() => openBlocks(v)}>Blocks</button>
+                        {v.status !== "retired" && <button className="danger" onClick={() => retire(v)}>Retire</button>}
+                      </div></td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
