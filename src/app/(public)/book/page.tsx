@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { DatePicker, TimeSelect } from "@/components/ui";
+import { paymentAmounts, depositSettingsFromSnapshot } from "@/lib/payments/amounts";
 
 interface ClassOption { class: string; fromDayCents: number; depositCents: number | null; cars: number; available: boolean | null; carSlug: string | null }
 interface Tier { id: string; name: string; dailyPriceCents: number; coverage: string; isDefault: boolean }
@@ -10,6 +11,10 @@ interface Breakdown {
   days: number; vehicleCents: number; insuranceCents: number;
   addOns: { id: string; name: string; qty: number; cents: number }[];
   addOnsCents: number; subtotalCents: number; depositCents: number | null; depositPercent: number; depositMinCents: number; youngDriverCents: number; currency: string;
+  // /api/quote always sends this now (Task 11): the cancellation window and the
+  // vehicle's refundable at-pickup security deposit, sourced from the same
+  // settings + vehicle rows the price itself was computed from.
+  policy: { cancellationWindowHours: number; securityDepositCents: number | null };
   // wave-05 wires real hours: /api/booking-config lands this too; the quote
   // response does not send it yet, so this stays optional until it does.
   meta?: { openingTime: string; closingTime: string };
@@ -24,7 +29,49 @@ const blankLicense = { nameOnLicense: "", licenseNumber: "", issuingCountry: "Ar
 const STEPS = ["Car type", "Dates", "Insurance", "Extras", "Driver's licence", "Your details", "Review and confirm"] as const;
 const TOTAL = STEPS.length;
 
+// ---------------------------------------------------------------------------
+// Wizard state persistence: everything the customer has entered survives a
+// refresh or an accidental tab close, keyed under one sessionStorage entry so
+// a resumed session (or a "back out of Stripe, come back" round trip) doesn't
+// force them to redo the whole form. Cleared once a checkout redirect begins
+// or (Task 12) when the confirmation page mounts.
+// ---------------------------------------------------------------------------
+const WIZARD_STORAGE_KEY = "book-wizard-v1";
+
+interface WizardStorage {
+  step?: number;
+  selectedClass?: string;
+  pickup?: string; ret?: string; pickupTime?: string; retTime?: string;
+  tierId?: string;
+  qty?: Record<string, number>;
+  license?: typeof blankLicense;
+  customer?: { name: string; email: string; phone: string };
+  paymentOption?: "deposit" | "full";
+  acceptTerms?: boolean;
+}
+
+function readWizardStorage(): WizardStorage {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.sessionStorage.getItem(WIZARD_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as WizardStorage) : {};
+  } catch { return {}; }
+}
+
+function clearWizardStorage(): void {
+  try { window.sessionStorage.removeItem(WIZARD_STORAGE_KEY); } catch { /* storage unavailable — nothing to clear */ }
+}
+
 export default function BookPage() {
+  // This page is server-rendered, so the FIRST client render must produce the
+  // exact same markup as the server (which has no sessionStorage) or React's
+  // hydration fails. Every field below therefore starts at its plain default;
+  // any persisted wizard state is applied in a mount-only effect further down,
+  // AFTER hydration, via the setters. `restoredRef` holds the raw parse so a
+  // later effect (the insurance-tier default) can check "was this restored?"
+  // without racing a stale closure.
+  const restoredRef = useRef<WizardStorage>({});
+
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [addons, setAddons] = useState<AddOn[]>([]);
@@ -47,6 +94,38 @@ export default function BookPage() {
   const [busy, setBusy] = useState(false);
   const idemKey = useMemo(() => (typeof crypto !== "undefined" ? crypto.randomUUID() : String(Math.random())), []);
 
+  // ---- Resume-after-cancel banner: ?canceled=1&id=<bookingId> ----
+  const [canceledId, setCanceledId] = useState<string | null>(null);
+  const [resuming, setResuming] = useState(false);
+  const [resumeError, setResumeError] = useState("");
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const id = p.get("id");
+    if (p.get("canceled") === "1" && id) setCanceledId(id);
+  }, []);
+
+  async function resumePayment() {
+    if (!canceledId) return;
+    setResuming(true); setResumeError("");
+    try {
+      const res = await fetch(`/api/bookings/${canceledId}/checkout`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+      });
+      const data = await res.json();
+      if (res.ok && data.url) { clearWizardStorage(); window.location.href = data.url; return; }
+      setResumeError(data?.error?.message ?? "We could not resume your payment. Please start over.");
+    } catch {
+      setResumeError("Network error. Please try again.");
+    }
+    setResuming(false);
+  }
+
+  function startOver() {
+    clearWizardStorage();
+    window.location.href = "/book";
+  }
+
   // Full Aruba-offset timestamps once both a date and a time are chosen; falls
   // back to the bare date otherwise (the API still accepts date-only values).
   const startAt = pickup && pickupTime ? `${pickup}T${pickupTime}:00-04:00` : pickup; // date-only still accepted by the API
@@ -61,7 +140,8 @@ export default function BookPage() {
     ]).then(([c, i, a]: [ClassOption[], Tier[], AddOn[]]) => {
       setClasses(c); setTiers(i); setAddons(a);
       const def = i.find((t) => t.isDefault);
-      if (def) setTierId(def.id);
+      // Don't clobber a restored choice with the default tier.
+      if (def && !restoredRef.current.tierId) setTierId(def.id);
       const p = new URLSearchParams(window.location.search);
       if (p.get("pickup")) { setPickup(p.get("pickup")!); setPickupTime(hours.openingTime); }
       if (p.get("return")) { setRet(p.get("return")!); setRetTime(hours.openingTime); }
@@ -125,12 +205,22 @@ export default function BookPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
       });
       const co = await checkout.json();
-      if (checkout.ok && co.url) { window.location.href = co.url; return; }
+      if (checkout.ok && co.url) { clearWizardStorage(); window.location.href = co.url; return; }
+      clearWizardStorage();
       window.location.href = `/book/confirmation?id=${data.id}`;
     } catch { setError("Network error. Please try again."); setBusy(false); }
   }
 
   const cur = breakdown?.currency ?? "USD";
+
+  // The two payment choices, computed ONLY from the server-computed breakdown
+  // (MONEY-TRUTH: this is the exact number the "You pay now" line and the
+  // Stripe charge both derive from — never a client-guessed amount).
+  const amounts = breakdown ? {
+    deposit: paymentAmounts(breakdown, "deposit", depositSettingsFromSnapshot(breakdown)),
+    full: paymentAmounts(breakdown, "full", depositSettingsFromSnapshot(breakdown)),
+  } : null;
+  const policy = breakdown?.policy ?? null;
 
   // ---------------------------------------------------------------------------
   // WIZARD: navigation, validation, direction-aware transitions, a11y focus.
@@ -142,6 +232,40 @@ export default function BookPage() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
+
+  // Restore any persisted wizard state — mount-only, AFTER hydration, so the
+  // very first client render still matches the server-rendered (default)
+  // markup. A ref keeps the raw parse around for the tier-default guard above,
+  // which runs later (once the tiers fetch resolves) and must not race a stale
+  // closure over plain state.
+  useEffect(() => {
+    const stored = readWizardStorage();
+    restoredRef.current = stored;
+    if (stored.selectedClass !== undefined) setSelectedClass(stored.selectedClass);
+    if (stored.pickup !== undefined) setPickup(stored.pickup);
+    if (stored.ret !== undefined) setRet(stored.ret);
+    if (stored.pickupTime !== undefined) setPickupTime(stored.pickupTime);
+    if (stored.retTime !== undefined) setRetTime(stored.retTime);
+    if (stored.tierId !== undefined) setTierId(stored.tierId);
+    if (stored.qty !== undefined) setQty(stored.qty);
+    if (stored.license !== undefined) setLicense({ ...blankLicense, ...stored.license });
+    if (stored.customer !== undefined) setCustomer(stored.customer);
+    if (stored.paymentOption !== undefined) setPaymentOption(stored.paymentOption);
+    if (stored.acceptTerms !== undefined) setAcceptTerms(stored.acceptTerms);
+    if (stored.step !== undefined) setStep(Math.min(TOTAL, Math.max(1, stored.step)));
+  }, []);
+
+  // Persist the whole wizard so far (all step fields incl. licence + times) on
+  // every change. Restored above (mount-only effect); cleared once a checkout
+  // redirect begins (or, Task 12, when confirmation mounts).
+  useEffect(() => {
+    try {
+      const data: WizardStorage = {
+        step, selectedClass, pickup, ret, pickupTime, retTime, tierId, qty, license, customer, paymentOption, acceptTerms,
+      };
+      window.sessionStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(data));
+    } catch { /* storage unavailable (private mode, quota) — degrade to no persistence */ }
+  }, [step, selectedClass, pickup, ret, pickupTime, retTime, tierId, qty, license, customer, paymentOption, acceptTerms]);
 
   // On step change, move focus to the new step heading (skip the very first paint).
   useEffect(() => {
@@ -217,6 +341,20 @@ export default function BookPage() {
   return (
     <div className="wrap book-grid">
       <div>
+        {/* ---------- resume-after-cancel banner ---------- */}
+        {canceledId && (
+          <div className="cancel-banner" role="status">
+            <p>Payment canceled. Your car is still held for about 30 minutes.</p>
+            <div className="actions">
+              <button type="button" className="btn" onClick={resumePayment} disabled={resuming}>
+                {resuming ? "Resuming…" : "Resume payment"}
+              </button>
+              <a href="/book" onClick={(e) => { e.preventDefault(); startOver(); }}>Start over</a>
+            </div>
+            {resumeError && <p className="msg err">{resumeError}</p>}
+          </div>
+        )}
+
         {/* ---------- progress stepper ---------- */}
         <nav className="stepper" aria-label="Booking progress">
           <ol className="stepper-list">
@@ -371,11 +509,38 @@ export default function BookPage() {
                   {breakdown && <div className="recap-row total"><dt>Rental total</dt><dd>{money(breakdown.subtotalCents, cur)}</dd></div>}
                 </dl>
 
-                {breakdown && (
-                  <div className="pay-options">
-                    <label className="opt"><input type="radio" name="pay" checked={paymentOption === "deposit"} onChange={() => setPaymentOption("deposit")} /><span className="grow">Reserve with a deposit, pay the rest at pickup</span></label>
-                    <label className="opt"><input type="radio" name="pay" checked={paymentOption === "full"} onChange={() => setPaymentOption("full")} /><span className="grow">Pay the full rental now</span></label>
-                  </div>
+                {breakdown && amounts && (
+                  <>
+                    <div className="pay-options" role="radiogroup" aria-label="How would you like to pay?">
+                      <button type="button" className={`pay-card${paymentOption === "deposit" ? " selected" : ""}`} onClick={() => setPaymentOption("deposit")}>
+                        <span className="pay-card-title">Reserve with a deposit</span>
+                        <span className="pay-card-now">Pay {money(amounts.deposit.payNowCents, cur)} now</span>
+                        <span className="pay-card-later">{money(amounts.deposit.balanceDueCents, cur)} at pickup</span>
+                      </button>
+                      <button type="button" className={`pay-card${paymentOption === "full" ? " selected" : ""}`} onClick={() => setPaymentOption("full")}>
+                        <span className="pay-card-title">Pay in full</span>
+                        <span className="pay-card-now">Pay {money(amounts.full.payNowCents, cur)} now</span>
+                        <span className="pay-card-later">Nothing due at pickup</span>
+                      </button>
+                    </div>
+
+                    {policy && (
+                      <div className="policy-box">
+                        <p>Free cancellation until {policy.cancellationWindowHours} hours before pickup.</p>
+                        <p>Within {policy.cancellationWindowHours} hours or no show: the deposit is not refunded.</p>
+                        {policy.securityDepositCents !== null && (
+                          <p>Refundable security deposit of {money(policy.securityDepositCents, cur)} due at pickup. You get it back at return.</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="trust-row">
+                      <span className="trust-lock" aria-hidden>🔒</span>
+                      <span>Secure payment via Stripe. You will be redirected to Stripe and back.</span>
+                    </div>
+
+                    <p className="pay-now-line">You pay now: <strong>{money(amounts[paymentOption].payNowCents, cur)}</strong></p>
+                  </>
                 )}
 
                 <label className="terms" style={{ margin: "1rem 0" }}>
@@ -398,7 +563,9 @@ export default function BookPage() {
               : <span />}
             {step < TOTAL
               ? <button type="button" className="btn wiz-next" onClick={goNext}>Continue</button>
-              : <button type="submit" className="btn wiz-next" disabled={!canReserve}>{busy ? "Reserving…" : "Reserve & pay"}</button>}
+              : <button type="submit" className="btn wiz-next" disabled={!canReserve}>
+                  {busy ? "Reserving…" : amounts ? `Pay ${money(amounts[paymentOption].payNowCents, cur)} and reserve` : "Reserve & pay"}
+                </button>}
           </div>
 
           {step === TOTAL && (
@@ -422,6 +589,9 @@ export default function BookPage() {
               <div className="line" key={l.id}><span>{l.name}{l.qty > 1 ? ` ×${l.qty}` : ""}</span><span>{money(l.cents, cur)}</span></div>
             ))}
             <div className="line total"><span>Rental total</span><span>{money(breakdown.subtotalCents, cur)}</span></div>
+            {step === TOTAL && amounts && (
+              <div className="line muted"><span>You pay now</span><span>{money(amounts[paymentOption].payNowCents, cur)}</span></div>
+            )}
             {breakdown.depositCents !== null && <div className="line muted"><span>Refundable deposit</span><span>{money(breakdown.depositCents, cur)}</span></div>}
           </>
         )}

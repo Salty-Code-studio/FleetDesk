@@ -84,8 +84,16 @@ export interface QuoteRequest {
   addOns?: Array<{ addOnId: string; qty: number }>;
 }
 
+/** Policy facts alongside the quote: what the customer can rely on when
+ *  deciding how to pay. The security deposit here is the vehicle's BORG — an
+ *  at-pickup, refundable info line, never charged online. */
+export interface QuotePolicy {
+  cancellationWindowHours: number;
+  securityDepositCents: number | null;
+}
+
 /** Validate + price a request without creating anything. Throws 4xx on bad input. */
-export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<QuoteBreakdown> {
+export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<QuoteBreakdown & { policy: QuotePolicy }> {
   const db = await getDb();
   const settings = await getSettings();
   const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.slug, req.vehicleSlug));
@@ -104,7 +112,7 @@ export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<Qu
     : [];
   const byId = new Map(addOnRows.map((a) => [a.id, a]));
 
-  return quote({
+  const breakdown = quote({
     days: rentalDays(req.startAt, req.endAt),
     vehicle: {
       priceDayCents: vehicle.priceDayCents, priceWeekCents: vehicle.priceWeekCents,
@@ -119,4 +127,12 @@ export async function publicQuote(req: QuoteRequest, nowIso: string): Promise<Qu
     depositMinCents: settings.depositMinCents,
     currency: settings.currency,
   });
+
+  return {
+    ...breakdown,
+    policy: {
+      cancellationWindowHours: settings.cancellationWindowHours,
+      securityDepositCents: vehicle.depositCents,
+    },
+  };
 }
