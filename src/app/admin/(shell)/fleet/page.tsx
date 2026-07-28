@@ -16,7 +16,9 @@ import { atAruba } from "@/lib/time/format";
 import "./fleet.css";
 
 interface Vehicle {
-  id: string; slug: string; plate: string; class: string; name: string; seats: number;
+  id: string; slug: string; plate: string; class: string; name: string;
+  make: string | null; model: string | null; year: number | null; color: string | null;
+  seats: number;
   transmission: "Automatic" | "Manual"; ac: boolean; doors: number; photos: string[];
   priceDayCents: number; priceWeekCents: number; priceMonthCents: number;
   depositCents: number | null; status: "active" | "maintenance" | "retired";
@@ -25,11 +27,13 @@ interface Vehicle {
 interface Block { id: string; startDate: string; endDate: string; type: string; reason: string }
 
 const CLASSES = ["Economy", "Compact", "SUV", "4x4", "Van"];
+const composeName = (make: string, model: string) => `${make} ${model}`.replace(/\s+/g, " ").trim();
 const BLOCK_TYPES = ["maintenance", "carwash", "cleaning", "out_of_service", "other"];
 const empty = {
   slug: "", plate: "", class: "Economy", name: "", seats: "5", transmission: "Automatic",
   ac: true, doors: "4", day: "", week: "", month: "", deposit: "", status: "active",
   insurance: "", inspection: "",
+  make: "", model: "", year: "", color: "", nameTouched: false,
 };
 
 export default function FleetPage() {
@@ -62,6 +66,14 @@ export default function FleetPage() {
     setFormOpen(true);
   }
 
+  function setIdentity(field: "make" | "model", value: string) {
+    setF((prev) => {
+      const next = { ...prev, [field]: value };
+      if (!prev.nameTouched) next.name = composeName(next.make, next.model);
+      return next;
+    });
+  }
+
   // Page-scoped command-palette action: "Add vehicle".
   useEffect(
     () =>
@@ -78,7 +90,12 @@ export default function FleetPage() {
   async function save(e: FormEvent) {
     e.preventDefault();
     const body = {
-      slug: f.slug, plate: f.plate, class: f.class, name: f.name, seats: Number(f.seats),
+      slug: f.slug, plate: f.plate, class: f.class, name: f.name,
+      make: f.make.trim() === "" ? null : f.make.trim(),
+      model: f.model.trim() === "" ? null : f.model.trim(),
+      year: f.year.trim() === "" ? null : Number(f.year),
+      color: f.color.trim() === "" ? null : f.color.trim(),
+      seats: Number(f.seats),
       transmission: f.transmission, ac: f.ac, doors: Number(f.doors),
       priceDayCents: Math.round(Number(f.day) * 100),
       priceWeekCents: Math.round(Number(f.week) * 100),
@@ -108,6 +125,10 @@ export default function FleetPage() {
       deposit: v.depositCents === null ? "" : (v.depositCents / 100).toString(),
       status: v.status,
       insurance: v.insuranceExpiresOn ?? "", inspection: v.inspectionDueOn ?? "",
+      make: v.make ?? "", model: v.model ?? "",
+      year: v.year === null ? "" : v.year.toString(),
+      color: v.color ?? "",
+      nameTouched: v.name !== composeName(v.make ?? "", v.model ?? ""),
     });
     setFormOpen(true);
   }
@@ -267,7 +288,11 @@ export default function FleetPage() {
       >
         <form id="fleet-form" onSubmit={save}>
           <div className="form-grid">
-            <label>Name<input data-autofocus required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+            <label>Make<input data-autofocus value={f.make} onChange={(e) => setIdentity("make", e.target.value)} placeholder="Kia" /></label>
+            <label>Model<input value={f.model} onChange={(e) => setIdentity("model", e.target.value)} placeholder="Picanto" /></label>
+            <label>Year<input type="number" min="1950" max="2100" value={f.year} onChange={(e) => setF({ ...f, year: e.target.value })} placeholder="2023" /></label>
+            <label>Color<input value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} placeholder="White" /></label>
+            <label>Name (shown to customers)<input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value, nameTouched: e.target.value !== "" })} /></label>
             <label>Plate (registration / row ID)<input required value={f.plate} onChange={(e) => setF({ ...f, plate: e.target.value })} placeholder="A-1234" /></label>
             <label>Slug (kebab-case)<input required value={f.slug} onChange={(e) => setF({ ...f, slug: e.target.value })} placeholder="kia-picanto" /></label>
             <label>Class<Select value={f.class} onChange={(v) => setF({ ...f, class: v })} options={CLASSES.map((c) => ({ value: c, label: c }))} /></label>
