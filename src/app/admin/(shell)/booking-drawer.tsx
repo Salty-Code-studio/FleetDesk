@@ -4,12 +4,15 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { apiGet, api, apiPatch, type ApiError } from "../client";
 import { Drawer, Modal, useToast, SkeletonRows } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
-import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, parseTs } from "@/lib/time/format";
+import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, parseTs } from "@/lib/time/format";
 import { InspectionPanel } from "./inspection-panel";
 import type { BookingDetail, BookingDetailPayment } from "@/lib/admin/booking-detail";
 import "./booking-drawer.css";
 
-interface VehicleOption { id: string; plate: string; name: string }
+interface VehicleOption { id: string; plate: string; name: string; class?: string; status?: string }
+
+const BLOCK_TYPES = ["maintenance", "out_of_service", "carwash", "cleaning", "other"];
+const niceType = (t: string) => t.replace(/_/g, " ");
 
 export interface BookingDrawerProps {
   bookingId: string | null;
@@ -69,6 +72,16 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   const [exLinkUrl, setExLinkUrl] = useState<string | null>(null);
   const [exCopied, setExCopied] = useState(false);
 
+  // Breakdown swap: reassign the car (keeping dates + price), then offer to take
+  // the broken car off the road for repair.
+  const [showSwap, setShowSwap] = useState(false);
+  const [swapBusy, setSwapBusy] = useState(false);
+  const [swapVehicleId, setSwapVehicleId] = useState("");
+  const [swapAdvisory, setSwapAdvisory] = useState<string | null>(null);
+  const [repairFor, setRepairFor] = useState<{ vehicleId: string; plate: string } | null>(null);
+  const [repair, setRepair] = useState({ type: "maintenance", startDate: "", endDate: "", reason: "" });
+  const [repairBusy, setRepairBusy] = useState(false);
+
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -93,6 +106,9 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     setShowCancel(false);
     setShowExtend(false);
     setExLinkUrl(null);
+    setShowSwap(false);
+    setSwapAdvisory(null);
+    setRepairFor(null);
   }, [bookingId]);
 
   async function openMove() {
@@ -126,6 +142,60 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
       toast.show({ type: "error", message: (e as ApiError).message });
     }
     setMoveBusy(false);
+  }
+
+  async function openSwap() {
+    if (!detail) return;
+    setSwapVehicleId("");
+    setSwapAdvisory(null);
+    setShowSwap(true);
+    if (vehicles.length === 0) {
+      try { setVehicles(await apiGet<VehicleOption[]>("/api/admin/vehicles")); }
+      catch (e) { toast.show({ type: "error", message: (e as ApiError).message }); }
+    }
+  }
+
+  async function submitSwap(override: boolean) {
+    if (!bookingId || !detail || !swapVehicleId) return;
+    // Capture the car being LEFT before the reload swaps `detail` to the new one.
+    const brokenCar = { vehicleId: detail.vehicle.id, plate: detail.vehicle.plate };
+    setSwapBusy(true);
+    try {
+      await api(`/api/admin/bookings/${bookingId}/swap-vehicle`, { vehicleId: swapVehicleId, override });
+      toast.show({ type: "success", message: "Swapped." });
+      setShowSwap(false);
+      setSwapAdvisory(null);
+      onChanged();
+      await load();
+      // Ask whether to take the broken car off the road (spec: ask each time).
+      setRepair({ type: "maintenance", startDate: arubaDateOf(arubaNowIso()), endDate: "", reason: "" });
+      setRepairFor(brokenCar);
+    } catch (e) {
+      const err = e as ApiError;
+      // A soft block/blackout on the target is overridable by the desk; a real
+      // clash is not (it never carries this code).
+      if (err.code === "advisory_conflict") setSwapAdvisory(err.message);
+      else toast.show({ type: "error", message: err.message });
+    }
+    setSwapBusy(false);
+  }
+
+  async function submitRepair() {
+    if (!repairFor || !repair.startDate || !repair.endDate) return;
+    setRepairBusy(true);
+    try {
+      await api(`/api/admin/vehicles/${repairFor.vehicleId}/blocks`, {
+        startAt: atAruba(repair.startDate, "00:00"),
+        endAt: atAruba(repair.endDate, "00:00"),
+        type: repair.type, reason: repair.reason,
+      });
+      toast.show({ type: "success", message: `${repairFor.plate} blocked for repair.` });
+      setRepairFor(null);
+      onChanged();
+    } catch (e) {
+      toast.show({ type: "error", message: (e as ApiError).message });
+    }
+    setRepairBusy(false);
   }
 
   function openRefund(p: BookingDetailPayment) {
@@ -244,6 +314,14 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
   const b = detail?.booking;
   const canCancel = b?.status === "pending" || b?.status === "confirmed";
+  // A car can be swapped for any live booking, including one already picked up
+  // (the car can break down mid-rental). Only cancelled/completed are out.
+  const canSwap = b?.status === "pending" || b?.status === "confirmed" || b?.status === "picked_up";
+  const swapCandidates = detail
+    ? vehicles
+        .filter((v) => v.id !== detail.vehicle.id && v.status !== "retired")
+        .sort((x, y) => (x.class ?? "").localeCompare(y.class ?? "") || x.plate.localeCompare(y.plate))
+    : [];
 
   return (
     <>
@@ -315,15 +393,36 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
             <section className="bd-section">
               <h3>Actions</h3>
-              {!showMove ? (
+              {!showMove && !showSwap && (
                 <div className="pl-pop-actions">
                   <button type="button" className="btn btn--quiet" onClick={openMove}>Move…</button>
                   <button type="button" className="btn btn--quiet" onClick={openExtend}>Extend…</button>
+                  {canSwap && (
+                    <button type="button" className="btn btn--quiet" onClick={openSwap}>Swap car…</button>
+                  )}
                   {canCancel && (
                     <button type="button" className="btn danger" onClick={() => setShowCancel(true)}>Cancel rental</button>
                   )}
                 </div>
-              ) : (
+              )}
+              {showSwap && (
+                <div className="pl-form">
+                  <label>Swap to
+                    <Select
+                      value={swapVehicleId}
+                      onChange={setSwapVehicleId}
+                      options={swapCandidates.map((v) => ({ value: v.id, label: `${v.class ? v.class + " · " : ""}${v.plate} · ${v.name}` }))}
+                      placeholder={vehicles.length === 0 ? "Loading cars…" : "Choose a replacement car"}
+                    />
+                  </label>
+                  <p className="muted">Same dates and same price. Only the car changes.</p>
+                  <div className="pl-pop-actions">
+                    <button type="button" className="btn btn--accent" disabled={swapBusy || !swapVehicleId} onClick={() => submitSwap(false)}>{swapBusy ? "Swapping…" : "Swap car"}</button>
+                    <button type="button" className="btn btn--quiet" onClick={() => setShowSwap(false)}>Back</button>
+                  </div>
+                </div>
+              )}
+              {showMove && (
                 <form className="pl-form" onSubmit={submitMove}>
                   <label>Car
                     <Select
@@ -482,6 +581,56 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
             </p>
           </>
         )}
+      </Modal>
+
+      <Modal
+        open={swapAdvisory !== null}
+        onClose={() => setSwapAdvisory(null)}
+        title="That car isn't free"
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn--quiet" onClick={() => setSwapAdvisory(null)} disabled={swapBusy}>Back</button>
+            <button type="button" className="btn danger" disabled={swapBusy} onClick={() => submitSwap(true)}>{swapBusy ? "Swapping…" : "Swap anyway"}</button>
+          </>
+        }
+      >
+        <p className="muted">{swapAdvisory}</p>
+      </Modal>
+
+      <Modal
+        open={repairFor !== null}
+        onClose={() => setRepairFor(null)}
+        title={repairFor ? `Block ${repairFor.plate} for repair?` : "Block for repair?"}
+        description="The customer is on the replacement car now. This one is free again, so take it off the road while it's fixed."
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn--quiet" onClick={() => setRepairFor(null)} disabled={repairBusy}>Not now</button>
+            <button
+              type="button"
+              className="btn btn--accent"
+              disabled={repairBusy || !repair.startDate || !repair.endDate}
+              onClick={submitRepair}
+            >
+              {repairBusy ? "Blocking…" : "Block car"}
+            </button>
+          </>
+        }
+      >
+        <div className="pl-form">
+          <label>Reason
+            <Select
+              value={repair.type}
+              onChange={(t) => setRepair({ ...repair, type: t })}
+              options={BLOCK_TYPES.map((t) => ({ value: t, label: niceType(t) }))}
+            />
+          </label>
+          <div className="bd-dates">
+            <label>From<DatePicker required value={repair.startDate} onChange={(iso) => setRepair({ ...repair, startDate: iso })} /></label>
+            <label>Until<DatePicker required min={repair.startDate || undefined} value={repair.endDate} onChange={(iso) => setRepair({ ...repair, endDate: iso })} /></label>
+          </div>
+        </div>
       </Modal>
     </>
   );
