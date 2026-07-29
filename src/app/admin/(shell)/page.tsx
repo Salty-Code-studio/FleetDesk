@@ -14,6 +14,7 @@ import {
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, formatTime, parseTs } from "@/lib/time/format";
 import { barSpan, barState } from "@/lib/admin/bar-span";
+import { hourSpan } from "@/lib/admin/hour-grid";
 import { createDragClickGuard, type DragClickGuard } from "@/lib/admin/drag-click-guard";
 import { BookingDrawer } from "./booking-drawer";
 import "./dashboard.css";
@@ -30,7 +31,12 @@ interface Planning {
 interface ComplianceItem { vehicleId: string; name: string; plate: string; kind: "insurance" | "inspection"; dueOn: string; daysLeft: number }
 
 const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const BLOCK_TYPES = ["maintenance", "carwash", "cleaning", "out_of_service", "other"];
+const zoomTitle = (d: string) => {
+  const dt = new Date(`${d}T00:00:00Z`);
+  return `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dt.getUTCDay()]} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][dt.getUTCMonth()]} ${dt.getUTCDate()}`;
+};
 const dayIdx = (from: string, d: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 const isWeekend = (d: string) => { const g = new Date(`${d}T00:00:00Z`).getUTCDay(); return g === 0 || g === 6; };
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -53,6 +59,8 @@ export default function AdminDashboard() {
   const [popover, setPopover] = useState<Popover | null>(null);
   const [drawerBookingId, setDrawerBookingId] = useState<string | null>(null);
   const [showService, setShowService] = useState(false);
+  // When set, the board zooms from the multi-day view into one day's hour grid.
+  const [zoomDay, setZoomDay] = useState<string | null>(null);
   // live drag previews (re-rendered): a selection rectangle, or a moving booking ghost
   const [sel, setSel] = useState<{ vehicleId: string; startDate: string; endDate: string } | null>(null);
   const [moveCand, setMoveCand] = useState<{ bookingId: string; vehicleId: string; startDate: string; endDate: string } | null>(null);
@@ -77,6 +85,7 @@ export default function AdminDashboard() {
 
   async function load(f?: string, t?: string) {
     setLoading(true);
+    setZoomDay(null); // any range change drops back to the multi-day view
     const qs = f && t ? `?from=${f}&to=${t}` : "";
     try {
       const d = await apiGet<Planning>(`/api/admin/planning${qs}`);
@@ -362,6 +371,60 @@ export default function AdminDashboard() {
           hint="Add cars under Fleet and pricing, then they show up here ready to schedule."
           action={<a className="btn btn--accent" href="/admin/fleet">Go to Fleet</a>}
         />
+      ) : zoomDay ? (
+        <>
+          <div className="pl-zoombar">
+            <button className="btn btn--quiet" onClick={() => setZoomDay(null)}>‹ Back to week</button>
+            <button className="btn btn--quiet" disabled={zoomDay <= data.from} onClick={() => setZoomDay(addDays(zoomDay, -1))} aria-label="Previous day">◀</button>
+            <strong className="pl-zoomtitle">{zoomTitle(zoomDay)}</strong>
+            <button className="btn btn--quiet" disabled={zoomDay >= data.to} onClick={() => setZoomDay(addDays(zoomDay, 1))} aria-label="Next day">▶</button>
+            <span className="pl-zoomhint">Pick-up &amp; return times (Aruba local)</span>
+          </div>
+          <div className="pl-wrap">
+            <div className="pl pl--hours">
+              <div className="pl-head">
+                <div className="pl-corner">Vehicle</div>
+                <div className="pl-days">
+                  {HOURS.map((h) => (
+                    <div key={h} className={`pl-day ${zoomDay === today && h === Number(formatTime(nowIso).slice(0, 2)) ? "today" : ""}`}>
+                      <div className="dnum">{String(h).padStart(2, "0")}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {data.categories.map((cat) => (
+                <div key={cat.class}>
+                  <div className="pl-cat">{cat.class}</div>
+                  {cat.vehicles.map((v) => (
+                    <div className="pl-row" key={v.id}>
+                      <div className="pl-label"><b>{v.plate}</b><small>{v.name}</small></div>
+                      <div className="pl-track">
+                        <div className="pl-cells">{HOURS.map((h) => <div key={h} className="c" />)}</div>
+                        {v.blocks.map((bl) => {
+                          const s = hourSpan(zoomDay!, bl.startAt, bl.endAt);
+                          return s ? (
+                            <div key={bl.id} className={`pl-block pl-block--${bl.type}`} style={{ left: `${s.left}%`, width: `${s.width}%` }} title={`${niceType(bl.type)}${bl.reason ? " · " + bl.reason : ""}`}>{niceType(bl.type)}</div>
+                          ) : null;
+                        })}
+                        {v.bookings.map((b) => {
+                          const s = hourSpan(zoomDay!, b.startAt, b.endAt);
+                          if (!s) return null;
+                          return (
+                            <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} pl-bar--zoom ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
+                              title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}`}
+                              onClick={() => setDrawerBookingId(b.id)}>
+                              {s.cutStart ? "‹ " : `${formatTime(b.startAt)} · `}{b.label}{s.cutEnd ? " ›" : ` · ${formatTime(b.endAt)}`}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       ) : (
         <div className="pl-wrap">
           <div className="pl">
@@ -369,7 +432,10 @@ export default function AdminDashboard() {
               <div className="pl-corner">Vehicle</div>
               <div className="pl-days">
                 {data.days.map((d) => (
-                  <div key={d} className={`pl-day ${isWeekend(d) ? "weekend" : ""} ${d === today ? "today" : ""}`}>
+                  <div key={d} role="button" tabIndex={0} title="Zoom into this day's hours"
+                    className={`pl-day pl-day--btn ${isWeekend(d) ? "weekend" : ""} ${d === today ? "today" : ""}`}
+                    onClick={() => setZoomDay(d)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setZoomDay(d); } }}>
                     <div className="dow">{DOW[new Date(`${d}T00:00:00Z`).getUTCDay()]}</div>
                     <div className="dnum">{Number(d.slice(8, 10))}</div>
                   </div>

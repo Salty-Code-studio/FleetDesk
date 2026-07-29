@@ -105,3 +105,13 @@
   text-align: center;
   vertical-align: middle;
 }
+
+/* Day-zoom (hour grid) view */
+.pl-day--btn { cursor: pointer; }
+.pl-day--btn:hover { background: var(--fill); }
+.pl-zoombar { display: flex; align-items: center; gap: .6rem; margin: .2rem 0 .7rem; flex-wrap: wrap; }
+.pl-zoomtitle { font-family: var(--font-mono); font-size: .95rem; font-weight: 600; }
+.pl-zoomhint { color: var(--ink-mute); font-size: .72rem; margin-left: auto; }
+.pl--hours .pl-day, .pl--hours .pl-cells .c { min-width: 28px; }
+.pl--hours .pl-day .dnum { font-size: .72rem; font-variant-numeric: tabular-nums; }
+.pl-bar--zoom { cursor: pointer; }
