@@ -144,6 +144,11 @@
   gap: 1.5rem;
   align-items: start;
 }
+/* min-width: 0 keeps the stepper's intrinsic width (7 pills) from inflating
+   the column on phones; the stepper then scrolls inside its own row. */
+.book-grid > * {
+  min-width: 0;
+}
 @media (max-width: 860px) {
   .book-grid {
     grid-template-columns: 1fr;

@@ -3,6 +3,9 @@
 .staff-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 1.1rem; }
 .staff-head .sub { color: var(--ink-soft); font-size: .92rem; margin: .25rem 0 0; }
 .staff-stack { display: grid; gap: 1.1rem; }
+/* min-width: 0 keeps wide panel content (the logins table) from inflating
+   the grid track past the viewport on phones; the table scrolls instead. */
+.staff-stack > * { min-width: 0; }
 .staff-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .9rem; }
 .staff-panel-head h2 { font-size: 1.02rem; margin: 0; }
 .staff-create { display: flex; gap: .8rem; align-items: flex-end; max-width: 480px; }
@@ -18,4 +21,11 @@
   text-align: center;
   margin: .4rem 0 .8rem;
   padding-left: .35em; /* optically recenters the letter-spaced digits */
+}
+
+@media (max-width: 640px) {
+  .staff-head { flex-wrap: wrap; gap: .6rem; }
+  .staff-create { flex-wrap: wrap; }
+  .staff-create .field { flex: 1 1 100%; }
+  .staff-create .btn { flex: 1 1 100%; }
 }

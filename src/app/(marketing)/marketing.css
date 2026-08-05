@@ -879,6 +879,16 @@
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
+/* Stand-in while monthly prices are withheld: keeps the card's visual anchor
+   without publishing a number. */
+.price-tba {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+  color: var(--deep-teal);
+  margin: 0.7rem 0 0.3rem;
+}
 .price-cap {
   font-size: 0.95rem;
   color: var(--ink-soft);

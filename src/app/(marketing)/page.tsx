@@ -327,10 +327,7 @@ export default function HomePage() {
           <div className="price-grid" data-reveal data-reveal-delay="1">
             <div className="price-card">
               <span className="price-name">Starter</span>
-              <div className="price-amount">
-                <span className="n">&euro;99</span>
-                <span className="per">/mo</span>
-              </div>
+              <p className="price-tba">Early-access pricing</p>
               <p className="price-cap">Up to 10 cars.</p>
               <ul className="price-feats">
                 <li>Online booking</li>
@@ -345,10 +342,7 @@ export default function HomePage() {
             <div className="price-card featured">
               <span className="price-badge">Most operators start here</span>
               <span className="price-name">Pro</span>
-              <div className="price-amount">
-                <span className="n">&euro;249</span>
-                <span className="per">/mo</span>
-              </div>
+              <p className="price-tba">Early-access pricing</p>
               <p className="price-cap">Up to 40 cars.</p>
               <ul className="price-feats">
                 <li>Everything in Starter</li>
@@ -362,10 +356,7 @@ export default function HomePage() {
             </div>
             <div className="price-card">
               <span className="price-name">Business</span>
-              <div className="price-amount">
-                <span className="n">&euro;449</span>
-                <span className="per">/mo</span>
-              </div>
+              <p className="price-tba">Early-access pricing</p>
               <p className="price-cap">Unlimited cars.</p>
               <ul className="price-feats">
                 <li>Multi-location</li>
@@ -381,7 +372,7 @@ export default function HomePage() {
           <div className="price-note" data-reveal>
             <p>
               <strong>Setup &euro;500 to 750</strong> one-time. We load and brand
-              your fleet. <strong>Annual = 2 months free.</strong>
+              your fleet.
             </p>
             <p>
               <Link className="text-link" href="/pricing">

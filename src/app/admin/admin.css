@@ -148,7 +148,9 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 
 /* ---------- shell ---------- */
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100dvh; }
-.side { background: var(--teal); color: #AFC2C0; padding: 1.4rem 1rem; display: flex; flex-direction: column; gap: .12rem; position: relative; }
+/* min-width: 0 mirrors .main: without it the horizontal nav's intrinsic
+   width (mobile top-bar mode) would widen the grid track past the viewport. */
+.side { background: var(--teal); color: #AFC2C0; padding: 1.4rem 1rem; display: flex; flex-direction: column; gap: .12rem; position: relative; min-width: 0; }
 .side::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: linear-gradient(180deg, transparent, rgba(255,111,89,.35), transparent); }
 .side .logo { font-family: var(--font-display); color: var(--sand); font-weight: 700; letter-spacing: -0.02em; padding: .2rem .55rem 1.4rem; font-size: 1.02rem; display: flex; align-items: baseline; gap: .12rem; white-space: nowrap; }
 .side .logo .logo-mark { font-family: var(--font-mono); font-weight: 600; color: var(--coral); margin-right: .45rem; font-size: .9em; white-space: nowrap; }
@@ -166,7 +168,10 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .foot-acct { font-size: .74rem; color: #8FA3A1; }
 .foot-by { font-family: var(--font-mono); font-size: .66rem; letter-spacing: .04em; color: #6E8482; }
 
-.main { padding: 2.2rem 2.4rem; max-width: 1200px; }
+/* min-width: 0 lets wide children (planning board, report matrix) scroll
+   inside their own overflow wrappers instead of inflating the grid column
+   and forcing the whole page to scroll sideways on tablets. */
+.main { padding: 2.2rem 2.4rem; max-width: 1200px; min-width: 0; }
 .main h1 { margin: 0 0 .3rem; font-size: 1.6rem; font-weight: 700; }
 .main .sub { color: var(--ink-soft); margin: 0 0 1.6rem; max-width: 62ch; }
 
@@ -221,7 +226,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-toolbar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.1rem; flex-wrap: wrap; }
 .pl-toolbar input[type=date] { padding: .48rem .6rem; border: 1.5px solid var(--line); border-radius: 9px; font: inherit; font-family: var(--font-mono); font-size: .82rem; background: var(--panel); }
 .pl-toolbar .btn { width: auto; padding: .48rem .85rem; }
-.pl-legend { display: flex; gap: .9rem; margin-left: auto; font-size: .72rem; font-family: var(--font-mono); color: var(--ink-soft); align-items: center; }
+.pl-legend { display: flex; gap: .35rem .9rem; margin-left: auto; font-size: .72rem; font-family: var(--font-mono); color: var(--ink-soft); align-items: center; flex-wrap: wrap; }
 .pl-legend span { display: inline-flex; align-items: center; gap: .35rem; }
 .pl-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
 
@@ -517,6 +522,73 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 /* ============================================================
    MODERN-UI KIT  ::  END
    ============================================================ */
+
+/* ============================================================
+   RESPONSIVE ADAPTATION  ::  phones + tablet portrait
+   ≤900px the sidebar becomes a sticky top bar with a horizontally
+   scrollable nav row (same links, same order — IA unchanged).
+   Wide content (tables, board) scrolls inside its own container;
+   the page itself never scrolls sideways.
+   ============================================================ */
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .side {
+    position: sticky; top: 0; z-index: 30;
+    padding: .6rem .95rem 0;
+    gap: .1rem;
+    box-shadow: 0 12px 26px -20px rgba(14,58,64,.55);
+  }
+  .side::after { display: none; }
+  .side .logo { padding: .15rem .1rem .5rem; font-size: .98rem; }
+  .side-nav {
+    flex-direction: row; gap: .2rem;
+    overflow-x: auto;
+    margin: 0 -.95rem;
+    padding: 0 .95rem .6rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .side-nav::-webkit-scrollbar { display: none; }
+  .side a { flex: 0 0 auto; white-space: nowrap; padding: .48rem .75rem; }
+  .side a.active::before { display: none; }
+  .side a.active { background: rgba(242,235,221,.18); }
+  .side .foot { display: none; }
+  .main { padding: 1.2rem 1rem 2.4rem; }
+  .topbar { margin-bottom: 1.1rem; }
+  .panel { padding: 1.15rem 1rem; }
+  /* Tables become their own scroll container. display:block keeps the row
+     boxes tabular inside while letting the element scroll horizontally. */
+  table.grid { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .nbell__panel { max-width: calc(100vw - 24px); }
+}
+
+@media (max-width: 640px) {
+  .main h1 { font-size: 1.35rem; }
+  .form-grid { grid-template-columns: 1fr; }
+  .actions { flex-wrap: wrap; }
+  .stat-strip { gap: 1.1rem; }
+  /* Narrower sticky vehicle column so more days stay in view on the board. */
+  .pl-head, .pl-row { grid-template-columns: 140px 1fr; }
+  .pl-corner, .pl-label { padding-left: .55rem; padding-right: .55rem; }
+  /* Monthly bar chart scrolls instead of crushing 12 bars into one screen. */
+  .rp-bars { overflow-x: auto; padding-bottom: .4rem; }
+  .rp-bar { min-width: 44px; }
+  .ui-overlay { padding: .8rem; }
+  .ui-modal { max-height: calc(100dvh - 1.6rem); }
+  .ui-modal__head { padding: 1.05rem 1.05rem .85rem; }
+  .ui-modal__body { padding: 1.05rem; }
+  .ui-modal__foot { padding: .9rem 1.05rem 1rem; }
+  .ui-drawer__head { padding: 1.1rem 1.05rem .9rem; }
+  .ui-drawer__body { padding: 1.1rem 1.05rem; }
+  .ui-drawer__foot { padding: .9rem 1.05rem 1rem; }
+}
+
+/* Touch devices: keep the small utility buttons comfortably tappable. */
+@media (pointer: coarse) {
+  .row-actions button { padding: .52rem .75rem; font-size: .8rem; }
+  .nbell__btn { padding: .55rem .7rem; }
+  .btn--quiet { padding: .55rem .75rem; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }

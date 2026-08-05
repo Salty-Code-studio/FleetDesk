@@ -10,7 +10,7 @@ import "./pricing.css";
 export const metadata: Metadata = {
   title: "Pricing · FleetDesk",
   description:
-    "Simple monthly plans for small car rental fleets. Starter, Pro and Business. Setup is one-time, annual saves two months, and early adopters lock about 30 percent off for life.",
+    "Starter, Pro and Business plans for small car rental fleets. Setup is one-time and early adopters lock about 30 percent off for life.",
 };
 
 export default function PricingPage() {
@@ -27,7 +27,7 @@ export default function PricingPage() {
             <p className="lead">
               Start where you are today. Move up when you add cars. Every plan
               includes online booking, the never double-books guarantee, and one
-              ops desk to run it from. All prices in euro.
+              ops desk to run it from.
             </p>
           </div>
         </div>
@@ -40,10 +40,7 @@ export default function PricingPage() {
             {/* Starter */}
             <div className="price-card">
               <span className="price-name">Starter</span>
-              <div className="price-amount">
-                <span className="n">&euro;99</span>
-                <span className="per">/mo</span>
-              </div>
+              <p className="price-tba">Early-access pricing</p>
               <p className="price-cap">Up to 10 cars.</p>
               <ul className="price-feats">
                 <li>Online booking, 24/7</li>
@@ -61,10 +58,7 @@ export default function PricingPage() {
             <div className="price-card featured">
               <span className="price-badge">Most operators start here</span>
               <span className="price-name">Pro</span>
-              <div className="price-amount">
-                <span className="n">&euro;249</span>
-                <span className="per">/mo</span>
-              </div>
+              <p className="price-tba">Early-access pricing</p>
               <p className="price-cap">Up to 40 cars.</p>
               <ul className="price-feats">
                 <li>Everything in Starter</li>
@@ -81,10 +75,7 @@ export default function PricingPage() {
             {/* Business */}
             <div className="price-card">
               <span className="price-name">Business</span>
-              <div className="price-amount">
-                <span className="n">&euro;449</span>
-                <span className="per">/mo</span>
-              </div>
+              <p className="price-tba">Early-access pricing</p>
               <p className="price-cap">Unlimited cars.</p>
               <ul className="price-feats">
                 <li>Everything in Pro</li>
@@ -103,10 +94,6 @@ export default function PricingPage() {
             <p>
               <strong>Setup &euro;500 to 750</strong> one-time. We load and brand
               your fleet so you do not start from a blank screen.
-            </p>
-            <p>
-              <strong>Annual billing = two months free.</strong> Pay for ten
-              months, get twelve.
             </p>
             <p>
               <strong>Early adopters lock about 30% off, for life.</strong> Join
