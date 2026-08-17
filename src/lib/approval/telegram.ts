@@ -20,10 +20,15 @@ async function call(method: string, payload: Record<string, unknown>): Promise<u
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
+    // Never let a hung Telegram call stall a booking confirm/decline path.
+    signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) throw new Error(`telegram ${method} ${res.status}`);
-  const data = (await res.json()) as { ok: boolean; result?: unknown };
-  if (!data.ok) throw new Error(`telegram ${method} not ok`);
+  const data = (await res.json()) as { ok: boolean; result?: unknown; description?: unknown };
+  if (!data.ok) {
+    const desc = typeof data.description === "string" ? data.description : undefined;
+    throw new Error(`telegram ${method} not ok${desc ? ": " + desc : ""}`);
+  }
   return data.result;
 }
 

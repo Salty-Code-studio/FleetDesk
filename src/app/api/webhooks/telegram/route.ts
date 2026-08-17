@@ -1,3 +1,4 @@
+import { timingSafeEqual, createHash } from "node:crypto";
 import { withRoute } from "@/lib/http/handler";
 import { json } from "@/lib/http/respond";
 import { Errors } from "@/lib/http/errors";
@@ -13,6 +14,16 @@ import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Constant-time secret compare. Hashing both values first makes them equal
+ *  length (a sha256 digest is always 32 bytes), so timingSafeEqual never
+ *  throws on a length mismatch and never leaks the real secret's length via
+ *  timing either. */
+function secretsMatch(a: string, b: string): boolean {
+  const ah = createHash("sha256").update(a).digest();
+  const bh = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ah, bh);
+}
+
 /**
  * POST /api/webhooks/telegram: the deployment's own bot webhook. Trust model:
  * the X-Telegram-Bot-Api-Secret-Token header must equal OUR random secret
@@ -21,7 +32,8 @@ export const dynamic = "force-dynamic";
  * does not retry into a loop; unknown senders are answered politely and logged.
  */
 export const POST = withRoute(async (req) => {
-  if (!env.TELEGRAM_WEBHOOK_SECRET || req.headers.get("x-telegram-bot-api-secret-token") !== env.TELEGRAM_WEBHOOK_SECRET) {
+  const provided = req.headers.get("x-telegram-bot-api-secret-token");
+  if (!env.TELEGRAM_WEBHOOK_SECRET || !provided || !secretsMatch(provided, env.TELEGRAM_WEBHOOK_SECRET)) {
     throw Errors.notFound("Not found"); // do not reveal the endpoint
   }
   await enforceRateLimit(req, "global", "public");

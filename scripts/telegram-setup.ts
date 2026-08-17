@@ -13,6 +13,10 @@ async function main(): Promise<void> {
   const base = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
   const me = await (await fetch(`${base}/getMe`)).json();
   console.log("Bot:", JSON.stringify(me.result ?? me));
+  if (!me.ok) {
+    console.error("getMe failed:", me.description ?? "unknown error");
+    process.exit(1);
+  }
   const hook = await (await fetch(`${base}/setWebhook`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -23,6 +27,10 @@ async function main(): Promise<void> {
     }),
   })).json();
   console.log("setWebhook:", JSON.stringify(hook));
+  if (!hook.ok) {
+    console.error("setWebhook failed:", hook.description ?? "unknown error");
+    process.exit(1);
+  }
 }
 
 void main();

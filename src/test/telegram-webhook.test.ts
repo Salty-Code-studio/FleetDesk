@@ -84,6 +84,28 @@ describe("POST /api/webhooks/telegram", () => {
     expect(reply).toBeDefined();
   });
 
+  it("first-link-wins: a different chat cannot hijack an already-linked invite code", async () => {
+    telegramCalls.length = 0;
+    const { POST } = await import("@/app/api/webhooks/telegram/route");
+    const { getSettings } = await import("@/lib/admin/settings");
+
+    const res = await POST(hook({
+      update_id: 8,
+      message: { message_id: 4, from: { id: 666, first_name: "Impersonator" }, chat: { id: 666 }, text: "/start code-ravi-22" },
+    }), { params: Promise.resolve({}) });
+    expect(res.status).toBe(200);
+
+    // Ravi's link from the previous test is untouched.
+    const s = await getSettings();
+    expect(s.approvalManagers.find((m) => m.name === "Ravi")!.chatId).toBe("888");
+
+    // Chat 666 got the staff-only denial, not a "you're linked" welcome.
+    const reply = telegramCalls.find((c) => c.method === "sendMessage" && c.body.chat_id === "666");
+    expect(reply).toBeDefined();
+    expect(String(reply!.body.text)).toContain("This bot only serves");
+    expect(String(reply!.body.text)).toContain("staff");
+  });
+
   it("denies /start with a wrong or missing code and changes nothing", async () => {
     telegramCalls.length = 0;
     const { POST } = await import("@/app/api/webhooks/telegram/route");

@@ -18,6 +18,12 @@ export async function linkManagerChat(code: string, chatId: string): Promise<App
     const managers = row.approvalManagers;
     const idx = managers.findIndex((m) => m.inviteCode === code);
     if (idx === -1) return null;
+    // First-link-wins: once a manager's chat id is set, a DIFFERENT chat
+    // replaying or guessing their invite code must not steal the link (deny,
+    // so the webhook answers with the staff-only denial). The same chat
+    // re-tapping its own invite is a harmless no-op that still succeeds.
+    const existing = managers[idx]!;
+    if (existing.chatId && existing.chatId !== chatId) return null;
     const next = managers.map((m, i) => (i === idx ? { ...m, chatId } : m));
     await tx.update(settings).set({ approvalManagers: next, updatedAt: new Date() }).where(eq(settings.id, 1));
     return next[idx]!;
