@@ -6,13 +6,22 @@ import { securityHeaders } from "@/lib/http/security-headers";
 /**
  * `withRoute` wraps a route handler with:
  *   - a per-request correlation id,
- *   - structured access logging (no bodies, no secrets),
+ *   - structured access logging (no bodies, no secrets, path-embedded tokens redacted),
  *   - a centralized try/catch that converts ANY throw into a safe response,
  *   - a backstop application of security headers (middleware is primary).
  *
  * Handlers therefore focus only on business logic and may freely `throw`
  * AppError / unexpected errors — they will never leak internals to the client.
  */
+
+/** Approval decision tokens ride in the URL path (email review links). They are
+ *  bearer credentials, so scrub anything token-shaped before the path reaches
+ *  the logs: a uuid, a dot, then base64url payload. */
+const TOKEN_SEGMENT_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{20,}/g;
+
+function redactPath(pathname: string): string {
+  return pathname.replace(TOKEN_SEGMENT_RE, ":token");
+}
 
 export type RouteContext<P = Record<string, string>> = { params: Promise<P> };
 
@@ -47,7 +56,7 @@ export function withRoute<P = Record<string, string>>(handler: Handler<P>) {
     logger.info("request", {
       requestId,
       method: req.method,
-      path: url.pathname,
+      path: redactPath(url.pathname),
       status: response.status,
       durationMs: Date.now() - started,
     });
