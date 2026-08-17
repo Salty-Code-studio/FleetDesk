@@ -218,7 +218,7 @@ const EnvSchema = z
     WHATSAPP_PHONE_ID: z.string().optional().default(""),
     WHATSAPP_OWNER_TO: z.string().optional().default(""),
 
-    // Telegram booking-approval bot (desk mode) — OPTIONAL. One bot PER
+    // Telegram booking-approval bot (desk mode), OPTIONAL. One bot PER
     // DEPLOYMENT (BotFather). With all three set, managers get Confirm/Decline
     // pings; otherwise the Telegram channel is dormant and email still works.
     // TELEGRAM_WEBHOOK_SECRET is OUR random secret; Telegram echoes it back in
