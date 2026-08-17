@@ -113,7 +113,7 @@ Replace the two required Stripe fields (currently lines 112-121) with optional-w
 Next to the WHATSAPP_* block add:
 
 ```ts
-    // Telegram booking-approval bot (desk mode) — OPTIONAL. One bot PER
+    // Telegram booking-approval bot (desk mode), OPTIONAL. One bot PER
     // DEPLOYMENT (BotFather). With all three set, managers get Confirm/Decline
     // pings; otherwise the Telegram channel is dormant and email still works.
     // TELEGRAM_WEBHOOK_SECRET is OUR random secret; Telegram echoes it back in
@@ -1631,7 +1631,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/webhooks/telegram — the deployment's own bot webhook. Trust model:
+ * POST /api/webhooks/telegram: the deployment's own bot webhook. Trust model:
  * the X-Telegram-Bot-Api-Secret-Token header must equal OUR random secret
  * (set via scripts/telegram-setup.ts), and a tap only counts when the chat id
  * belongs to a linked manager. Always 200 fast on handled updates so Telegram
@@ -1799,7 +1799,7 @@ export const dynamic = "force-dynamic";
 
 const ParamsSchema = z.object({ token: z.string().min(10).max(200) });
 
-/** GET /api/approval/:token — token-gated read for the email review page. */
+/** GET /api/approval/:token, token-gated read for the email review page. */
 export const GET = withRoute(async (req, { params }) => {
   await enforceRateLimit(req, "global", "approval");
   const { token } = parseParams(await params, ParamsSchema);
@@ -1833,7 +1833,7 @@ const BodySchema = z.object({
   action: z.enum(["confirm", "decline"]),
 }).strict();
 
-/** POST /api/approval/decide — the email review page's real mutation. POST on
+/** POST /api/approval/decide: the email review page's real mutation. POST on
  *  purpose: mail scanners follow GET links and must never decide a booking. */
 export const POST = withRoute(async (req) => {
   enforceOrigin(req);
@@ -2152,7 +2152,7 @@ import { runApprovalReminders } from "@/lib/approval/reminders";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/cron/approval-reminders — hourly nudge for unanswered desk-mode
+/** GET /api/cron/approval-reminders: hourly nudge for unanswered desk-mode
  *  approvals plus a janitor for requests decided elsewhere. CRON_SECRET
  *  guarded like every cron. */
 export async function GET(req: Request): Promise<NextResponse> {
