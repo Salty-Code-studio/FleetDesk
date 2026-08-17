@@ -120,8 +120,10 @@ export default function BookPage() {
   useEffect(() => {
     // Only an online booking ever comes back with ?canceled=1 (Stripe's own
     // cancel_url); desk mode never opens a Stripe session, so there is
-    // nothing to resume.
-    if (paymentMode === "desk") return;
+    // nothing to resume. Also CLEAR any id picked up during the pre-config
+    // paint (the mode starts as "online" until booking-config resolves), so
+    // that startup race can never leave a stale resume banner behind.
+    if (paymentMode === "desk") { setCanceledId(null); return; }
     const p = new URLSearchParams(window.location.search);
     const id = p.get("id");
     if (p.get("canceled") === "1" && id) setCanceledId(id);
@@ -183,7 +185,10 @@ export default function BookPage() {
         if (!c) return;
         setCfg(c);
         setHours({ openingTime: c.openingTime, closingTime: c.closingTime });
-        setPaymentMode(c.paymentMode);
+        // Guarded like the confirmation page's consumer: an older server
+        // response without the field must not clobber the "online" default
+        // with undefined.
+        if (c.paymentMode) setPaymentMode(c.paymentMode);
       })
       .catch(() => {});
     // Mount-only: intentionally reads the `hours` default in effect at load time.
@@ -624,7 +629,12 @@ export default function BookPage() {
                     {policy && (
                       <div className="policy-box">
                         <p>Free cancellation until {policy.cancellationWindowHours} hours before pickup.</p>
-                        <p>Within {policy.cancellationWindowHours} hours or no show: the deposit is not refunded.</p>
+                        {/* Desk mode collects nothing online, so there is no
+                            paid deposit to withhold; the sentence would be
+                            false there and is omitted entirely. */}
+                        {paymentMode !== "desk" && (
+                          <p>Within {policy.cancellationWindowHours} hours or no show: the deposit is not refunded.</p>
+                        )}
                         {policy.securityDepositCents !== null && (
                           <p>Refundable security deposit of {money(policy.securityDepositCents, cur)} due at pickup. You get it back at return.</p>
                         )}

@@ -85,6 +85,18 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
   const toast = useToast();
 
+  // Desk vs online, for the Confirm gate below: the confirm route only exists
+  // on desk deployments (online bookings are confirmed by the Stripe webhook
+  // when payment lands), so only show the button there. One fetch on mount,
+  // fail-closed: an unresolved or failed fetch stays "online", which merely
+  // hides the button; the route's own desk gate is the real enforcement.
+  const [paymentMode, setPaymentMode] = useState<"online" | "desk">("online");
+  useEffect(() => {
+    apiGet<{ paymentMode?: "online" | "desk" }>("/api/booking-config")
+      .then((c) => { if (c?.paymentMode) setPaymentMode(c.paymentMode); })
+      .catch(() => { /* stay "online": the Confirm button just stays hidden */ });
+  }, []);
+
   const load = useCallback(async () => {
     if (!bookingId) { setDetail(null); return; }
     setLoading(true);
@@ -331,7 +343,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   }
 
   const b = detail?.booking;
-  const canConfirm = b?.status === "pending";
+  const canConfirm = paymentMode === "desk" && b?.status === "pending";
   const canCancel = b?.status === "pending" || b?.status === "confirmed";
   // A car can be swapped for any live booking, including one already picked up
   // (the car can break down mid-rental). Only cancelled/completed are out.
