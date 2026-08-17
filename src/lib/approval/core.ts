@@ -43,7 +43,13 @@ export async function createApprovalRequest(bookingId: string): Promise<void> {
       expiresAt: new Date(Date.now() + TOKEN_TTL_MS),
     }).returning();
     if (!request) return;
+    // Persist the real hash BEFORE any send goes out: if Telegram or email
+    // fails midway, links already delivered still verify against the row
+    // instead of stranding it on the "issuing" placeholder.
     const token = issueApprovalToken(request.id);
+    await db.update(approvalRequests)
+      .set({ tokenHash: hashToken(token), updatedAt: new Date() })
+      .where(eq(approvalRequests.id, request.id));
     const settings = await getSettings();
     const deliveries: ApprovalDelivery[] = [];
 
@@ -58,19 +64,23 @@ export async function createApprovalRequest(bookingId: string): Promise<void> {
       }
     }
 
-    const emails = settings.approvalManagers.map((m) => m.email).filter((e): e is string => Boolean(e));
-    if (emails.length) {
-      const approveUrl = `${env.APP_ORIGIN}/approve/${token}?action=confirm`;
-      const declineUrl = `${env.APP_ORIGIN}/approve/${token}?action=decline`;
-      await sendToMany(emails, (to) => ({
-        to, type: "approval_decision",
-        ...approvalDecisionEmail({ siteName: siteConfig.siteName, messageText: msg.text, approveUrl, declineUrl }),
-      }));
-      for (const to of emails) deliveries.push({ channel: "email", to, sentAt: new Date().toISOString() });
+    try {
+      const emails = settings.approvalManagers.map((m) => m.email).filter((e): e is string => Boolean(e));
+      if (emails.length) {
+        const approveUrl = `${env.APP_ORIGIN}/approve/${token}?action=confirm`;
+        const declineUrl = `${env.APP_ORIGIN}/approve/${token}?action=decline`;
+        await sendToMany(emails, (to) => ({
+          to, type: "approval_decision",
+          ...approvalDecisionEmail({ siteName: siteConfig.siteName, messageText: msg.text, approveUrl, declineUrl }),
+        }));
+        for (const to of emails) deliveries.push({ channel: "email", to, sentAt: new Date().toISOString() });
+      }
+    } catch (e) {
+      logger.error("approval_email_send_failed", { bookingId, error: (e as Error).message });
     }
 
     await db.update(approvalRequests)
-      .set({ tokenHash: hashToken(token), sentTo: deliveries, updatedAt: new Date() })
+      .set({ sentTo: deliveries, updatedAt: new Date() })
       .where(eq(approvalRequests.id, request.id));
 
     await notifyAdmin({
@@ -111,10 +121,10 @@ export async function applyDecision(requestId: string, action: DecisionAction, a
 
   if (result.outcome === "confirmed") {
     await notifyBookingConfirmed(result.bookingId).catch(() => undefined);
-    await audit({ actor: `approval:${actor.name}`, action: "approval.confirmed", entity: "booking", entityId: result.bookingId, after: { channel: actor.channel } });
+    await audit({ actor: `approval:${actor.name}`, action: "approval.confirmed", entity: "booking", entityId: result.bookingId, after: { channel: actor.channel } }).catch(() => undefined);
   } else if (result.outcome === "declined") {
     await notifyBookingCancelled(result.bookingId, { refunded: false, refundCents: 0 }).catch(() => undefined);
-    await audit({ actor: `approval:${actor.name}`, action: "approval.declined", entity: "booking", entityId: result.bookingId, after: { channel: actor.channel } });
+    await audit({ actor: `approval:${actor.name}`, action: "approval.declined", entity: "booking", entityId: result.bookingId, after: { channel: actor.channel } }).catch(() => undefined);
   }
   return result;
 }

@@ -96,14 +96,46 @@ describe("approval core", () => {
     }).returning();
     await createApprovalRequest(b2!.id);
     const [row] = await db.select().from(approvalRequests).where(eq(approvalRequests.bookingId, b2!.id));
-    // A forged token for the right request id but wrong hash must fail:
-    // regenerate after tampering the stored hash.
+    // The genuine token: issueApprovalToken is deterministic, so this equals
+    // the one issued at creation. Signature and stored hash both match.
     const good = issueApprovalToken(row!.id);
     const res = await applyDecisionByToken(good, "decline");
     expect(res.outcome).toBe("declined");
     const [after] = await db.select().from(bookings).where(eq(bookings.id, b2!.id));
     expect(after!.status).toBe("cancelled");
     expect((await applyDecisionByToken("garbage", "confirm")).outcome).toBe("not_found");
+  });
+
+  it("valid signature with a tampered stored hash is refused", async () => {
+    const { createApprovalRequest, applyDecisionByToken } = await import("@/lib/approval/core");
+    const { issueApprovalToken } = await import("@/lib/approval/tokens");
+    const { getDb } = await import("@/lib/db/client");
+    const { approvalRequests, bookings, customers, vehicles } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = await getDb();
+    const [v] = await db.select().from(vehicles).where(eq(vehicles.slug, "core-car"));
+    const [c] = await db.select().from(customers);
+    const [b4] = await db.insert(bookings).values({
+      vehicleId: v!.id, customerId: c!.id,
+      startAt: "2027-09-01T10:00:00-04:00", endAt: "2027-09-03T10:00:00-04:00",
+      bufferEndAt: "2027-09-04T10:00:00-04:00", status: "pending",
+      priceBreakdown: { subtotalCents: 16000, currency: "USD" }, paymentOption: "full",
+      acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: "core-key-4",
+    }).returning();
+    await createApprovalRequest(b4!.id);
+    const [row] = await db.select().from(approvalRequests).where(eq(approvalRequests.bookingId, b4!.id));
+    const good = issueApprovalToken(row!.id);
+    // Overwrite the stored hash: the HMAC signature still verifies (real
+    // request id), but the row's tokenHash no longer matches, so the email
+    // path must refuse. This is the double-check working for real.
+    await db.update(approvalRequests).set({ tokenHash: "0".repeat(64) }).where(eq(approvalRequests.id, row!.id));
+    const res = await applyDecisionByToken(good, "confirm");
+    expect(res.outcome).toBe("not_found");
+    // Nothing was decided: the request stays open and the booking pending.
+    const [after] = await db.select().from(approvalRequests).where(eq(approvalRequests.id, row!.id));
+    expect(after!.status).toBe("open");
+    const [b] = await db.select().from(bookings).where(eq(bookings.id, b4!.id));
+    expect(b!.status).toBe("pending");
   });
 
   it("expired request reports expired and closes", async () => {
@@ -128,5 +160,35 @@ describe("approval core", () => {
     expect(res.outcome).toBe("expired");
     const [after] = await db.select().from(approvalRequests).where(eq(approvalRequests.id, row!.id));
     expect(after!.status).toBe("closed");
+  });
+
+  it("booking decided out-of-band closes the open request as already handled", async () => {
+    const { applyDecision, createApprovalRequest } = await import("@/lib/approval/core");
+    const { getDb } = await import("@/lib/db/client");
+    const { approvalRequests, bookings, customers, vehicles } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = await getDb();
+    const [v] = await db.select().from(vehicles).where(eq(vehicles.slug, "core-car"));
+    const [c] = await db.select().from(customers);
+    const [b5] = await db.insert(bookings).values({
+      vehicleId: v!.id, customerId: c!.id,
+      startAt: "2027-10-01T10:00:00-04:00", endAt: "2027-10-03T10:00:00-04:00",
+      bufferEndAt: "2027-10-04T10:00:00-04:00", status: "pending",
+      priceBreakdown: { subtotalCents: 16000, currency: "USD" }, paymentOption: "full",
+      acceptedPolicyVersion: 0, acceptedAt: new Date(), idempotencyKey: "core-key-5",
+    }).returning();
+    await createApprovalRequest(b5!.id);
+    const [row] = await db.select().from(approvalRequests).where(eq(approvalRequests.bookingId, b5!.id));
+    // An admin cancels the booking directly while the ping is still out.
+    await db.update(bookings).set({ status: "cancelled" }).where(eq(bookings.id, b5!.id));
+    // The late tap must NOT resurrect the booking: the guarded flip only
+    // touches rows still in "pending".
+    const res = await applyDecision(row!.id, "confirm", { name: "Naomi", channel: "telegram" });
+    expect(res.outcome).toBe("already_handled");
+    expect(res.outcome === "already_handled" && res.decidedBy).toBe(null);
+    const [after] = await db.select().from(approvalRequests).where(eq(approvalRequests.id, row!.id));
+    expect(after!.status).toBe("closed");
+    const [b] = await db.select().from(bookings).where(eq(bookings.id, b5!.id));
+    expect(b!.status).toBe("cancelled");
   });
 });
