@@ -1,6 +1,16 @@
 import { pgTable, integer, text, timestamp, date, jsonb, uuid, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+/** A back-office manager who may confirm/decline desk-mode bookings. The
+ *  inviteCode links their Telegram account (t.me/<bot>?start=<code>); chatId
+ *  is set once they tap the invite link. Email is the fallback channel. */
+export interface ApprovalManager {
+  name: string;
+  email?: string;
+  inviteCode: string;
+  chatId?: string;
+}
+
 /**
  * Single-row settings hub (spec §5): every amount the owner can edit without a
  * redeploy. The CHECK pins id to 1 so a second row is physically impossible.
@@ -30,6 +40,12 @@ export const settings = pgTable("settings", {
   // Days before a vehicle document expiry at which the FIRST compliance warning
   // fires (wave 03). The one-week and overdue stages are fixed.
   complianceAlertDays: integer("compliance_alert_days").notNull().default(30),
+  // Desk-mode approval loop (spec 2026-08-17): who gets the Confirm/Decline
+  // pings, how soon to remind, and how many times. Managers double as the
+  // inbound allowlist for the Telegram webhook.
+  approvalManagers: jsonb("approval_managers").$type<ApprovalManager[]>().notNull().default(sql`'[]'::jsonb`),
+  approvalReminderHours: integer("approval_reminder_hours").notNull().default(4),
+  approvalMaxReminders: integer("approval_max_reminders").notNull().default(1),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [check("settings_singleton", sql`${t.id} = 1`)]);
 

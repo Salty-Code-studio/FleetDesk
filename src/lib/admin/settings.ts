@@ -33,6 +33,14 @@ export const SettingsPatchSchema = z.object({
   licenseRetentionDays: z.number().int().min(1).max(3650).optional(),
   adminAlertRecipients: z.array(z.string().trim().toLowerCase().email()).max(20).optional(),
   complianceAlertDays: z.number().int().min(1).max(365).optional(),
+  approvalManagers: z.array(z.object({
+    name: z.string().trim().min(1).max(80),
+    email: z.string().trim().toLowerCase().email().max(254).optional(),
+    inviteCode: z.string().trim().regex(/^[A-Za-z0-9_-]{8,64}$/, "invite code must be 8-64 url-safe characters"),
+    chatId: z.string().trim().regex(/^-?\d{1,20}$/, "chatId must be a Telegram chat id").optional(),
+  }).strict()).max(20).optional(),
+  approvalReminderHours: z.number().int().min(1).max(168).optional(),
+  approvalMaxReminders: z.number().int().min(0).max(10).optional(),
 }).strict().refine(
   (v) => v.minRentalDays === undefined || v.maxRentalDays === undefined || v.minRentalDays <= v.maxRentalDays,
   { message: "minRentalDays must be ≤ maxRentalDays", path: ["minRentalDays"] },

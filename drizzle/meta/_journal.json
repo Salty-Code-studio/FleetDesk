@@ -169,6 +169,13 @@
       "when": 1785225078072,
       "tag": "0023_exotic_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786968554247,
+      "tag": "0024_magenta_captain_midlands",
+      "breakpoints": true
     }
   ]
 }

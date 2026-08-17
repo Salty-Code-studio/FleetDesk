@@ -14,3 +14,4 @@ export * from "./notifications";
 export * from "./leads";
 export * from "./vehicle-notes";
 export * from "./inspections";
+export * from "./approvals";
