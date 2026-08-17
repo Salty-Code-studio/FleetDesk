@@ -175,7 +175,10 @@ in.
    manager's tap gets the polite "staff only" denial instead of linking, not
    a broken link, so it is easy to miss during a rushed setup. Email still
    works as a fallback for a manager who never links Telegram, as long as
-   their email is filled in on their row.
+   their email is filled in on their row. Links are first-tap-wins: once a
+   manager is Linked, their invite link is dead for every other Telegram
+   account. If someone switches Telegram accounts, remove their row, save,
+   re-add them, save again, and send the fresh invite link.
 5. **Manual E2E checklist.** Run this once per client before handing the
    keys over:
    - [ ] Place a test booking on the live site.
