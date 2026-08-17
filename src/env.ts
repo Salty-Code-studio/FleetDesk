@@ -109,16 +109,22 @@ const EnvSchema = z
         "DATABASE_MIGRATION_URL must be a postgres:// URL or empty",
       ),
 
-    // Stripe (payments). Prefer a RESTRICTED key (rk_) over a secret key (sk_).
+    // Stripe (payments). REQUIRED when PAYMENT_MODE=online (superRefine below),
+    // unused in desk mode. Prefer a RESTRICTED key (rk_) over a secret key (sk_).
     STRIPE_SECRET_KEY: z
-      .string({ required_error: "STRIPE_SECRET_KEY is required" })
-      .refine((v) => !looksLikePlaceholder(v), { message: "STRIPE_SECRET_KEY still contains a placeholder value" })
-      .refine((v) => /^(sk|rk)_(test|live)_[A-Za-z0-9]+$/.test(v), { message: "STRIPE_SECRET_KEY must be an sk_/rk_ key" }),
-    // Webhook signing secret for verifying inbound Stripe events.
+      .string()
+      .optional()
+      .default("")
+      .refine((v) => v === "" || (!looksLikePlaceholder(v) && /^(sk|rk)_(test|live)_[A-Za-z0-9]+$/.test(v)), {
+        message: "STRIPE_SECRET_KEY must be an sk_/rk_ key",
+      }),
     STRIPE_WEBHOOK_SECRET: z
-      .string({ required_error: "STRIPE_WEBHOOK_SECRET is required" })
-      .refine((v) => !looksLikePlaceholder(v), { message: "STRIPE_WEBHOOK_SECRET still contains a placeholder value" })
-      .refine((v) => /^whsec_[A-Za-z0-9]+$/.test(v), { message: "STRIPE_WEBHOOK_SECRET must start with whsec_" }),
+      .string()
+      .optional()
+      .default("")
+      .refine((v) => v === "" || (!looksLikePlaceholder(v) && /^whsec_[A-Za-z0-9]+$/.test(v)), {
+        message: "STRIPE_WEBHOOK_SECRET must start with whsec_",
+      }),
 
     // 32-byte base64 key for AES-256-GCM field encryption (license PII).
     // Generate with: openssl rand -base64 32
@@ -156,6 +162,12 @@ const EnvSchema = z
       .transform((v) => v === "true"),
 
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+
+    // Payment mode. "online" = Stripe checkout (default, existing behavior).
+    // "desk" = no online payment at all: bookings land pending, staff confirm
+    // via the chat approval loop, customer pays at pickup. Env (not a DB
+    // setting) because it changes WHICH env is required at boot.
+    PAYMENT_MODE: z.enum(["online", "desk"]).default("online"),
 
     // Email (Resend) — OPTIONAL. With no key, transactional email is skipped
     // and logged; bookings and boot are never blocked by missing email config.
@@ -206,6 +218,15 @@ const EnvSchema = z
     WHATSAPP_PHONE_ID: z.string().optional().default(""),
     WHATSAPP_OWNER_TO: z.string().optional().default(""),
 
+    // Telegram booking-approval bot (desk mode) — OPTIONAL. One bot PER
+    // DEPLOYMENT (BotFather). With all three set, managers get Confirm/Decline
+    // pings; otherwise the Telegram channel is dormant and email still works.
+    // TELEGRAM_WEBHOOK_SECRET is OUR random secret; Telegram echoes it back in
+    // the X-Telegram-Bot-Api-Secret-Token header so we can trust the webhook.
+    TELEGRAM_BOT_TOKEN: z.string().optional().default(""),
+    TELEGRAM_BOT_USERNAME: z.string().optional().default(""),
+    TELEGRAM_WEBHOOK_SECRET: z.string().optional().default(""),
+
     // Object storage for inspection photos, licence copies, signatures, and
     // contract PDFs. 'local' writes under LOCAL_STORAGE_DIR (dev/test);
     // 'supabase' uses a PRIVATE Supabase Storage bucket via the service-role
@@ -223,6 +244,14 @@ const EnvSchema = z
         path: ["STORAGE_DRIVER"],
         message: "STORAGE_DRIVER=supabase requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY",
       });
+    }
+    if (v.PAYMENT_MODE === "online") {
+      if (!v.STRIPE_SECRET_KEY) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["STRIPE_SECRET_KEY"], message: "STRIPE_SECRET_KEY is required when PAYMENT_MODE=online" });
+      }
+      if (!v.STRIPE_WEBHOOK_SECRET) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["STRIPE_WEBHOOK_SECRET"], message: "STRIPE_WEBHOOK_SECRET is required when PAYMENT_MODE=online" });
+      }
     }
   });
 
@@ -245,6 +274,7 @@ function loadEnv(): Env {
 export const env: Readonly<Env> = Object.freeze(loadEnv());
 
 export const isProd = env.NODE_ENV === "production";
+export const isDeskMode = env.PAYMENT_MODE === "desk";
 
 // Boot warning: in production without a trusted IP source (TRUST_PROXY) AND
 // without a shared Redis store, the rate limiter falls back to a best-effort
