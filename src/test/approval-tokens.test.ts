@@ -14,6 +14,7 @@ describe("approval tokens", () => {
     expect(verifyApprovalToken("1f8fad5b-d9cb-469f-a165-70867728950e" + t.slice(36))).toBeNull();
     expect(verifyApprovalToken("nonsense")).toBeNull();
     expect(verifyApprovalToken("")).toBeNull();
+    expect(verifyApprovalToken(RID + ".ab")).toBeNull();
   });
   it("hashes deterministically and never equals the token", () => {
     const t = issueApprovalToken(RID);
