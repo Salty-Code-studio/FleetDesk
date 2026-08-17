@@ -82,6 +82,10 @@ static site.
 - [ ] Customer: sign in at `/account/login` (real email via Resend now), see the booking, cancel it, confirm the slot frees up.
 - [ ] Check `email_log` shows `sent` rows (login code, booking confirmed, admin alerts).
 - [ ] The cron fires: Vercel → Cron → `/api/cron/expire-holds` runs every 15 min.
+- [ ] Desk-mode clients only: `/api/cron/approval-reminders` is also
+      registered (Vercel → Cron) and `CRON_SECRET` is set. Without it,
+      unanswered approval requests never get their reminder ping, no matter
+      what the reminder interval under **Settings > Booking approvals** says.
 
 ## 9. Security checklists (fort) before go-live
 
@@ -125,7 +129,10 @@ in.
 
 1. **Turn on desk mode.** Set `PAYMENT_MODE=desk` on the deployment. Stripe
    is not required in this mode: `STRIPE_SECRET_KEY` and
-   `STRIPE_WEBHOOK_SECRET` can be removed from the environment.
+   `STRIPE_WEBHOOK_SECRET` can be removed from the environment. Env is
+   validated once at process boot, so changing `PAYMENT_MODE` (either
+   direction) needs a fresh deploy before it takes effect, an env var edit
+   alone does nothing until the next boot.
 2. **Create the bot [owner].** In Telegram, message **BotFather** and run
    `/newbot`. Pick a name like `<Client> Bookings` (for example, `Little
    John Bookings`) and copy the token it gives you. Then set:
@@ -142,12 +149,33 @@ in.
    This registers the webhook at `APP_ORIGIN/api/webhooks/telegram` with the
    secret, so every update Telegram sends can be trusted (it echoes the
    secret back in the `X-Telegram-Bot-Api-Secret-Token` header).
+
+   `npm run telegram:setup` runs on YOUR machine and reads your LOCAL
+   `.env.local`, not the deployment's environment. It needs
+   `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET` matching what you set
+   on the deployment, and `APP_ORIGIN` pointed at the LIVE https deployment
+   URL, not `localhost`, for example:
+
+   ```
+   TELEGRAM_BOT_TOKEN=123456:AA-the-same-token-you-set-on-the-deployment
+   TELEGRAM_WEBHOOK_SECRET=the-same-secret-you-set-on-the-deployment
+   APP_ORIGIN=https://app.fleetdesk.app
+   ```
+
+   The script also boots `src/env`, which validates the WHOLE environment
+   schema, so `.env.local` needs to be otherwise valid too (a real
+   `DATABASE_URL`, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, and so on), not
+   just these three Telegram variables.
 4. **Add managers.** In the admin, go to **Settings > Booking approvals**,
-   add each manager by name, and hand them their invite link. Tapping it
-   opens `t.me/<bot>?start=<code>` in Telegram and their row flips from a
-   bare invite link to a **Linked** tag. Email still works as a fallback for
-   a manager who never links Telegram, as long as their email is filled in
-   on their row.
+   add each manager by name (and email, for the fallback channel), then
+   **save the settings page**. Only after that save, copy each manager's
+   invite link and send it to them. Tapping it opens `t.me/<bot>?start=<code>`
+   in Telegram and their row flips from a bare invite link to a **Linked**
+   tag. A link copied before the save does not exist server-side yet: the
+   manager's tap gets the polite "staff only" denial instead of linking, not
+   a broken link, so it is easy to miss during a rushed setup. Email still
+   works as a fallback for a manager who never links Telegram, as long as
+   their email is filled in on their row.
 5. **Manual E2E checklist.** Run this once per client before handing the
    keys over:
    - [ ] Place a test booking on the live site.
