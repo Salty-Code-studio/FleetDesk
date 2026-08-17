@@ -66,6 +66,24 @@ describe("desk mode booking flow", () => {
     expect(res.status).toBe(409);
   });
 
+  it("refuses the Stripe webhook route without touching bookings", async () => {
+    const { POST } = await import("@/app/api/webhooks/stripe/route");
+    const res = await POST(new Request("http://localhost:3000/api/webhooks/stripe", {
+      method: "POST",
+      headers: { "user-agent": "t" },
+      body: JSON.stringify({ id: "evt_desk_1", type: "checkout.session.completed" }),
+    }));
+    // The desk-mode guard answers 404 before any signature or event work runs.
+    expect(res.status).toBe(404);
+    // Nothing downstream ran: the booking from the first test is untouched.
+    const { getDb } = await import("@/lib/db/client");
+    const { bookings } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = await getDb();
+    const [row] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+    expect(row!.status).toBe("pending");
+  });
+
   it("expire-holds cron does not cancel desk bookings", async () => {
     const { GET } = await import("@/app/api/cron/expire-holds/route");
     // Backdate the booking far beyond the 30-minute unpaid-hold TTL.
