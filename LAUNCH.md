@@ -115,3 +115,66 @@ A four-round authorized pentest found the app **HELD** at the network/auth bound
 2. **Rate limiter needs a real client IP [owner].** With `TRUST_PROXY=false` and no Redis, the limiter keys on a spoofable request fingerprint (User-Agent), so per-IP global/auth limits can be evaded by rotating the header (DoS / abuse only; per-account lockout and per-email caps still hold). In production: run behind a trusted edge with `TRUST_PROXY=true` AND configure `UPSTASH_*` so it keys on the real IP across instances. The app logs a boot warning if neither is set.
 
 Fixed in code (verified live + tests): the login API no longer returns the OTP (was a critical account-takeover leak); a fail-closed CSRF Origin guard now covers all guest state-changing POSTs (`/api/bookings`, `/api/bookings/[id]/checkout`, `/api/early-access`); the per-email login limit is keyed independent of the spoofable fingerprint (stops email-bombing).
+
+## Desk mode + Telegram approvals (per client)
+
+Some clients take payment at the desk instead of online. The booking wizard
+stays the same, the customer just pays when they pick up the car, and a
+manager confirms the booking from their phone (or the admin) before it locks
+in.
+
+1. **Turn on desk mode.** Set `PAYMENT_MODE=desk` on the deployment. Stripe
+   is not required in this mode: `STRIPE_SECRET_KEY` and
+   `STRIPE_WEBHOOK_SECRET` can be removed from the environment.
+2. **Create the bot [owner].** In Telegram, message **BotFather** and run
+   `/newbot`. Pick a name like `<Client> Bookings` (for example, `Little
+   John Bookings`) and copy the token it gives you. Then set:
+   - `TELEGRAM_BOT_TOKEN`, the token from BotFather.
+   - `TELEGRAM_BOT_USERNAME`, the bot's `@username`, without the `@`.
+   - `TELEGRAM_WEBHOOK_SECRET`, a fresh secret from `openssl rand -hex 24`.
+3. **Point the webhook at this deployment.** Deploy with the three vars
+   above set, then run:
+
+   ```bash
+   npm run telegram:setup
+   ```
+
+   This registers the webhook at `APP_ORIGIN/api/webhooks/telegram` with the
+   secret, so every update Telegram sends can be trusted (it echoes the
+   secret back in the `X-Telegram-Bot-Api-Secret-Token` header).
+4. **Add managers.** In the admin, go to **Settings > Booking approvals**,
+   add each manager by name, and hand them their invite link. Tapping it
+   opens `t.me/<bot>?start=<code>` in Telegram and their row flips from a
+   bare invite link to a **Linked** tag. Email still works as a fallback for
+   a manager who never links Telegram, as long as their email is filled in
+   on their row.
+5. **Manual E2E checklist.** Run this once per client before handing the
+   keys over:
+   - [ ] Place a test booking on the live site.
+   - [ ] Both linked managers get the ping on Telegram, including the fleet
+         check line (how many of that vehicle class are free on those
+         dates).
+   - [ ] Tap **Confirm** on one manager's phone.
+   - [ ] The other manager's message updates in place to
+         `Confirmed by <name>`.
+   - [ ] The booking shows confirmed in the admin.
+   - [ ] The customer confirmation email arrived.
+   - [ ] A second tap, from either manager, answers `already handled` and
+         does not double-confirm or double-decline.
+   - [ ] The buttons in the email fallback open the review page
+         (`/approve/<token>`) and also report `already handled` once the
+         booking has already been decided.
+   - [ ] The admin's **Confirm booking** button shows up on the booking
+         drawer (desk mode only: it stays hidden in online mode, and the
+         route itself refuses to run outside desk mode).
+   - [ ] Leave one booking unanswered. After the reminder interval (4 hours
+         by default) it gets exactly one reminder ping; both numbers live
+         under **Settings > Booking approvals**.
+6. **Good to know.**
+   - Bookings never auto-cancel in desk mode. An unanswered request just
+     stays pending, the approval loop is a convenience, never a gate.
+   - The reminder interval and the reminder count are both editable in
+     Settings, so a client who wants faster follow-ups can turn the dial
+     themselves.
+   - The admin's Confirm button works whether or not Telegram is linked.
+     Chat is one way in for managers, not the only way in.
