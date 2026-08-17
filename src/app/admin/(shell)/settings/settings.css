@@ -79,3 +79,23 @@
   color: var(--ink-soft);
   max-width: 60ch;
 }
+
+/* Booking approvals: one block per manager (name, email, Telegram link or
+   status). Inputs reuse the shared .form-grid rules above; the invite-link
+   row mirrors the extend-link input+Copy pattern from the booking drawer's
+   own CSS (.bd-extend-link). */
+.set-mgr-list { display: flex; flex-direction: column; gap: 1.1rem; margin-bottom: 1rem; }
+.set-mgr-row { padding-bottom: 1.1rem; border-bottom: 1px solid var(--line-soft); }
+.set-mgr-row:last-child { border-bottom: none; padding-bottom: 0; }
+.set-mgr-row__foot { display: flex; justify-content: flex-end; margin-top: .6rem; }
+.set-mgr-invite { display: flex; gap: .5rem; align-items: center; }
+.set-mgr-invite input {
+  flex: 1;
+  min-width: 0;
+  padding: .45rem .58rem;
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  background: var(--fill);
+}

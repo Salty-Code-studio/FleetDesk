@@ -37,12 +37,21 @@ export default function ConfirmationPage() {
   const [polling, setPolling] = useState(false);
   const [exhausted, setExhausted] = useState(false);
   const [checking, setChecking] = useState(false);
+  // Desk vs online: fetched alongside the booking poll below. Sane "online"
+  // default before it resolves, so a normal online deployment's rendering
+  // never differs from before this state existed.
+  const [paymentMode, setPaymentMode] = useState<"online" | "desk">("online");
 
   useEffect(() => {
     // The wizard's persisted draft has done its job by the time this page
     // mounts (the booking exists, paid or not) — clear it so a later /book
     // visit never resurrects a stale, already-placed booking.
     try { window.sessionStorage.removeItem(WIZARD_STORAGE_KEY); } catch { /* storage unavailable — nothing to clear */ }
+
+    fetch("/api/booking-config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c: { paymentMode?: "online" | "desk" } | null) => { if (c?.paymentMode) setPaymentMode(c.paymentMode); })
+      .catch(() => {});
 
     const id = new URLSearchParams(window.location.search).get("id");
     if (!id) { setLoading(false); return; }
@@ -86,24 +95,31 @@ export default function ConfirmationPage() {
   }
 
   const confirmed = booking?.status === "confirmed";
+  const desk = paymentMode === "desk";
 
   return (
     <div className="wrap confirm">
       <div className="card">
         <div className="big" aria-hidden="true">{confirmed ? "✅" : "🚗"}</div>
-        <h1>{confirmed ? "Booking confirmed" : "Your car is reserved"}</h1>
+        <h1>{confirmed ? "Booking confirmed" : desk ? "Booking received" : "Your car is reserved"}</h1>
         {loading ? (
           <p className="note">Checking your booking…</p>
         ) : !booking ? (
           <p>We&apos;ve received your request. Our team will be in touch shortly.</p>
         ) : confirmed ? (
-          <>
-            <p>Payment received and your booking for {formatDateTime(booking.startAt)} to {formatDateTime(booking.endAt)} is confirmed.
-              We&apos;ll arrange delivery on WhatsApp. See you soon.</p>
-            {typeof booking.amountPaidCents === "number" && booking.amountPaidCents > 0 && (
-              <p className="note">Payment received: {money(booking.amountPaidCents, booking.priceBreakdown?.currency)}</p>
-            )}
-          </>
+          desk ? (
+            <p>Your booking for {formatDateTime(booking.startAt)} to {formatDateTime(booking.endAt)} is confirmed. See you at pickup; you pay at the desk.</p>
+          ) : (
+            <>
+              <p>Payment received and your booking for {formatDateTime(booking.startAt)} to {formatDateTime(booking.endAt)} is confirmed.
+                We&apos;ll arrange delivery on WhatsApp. See you soon.</p>
+              {typeof booking.amountPaidCents === "number" && booking.amountPaidCents > 0 && (
+                <p className="note">Payment received: {money(booking.amountPaidCents, booking.priceBreakdown?.currency)}</p>
+              )}
+            </>
+          )
+        ) : desk ? (
+          <p>Your booking for {formatDateTime(booking.startAt)} to {formatDateTime(booking.endAt)} is in. Our team will confirm it shortly and you pay at pickup. A confirmation email is on its way once it is approved.</p>
         ) : (
           <>
             <p>Your booking for {formatDateTime(booking.startAt)} to {formatDateTime(booking.endAt)} is held. If you just paid, the

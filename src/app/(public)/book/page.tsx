@@ -21,6 +21,9 @@ interface BookingConfig {
   // The operator's actual pick-up/return window ("HH:MM") — seeds the Dates
   // step's TimeSelect min/max so an out-of-hours slot is never offered.
   openingTime: string; closingTime: string;
+  // "desk" = no online payment; the wizard skips Stripe checkout entirely and
+  // shows pay-at-pickup copy instead.
+  paymentMode: "online" | "desk";
 }
 
 const money = (c: number, cur = "USD") => (cur === "USD" ? `$${(c / 100).toFixed(2)}` : `${cur} ${(c / 100).toFixed(2)}`);
@@ -88,6 +91,10 @@ export default function BookPage() {
   // resolves; the mount effect below overwrites this with the operator's real
   // hours so the TimeSelect controls never offer an out-of-hours slot.
   const [hours, setHours] = useState<{ openingTime: string; closingTime: string }>({ openingTime: "08:00", closingTime: "18:00" });
+  // Same pre-load-default-then-correct pattern as hours above: "online" until
+  // the booking-config fetch below resolves, so a normal online deployment's
+  // first paint never differs from before this field existed.
+  const [paymentMode, setPaymentMode] = useState<"online" | "desk">("online");
   const [tierId, setTierId] = useState<string>("");
   const [qty, setQty] = useState<Record<string, number>>({});
   const [license, setLicense] = useState({ ...blankLicense });
@@ -111,10 +118,14 @@ export default function BookPage() {
   const [resumeError, setResumeError] = useState("");
 
   useEffect(() => {
+    // Only an online booking ever comes back with ?canceled=1 (Stripe's own
+    // cancel_url); desk mode never opens a Stripe session, so there is
+    // nothing to resume.
+    if (paymentMode === "desk") return;
     const p = new URLSearchParams(window.location.search);
     const id = p.get("id");
     if (p.get("canceled") === "1" && id) setCanceledId(id);
-  }, []);
+  }, [paymentMode]);
 
   async function resumePayment() {
     if (!canceledId) return;
@@ -172,6 +183,7 @@ export default function BookPage() {
         if (!c) return;
         setCfg(c);
         setHours({ openingTime: c.openingTime, closingTime: c.closingTime });
+        setPaymentMode(c.paymentMode);
       })
       .catch(() => {});
     // Mount-only: intentionally reads the `hours` default in effect at load time.
@@ -230,7 +242,12 @@ export default function BookPage() {
         body: JSON.stringify({
           vehicleSlug: carSlug, startAt, endAt, customer,
           insuranceTierId: tierId || null, addOns: addOnsBody, license,
-          acceptTerms, paymentOption, idempotencyKey: idemKey,
+          acceptTerms,
+          // Desk mode never charges online, so there is no deposit-vs-full
+          // choice to make: always send "full", since the whole balance is
+          // due at pickup either way.
+          paymentOption: paymentMode === "desk" ? "full" : paymentOption,
+          idempotencyKey: idemKey,
           // The claimed age band, so the server's mismatch check compares the
           // claim against the licence DOB truth instead of always assuming "no".
           youngDriver: driverAge === "young",
@@ -247,6 +264,13 @@ export default function BookPage() {
             : "We checked the driver's date of birth on the licence and the young driver fee does not apply. Your updated, lower total is shown in the summary. Tap the button again to confirm and pay.",
         );
         setBusy(false);
+        return;
+      }
+      if (paymentMode === "desk") {
+        // No checkout to start: the booking already landed pending, and the
+        // desk (or a chat approval) confirms it later.
+        clearWizardStorage();
+        window.location.href = `/book/confirmation?id=${data.id}`;
         return;
       }
       const checkout = await fetch(`/api/bookings/${data.id}/checkout`, {
@@ -582,18 +606,20 @@ export default function BookPage() {
 
                 {breakdown && amounts && (
                   <>
-                    <div className="pay-options" role="radiogroup" aria-label="How would you like to pay?">
-                      <button type="button" className={`pay-card${paymentOption === "deposit" ? " selected" : ""}`} onClick={() => setPaymentOption("deposit")}>
-                        <span className="pay-card-title">Reserve with a deposit</span>
-                        <span className="pay-card-now">Pay {money(amounts.deposit.payNowCents, cur)} now</span>
-                        <span className="pay-card-later">{money(amounts.deposit.balanceDueCents, cur)} at pickup</span>
-                      </button>
-                      <button type="button" className={`pay-card${paymentOption === "full" ? " selected" : ""}`} onClick={() => setPaymentOption("full")}>
-                        <span className="pay-card-title">Pay in full</span>
-                        <span className="pay-card-now">Pay {money(amounts.full.payNowCents, cur)} now</span>
-                        <span className="pay-card-later">Nothing due at pickup</span>
-                      </button>
-                    </div>
+                    {paymentMode !== "desk" && (
+                      <div className="pay-options" role="radiogroup" aria-label="How would you like to pay?">
+                        <button type="button" className={`pay-card${paymentOption === "deposit" ? " selected" : ""}`} onClick={() => setPaymentOption("deposit")}>
+                          <span className="pay-card-title">Reserve with a deposit</span>
+                          <span className="pay-card-now">Pay {money(amounts.deposit.payNowCents, cur)} now</span>
+                          <span className="pay-card-later">{money(amounts.deposit.balanceDueCents, cur)} at pickup</span>
+                        </button>
+                        <button type="button" className={`pay-card${paymentOption === "full" ? " selected" : ""}`} onClick={() => setPaymentOption("full")}>
+                          <span className="pay-card-title">Pay in full</span>
+                          <span className="pay-card-now">Pay {money(amounts.full.payNowCents, cur)} now</span>
+                          <span className="pay-card-later">Nothing due at pickup</span>
+                        </button>
+                      </div>
+                    )}
 
                     {policy && (
                       <div className="policy-box">
@@ -605,12 +631,17 @@ export default function BookPage() {
                       </div>
                     )}
 
-                    <div className="trust-row">
-                      <span className="trust-lock" aria-hidden>🔒</span>
-                      <span>Secure payment via Stripe. You will be redirected to Stripe and back.</span>
-                    </div>
+                    {paymentMode !== "desk" && (
+                      <div className="trust-row">
+                        <span className="trust-lock" aria-hidden>🔒</span>
+                        <span>Secure payment via Stripe. You will be redirected to Stripe and back.</span>
+                      </div>
+                    )}
 
-                    <p className="pay-now-line">You pay now: <strong>{money(amounts[paymentOption].payNowCents, cur)}</strong></p>
+                    <p className="pay-now-line">
+                      {paymentMode === "desk" ? "Due at pickup: " : "You pay now: "}
+                      <strong>{money(paymentMode === "desk" ? amounts.full.payNowCents : amounts[paymentOption].payNowCents, cur)}</strong>
+                    </p>
                   </>
                 )}
 
@@ -640,13 +671,21 @@ export default function BookPage() {
             {step < TOTAL
               ? <button type="button" className="btn wiz-next" onClick={goNext}>Continue</button>
               : <button type="submit" className="btn wiz-next" disabled={!canReserve}>
-                  {busy ? "Reserving…" : amounts ? `Pay ${money(amounts[paymentOption].payNowCents, cur)} and reserve` : "Reserve & pay"}
+                  {busy
+                    ? "Reserving…"
+                    : paymentMode === "desk"
+                      ? "Reserve, pay at pickup"
+                      : amounts ? `Pay ${money(amounts[paymentOption].payNowCents, cur)} and reserve` : "Reserve & pay"}
                 </button>}
           </div>
 
           {step === TOTAL && (
             <>
-              <p className="note">You&apos;ll be taken to our secure Stripe checkout.</p>
+              <p className="note">
+                {paymentMode === "desk"
+                  ? "No payment needed now. You pay at pickup at the desk."
+                  : "You'll be taken to our secure Stripe checkout."}
+              </p>
               {priceNotice && <p className="msg price-notice" role="status" aria-live="polite">{priceNotice}</p>}
             </>
           )}
@@ -669,7 +708,10 @@ export default function BookPage() {
             ))}
             <div className="line total"><span>Rental total</span><span>{money(breakdown.subtotalCents, cur)}</span></div>
             {step === TOTAL && amounts && (
-              <div className="line muted"><span>You pay now</span><span>{money(amounts[paymentOption].payNowCents, cur)}</span></div>
+              <div className="line muted">
+                <span>{paymentMode === "desk" ? "Due at pickup" : "You pay now"}</span>
+                <span>{money(paymentMode === "desk" ? amounts.full.payNowCents : amounts[paymentOption].payNowCents, cur)}</span>
+              </div>
             )}
             {breakdown.depositCents !== null && <div className="line muted"><span>Refundable deposit</span><span>{money(breakdown.depositCents, cur)}</span></div>}
           </>

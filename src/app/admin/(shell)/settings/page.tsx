@@ -13,6 +13,13 @@ import {
 import { DatePicker, MoneyInput, TimeSelect } from "@/components/ui";
 import "./settings.css";
 
+// A back-office manager who may confirm/decline desk-mode bookings. The
+// inviteCode links their Telegram account (t.me/<bot>?start=<code>); chatId
+// is set server-side once they tap the invite link. Declared locally rather
+// than imported from the db schema, matching this file's existing pattern of
+// hand-shaped client interfaces (see Settings and Blackout below).
+interface ApprovalManager { name: string; email?: string; inviteCode: string; chatId?: string }
+
 interface Settings {
   depositPercent: number; depositMinCents: number; cancellationWindowHours: number;
   currency: string; minDriverAge: number;
@@ -21,12 +28,18 @@ interface Settings {
   maxAdvanceDays: number; licenseRetentionDays: number; adminAlertRecipients: string[];
   complianceAlertDays: number;
   youngDriverAge: number; youngDriverFeeCentsPerDay: number;
+  approvalManagers: ApprovalManager[];
+  approvalReminderHours: number;
+  approvalMaxReminders: number;
+  // Read-only, env-derived: not part of the PATCH schema, never sent back.
+  telegramBotUsername: string;
+  telegramConfigured: boolean;
 }
 interface Blackout { id: string; startDate: string; endDate: string; reason: string }
 
 // Field counts per labelled section below, used only to shape the loading
 // skeleton so it roughly mirrors the loaded layout.
-const SKELETON_SECTIONS = [3, 3, 3, 1, 3, 3];
+const SKELETON_SECTIONS = [3, 3, 3, 1, 3, 3, 2];
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
@@ -35,6 +48,10 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [boOpen, setBoOpen] = useState(false);
   const [bo, setBo] = useState({ startDate: "", endDate: "", reason: "" });
+  // Which manager's invite link was just copied, so its button can flash
+  // "Copied" without a separate boolean per row (mirrors the drawer's
+  // extend-link copy pattern, generalized to N rows via the invite code).
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -68,6 +85,38 @@ export default function SettingsPage() {
     setBoOpen(true);
   }
 
+  // Booking-approval managers live on the same settings row as everything
+  // else on this page, so they are edited straight on `s` (like every other
+  // field here) and persisted through the one Save settings button below,
+  // not a separate API call.
+  function addManager() {
+    if (!s) return;
+    setS({
+      ...s,
+      approvalManagers: [...s.approvalManagers, { name: "", email: "", inviteCode: crypto.randomUUID() }],
+    });
+  }
+  function updateManager(i: number, patch: Partial<ApprovalManager>) {
+    if (!s) return;
+    setS({ ...s, approvalManagers: s.approvalManagers.map((m, idx) => (idx === i ? { ...m, ...patch } : m)) });
+  }
+  function removeManager(i: number) {
+    if (!s) return;
+    setS({ ...s, approvalManagers: s.approvalManagers.filter((_, idx) => idx !== i) });
+  }
+  function inviteUrl(inviteCode: string): string {
+    return `https://t.me/${s?.telegramBotUsername ?? ""}?start=${inviteCode}`;
+  }
+  async function copyInvite(inviteCode: string) {
+    try {
+      await navigator.clipboard.writeText(inviteUrl(inviteCode));
+      setCopiedCode(inviteCode);
+      setTimeout(() => setCopiedCode((c) => (c === inviteCode ? null : c)), 1500);
+    } catch {
+      toast.show({ type: "error", message: "Couldn't copy the link, please copy it by hand." });
+    }
+  }
+
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!s) return;
@@ -88,6 +137,14 @@ export default function SettingsPage() {
         complianceAlertDays: s.complianceAlertDays,
         youngDriverAge: s.youngDriverAge,
         youngDriverFeeCentsPerDay: s.youngDriverFeeCentsPerDay,
+        approvalManagers: s.approvalManagers.map((m) => ({
+          name: m.name,
+          email: m.email && m.email.trim() ? m.email.trim() : undefined,
+          inviteCode: m.inviteCode,
+          chatId: m.chatId || undefined,
+        })),
+        approvalReminderHours: s.approvalReminderHours,
+        approvalMaxReminders: s.approvalMaxReminders,
         adminAlertRecipients: recipients.split(",").map((r) => r.trim()).filter(Boolean),
       });
       setS(updated);
@@ -286,6 +343,66 @@ export default function SettingsPage() {
                 <label className="full">Admin alert recipients (comma-separated emails)
                   <input value={recipients} onChange={(e) => setRecipients(e.target.value)}
                     placeholder="owner@fleetdesk.app, ops@fleetdesk.app" />
+                </label>
+              </div>
+            </section>
+
+            <section className="set-section">
+              <div className="set-section__head">
+                <h3>Booking approvals</h3>
+                <p className="set-section__hint">Who gets pinged to confirm a desk-mode booking, on Telegram and by email.</p>
+              </div>
+
+              {s.approvalManagers.length === 0 ? (
+                <p className="muted">No approval managers yet. Add one so desk bookings have someone to confirm them.</p>
+              ) : (
+                <div className="set-mgr-list">
+                  {s.approvalManagers.map((m, i) => (
+                    <div className="set-mgr-row" key={m.inviteCode}>
+                      <div className="form-grid">
+                        <label>Name
+                          <input value={m.name} placeholder="For example: Maya"
+                            onChange={(e) => updateManager(i, { name: e.target.value })} />
+                        </label>
+                        <label>Email (optional)
+                          <input type="email" value={m.email ?? ""} placeholder="maya@fleetdesk.app"
+                            onChange={(e) => updateManager(i, { email: e.target.value })} />
+                        </label>
+                        <label className="full">Telegram
+                          {m.chatId ? (
+                            <span className="tag on">Linked</span>
+                          ) : !s.telegramConfigured ? (
+                            <span className="muted">Set TELEGRAM_BOT_TOKEN to enable Telegram pings. Email still works.</span>
+                          ) : (
+                            <span className="set-mgr-invite">
+                              <input type="text" readOnly value={inviteUrl(m.inviteCode)} onFocus={(e) => e.currentTarget.select()} />
+                              <button type="button" className="btn btn--quiet" onClick={() => copyInvite(m.inviteCode)}>
+                                {copiedCode === m.inviteCode ? "Copied" : "Copy"}
+                              </button>
+                            </span>
+                          )}
+                        </label>
+                      </div>
+                      <div className="set-mgr-row__foot row-actions">
+                        <button type="button" className="danger" onClick={() => removeManager(i)}>Remove manager</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="actions">
+                <button type="button" className="btn btn--quiet" onClick={addManager}>Add manager</button>
+              </div>
+
+              <div className="form-grid" style={{ marginTop: "1.3rem" }}>
+                <label>Reminder interval (hours)
+                  <input type="number" min="1" max="168" value={s.approvalReminderHours}
+                    onChange={(e) => setS({ ...s, approvalReminderHours: Number(e.target.value) })} />
+                </label>
+                <label>Maximum reminders
+                  <input type="number" min="0" max="10" value={s.approvalMaxReminders}
+                    onChange={(e) => setS({ ...s, approvalMaxReminders: Number(e.target.value) })} />
                 </label>
               </div>
             </section>

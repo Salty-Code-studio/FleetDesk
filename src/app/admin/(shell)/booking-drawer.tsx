@@ -62,6 +62,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
   const [showCancel, setShowCancel] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   const [showExtend, setShowExtend] = useState(false);
   const [exBusy, setExBusy] = useState(false);
@@ -221,6 +222,23 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     setRefundBusy(false);
   }
 
+  // Positive, non-destructive: unlike Cancel, Confirm needs no modal
+  // double-check, so it is a plain fetch-and-refresh action on the button
+  // itself (same shape as the other actions below, just without a sub-panel).
+  async function doConfirm() {
+    if (!bookingId) return;
+    setConfirmBusy(true);
+    try {
+      await api(`/api/admin/bookings/${bookingId}/confirm`);
+      toast.show({ type: "success", message: "Booking confirmed." });
+      onChanged();
+      await load();
+    } catch (e) {
+      toast.show({ type: "error", message: (e as ApiError).message });
+    }
+    setConfirmBusy(false);
+  }
+
   async function doCancel(refund: boolean) {
     if (!bookingId) return;
     setCancelBusy(true);
@@ -313,6 +331,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   }
 
   const b = detail?.booking;
+  const canConfirm = b?.status === "pending";
   const canCancel = b?.status === "pending" || b?.status === "confirmed";
   // A car can be swapped for any live booking, including one already picked up
   // (the car can break down mid-rental). Only cancelled/completed are out.
@@ -395,6 +414,11 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
               <h3>Actions</h3>
               {!showMove && !showSwap && (
                 <div className="pl-pop-actions">
+                  {canConfirm && (
+                    <button type="button" className="btn btn--accent" disabled={confirmBusy} onClick={doConfirm}>
+                      {confirmBusy ? "Confirming…" : "Confirm booking"}
+                    </button>
+                  )}
                   <button type="button" className="btn btn--quiet" onClick={openMove}>Move…</button>
                   <button type="button" className="btn btn--quiet" onClick={openExtend}>Extend…</button>
                   {canSwap && (
