@@ -46,10 +46,11 @@ export async function sendText(chatId: string, text: string): Promise<void> {
   await call("sendMessage", { chat_id: chatId, text });
 }
 
-/** Rewrites a delivered ping after the decision; omitting reply_markup drops
- *  the buttons so late taps have nothing left to press. */
+/** Rewrites a delivered ping after the decision; sends an explicit empty
+ *  inline keyboard so the buttons are removed regardless of Telegram's
+ *  omitted-field behavior, leaving late taps nothing to press. */
 export async function editMessage(chatId: string, messageId: number, text: string): Promise<void> {
-  await call("editMessageText", { chat_id: chatId, message_id: messageId, text });
+  await call("editMessageText", { chat_id: chatId, message_id: messageId, text, reply_markup: { inline_keyboard: [] } });
 }
 
 export async function answerCallback(callbackQueryId: string, text?: string): Promise<void> {
@@ -104,7 +105,7 @@ export function parseTelegramUpdate(update: unknown): TelegramTap | TelegramStar
     from?: { first_name?: unknown };
     chat?: { id?: unknown };
   } | undefined;
-  if (msg && typeof msg.text === "string" && msg.text.startsWith("/start")) {
+  if (msg && typeof msg.text === "string" && (msg.text === "/start" || msg.text.startsWith("/start "))) {
     const chatId = msg.chat?.id;
     if (typeof chatId !== "number" && typeof chatId !== "string") return null;
     return {
