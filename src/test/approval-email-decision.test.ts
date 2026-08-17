@@ -67,6 +67,16 @@ describe("email decision endpoints", () => {
     expect((await ok.json()).status).toBe("open");
     const bad = await GET(new Request("http://localhost:3000/api/approval/x", { headers: { "user-agent": "t" } }), { params: Promise.resolve({ token: "garbage" }) });
     expect(bad.status).toBe(404);
+    // scanner-safety: the GET calls above must not have decided anything
+    const { getDb } = await import("@/lib/db/client");
+    const { approvalRequests, bookings } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = await getDb();
+    const [reqRow] = await db.select().from(approvalRequests).where(eq(approvalRequests.bookingId, bookingId));
+    expect(reqRow!.status).toBe("open");
+    expect(reqRow!.decidedBy).toBe(null);
+    const [b] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+    expect(b!.status).toBe("pending");
   });
 
   it("POST decide confirms the booking once, then reports already handled", async () => {
