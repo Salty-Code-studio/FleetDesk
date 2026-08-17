@@ -29,3 +29,23 @@ describe("admin confirm route in online mode", () => {
     expect(res.status).toBe(404);
   });
 });
+
+// The inverse gate: /api/admin/maintenance/expire-holds is BLOCKED in desk
+// mode (see desk-mode-booking.test.ts) and ALLOWED here. This proves the
+// desk-mode guard does not misfire outside desk mode: it must reach the real
+// auth boundary, not the 409 conflict a desk deployment would answer with.
+describe("admin maintenance expire-holds route in online mode", () => {
+  it("does not desk-gate: reaches auth and answers the normal unauthenticated status", async () => {
+    const { POST } = await import("@/app/api/admin/maintenance/expire-holds/route");
+    const res = await POST(
+      new Request("http://localhost:3000/api/admin/maintenance/expire-holds", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3000", "user-agent": "t" },
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({}) },
+    );
+    expect(res.status).not.toBe(409); // never the desk-mode conflict
+    expect(res.status).toBe(401); // requireAdmin sees no session
+  });
+});

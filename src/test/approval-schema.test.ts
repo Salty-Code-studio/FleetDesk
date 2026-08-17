@@ -44,4 +44,51 @@ describe("approval schema", () => {
     expect(updated.approvalManagers[0]!.name).toBe("Naomi");
     expect(updated.approvalReminderHours).toBe(6);
   });
+
+  it("a settings save never wipes a manager's chatId linked after the page loaded", async () => {
+    const { settings } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = await getDb();
+
+    await patchSettings({
+      approvalManagers: [
+        { name: "Priya", email: "priya@example.com", inviteCode: "code-priya-0001" },
+        { name: "Sanne", inviteCode: "code-sanne-0002" },
+      ],
+    });
+
+    // Simulate linkManagerChat: a manager taps their Telegram invite, which
+    // writes chatId straight to the row, bypassing the settings form entirely.
+    const linkedRow = (await getSettings()).approvalManagers.map((m) =>
+      m.inviteCode === "code-priya-0001" ? { ...m, chatId: "555111" } : m,
+    );
+    await db.update(settings).set({ approvalManagers: linkedRow }).where(eq(settings.id, 1));
+    expect((await getSettings()).approvalManagers.find((m) => m.inviteCode === "code-priya-0001")!.chatId).toBe("555111");
+
+    // (a) The admin saves the SAME managers the stale page loaded with (no
+    // chatId in the form): the link must survive, not get wiped.
+    const afterSameSave = await patchSettings({
+      approvalManagers: [
+        { name: "Priya", email: "priya@example.com", inviteCode: "code-priya-0001" },
+        { name: "Sanne", inviteCode: "code-sanne-0002" },
+      ],
+    });
+    expect(afterSameSave.approvalManagers.find((m) => m.inviteCode === "code-priya-0001")!.chatId).toBe("555111");
+
+    // (c) An explicit chatId in the patch wins over the carried-forward value.
+    const afterExplicit = await patchSettings({
+      approvalManagers: [
+        { name: "Priya", email: "priya@example.com", inviteCode: "code-priya-0001", chatId: "999222" },
+        { name: "Sanne", inviteCode: "code-sanne-0002" },
+      ],
+    });
+    expect(afterExplicit.approvalManagers.find((m) => m.inviteCode === "code-priya-0001")!.chatId).toBe("999222");
+
+    // (b) Dropping Priya from the incoming list still removes her, link and all.
+    const afterRemoval = await patchSettings({
+      approvalManagers: [{ name: "Sanne", inviteCode: "code-sanne-0002" }],
+    });
+    expect(afterRemoval.approvalManagers.find((m) => m.inviteCode === "code-priya-0001")).toBeUndefined();
+    expect(afterRemoval.approvalManagers).toHaveLength(1);
+  });
 });

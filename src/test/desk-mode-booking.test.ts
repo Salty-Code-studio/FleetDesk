@@ -105,4 +105,25 @@ describe("desk mode booking flow", () => {
     const cfg = await publicBookingConfig();
     expect(cfg.paymentMode).toBe("desk");
   });
+
+  it("admin maintenance expire-holds route refuses to run in desk mode", async () => {
+    // The gate fires before parseJsonBody and before auth, so no session and
+    // no body are needed to prove it: a bare POST must already be refused.
+    const { POST } = await import("@/app/api/admin/maintenance/expire-holds/route");
+    const res = await POST(
+      new Request("http://localhost:3000/api/admin/maintenance/expire-holds", {
+        method: "POST",
+        headers: { "user-agent": "t" },
+      }),
+      { params: Promise.resolve({}) },
+    );
+    expect(res.status).toBe(409);
+    // The booking from the first test is untouched: nothing ran.
+    const { getDb } = await import("@/lib/db/client");
+    const { bookings } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = await getDb();
+    const [row] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+    expect(row!.status).toBe("pending");
+  });
 });

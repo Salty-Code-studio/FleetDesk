@@ -84,8 +84,29 @@ export async function patchSettings(patch: z.infer<typeof SettingsPatchSchema>):
   if (mergedOpening >= mergedClosing) {
     throw Errors.validation([{ path: "openingTime", message: "openingTime must be before closingTime" }]);
   }
+  // approvalManagers is a wholesale replace by shape (the admin form sends the
+  // full list on every save), but a bare replace would silently unlink any
+  // manager who tapped their Telegram invite after the settings page loaded:
+  // linkManagerChat writes chatId straight to the row, so it never round-trips
+  // through the form the admin is editing. Carry a current row's chatId
+  // forward onto a same-inviteCode incoming entry that does not specify one.
+  // An incoming entry with an explicit chatId is left exactly as sent (it
+  // wins over the carried-forward value), a brand-new inviteCode is left
+  // as-is, and dropping an inviteCode from the incoming list still removes
+  // that manager entirely.
+  const approvalManagers = patch.approvalManagers === undefined
+    ? undefined
+    : patch.approvalManagers.map((incoming) => {
+        if (incoming.chatId) return incoming;
+        const linked = current.approvalManagers.find((m) => m.inviteCode === incoming.inviteCode);
+        return linked?.chatId ? { ...incoming, chatId: linked.chatId } : incoming;
+      });
   const [updated] = await db.update(settings)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({
+      ...patch,
+      ...(approvalManagers === undefined ? {} : { approvalManagers }),
+      updatedAt: new Date(),
+    })
     .where(eq(settings.id, 1))
     .returning();
   return updated!;
