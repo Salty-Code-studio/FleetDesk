@@ -121,6 +121,23 @@ export function adminPaymentEmail(args: { vehicleName: string; startAt: string; 
   };
 }
 
+export function approvalDecisionEmail(args: {
+  siteName: string; messageText: string; approveUrl: string; declineUrl: string;
+}): RenderedEmail {
+  const lines = args.messageText.split("\n").map((l) => `${l}<br>`).join("");
+  return {
+    subject: `Booking to confirm at ${args.siteName}`,
+    html: shell("Booking to confirm", `
+      <p>A new booking came in and is waiting for a quick yes or no.</p>
+      <p>${lines}</p>
+      <p>
+        <a href="${args.approveUrl}" style="display:inline-block;padding:10px 18px;background:#16a34a;color:#fff;border-radius:6px;text-decoration:none;margin-right:8px">Review and confirm</a>
+        <a href="${args.declineUrl}" style="display:inline-block;padding:10px 18px;background:#dc2626;color:#fff;border-radius:6px;text-decoration:none">Review and decline</a>
+      </p>
+      <p>The buttons open a small review page first, so nothing happens by accident. If the booking was already handled you will see who did it.</p>`),
+  };
+}
+
 export function adminDocumentExpiringEmail(args: {
   vehicleName: string; plate: string; kind: "insurance" | "inspection"; dueOn: string; daysLeft: number;
 }): RenderedEmail {

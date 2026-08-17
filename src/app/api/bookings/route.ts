@@ -7,6 +7,7 @@ import { enforceOrigin } from "@/lib/auth/csrf";
 import { createBooking, BookingCreateSchema } from "@/lib/booking/create";
 import { arubaNowIso, mapLegacyDateKeys } from "@/lib/booking/public";
 import { notifyNewBooking } from "@/lib/email/notifications";
+import { createApprovalRequest } from "@/lib/approval/core";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,7 @@ export const POST = withRoute(async (req) => {
   const input = await parseJsonBody(req, BodySchema);
   const { booking, breakdown, replayed, priceAdjusted } = await createBooking(input, arubaNowIso());
   if (!replayed) await notifyNewBooking(booking.id); // best-effort admin alert
+  if (!replayed) await createApprovalRequest(booking.id); // desk-mode chat approval, best-effort
   return json({
     id: booking.id,
     status: booking.status,
