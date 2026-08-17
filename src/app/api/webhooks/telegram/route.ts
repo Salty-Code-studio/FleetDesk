@@ -41,20 +41,20 @@ export const POST = withRoute(async (req) => {
   const manager = await managerByChatId(parsed.chatId);
   if (!manager) {
     logger.warn("telegram_tap_unknown_chat", { chatId: parsed.chatId });
-    await answerCallback(parsed.callbackQueryId, "Not authorized.").catch(() => undefined);
+    await answerCallback(parsed.callbackQueryId, "Not authorized.").catch((e) => logger.error("telegram_answer_failed", { error: (e as Error).message }));
     return json({ ok: true }, req);
   }
 
   const result = await applyDecision(parsed.requestId, parsed.action, { name: manager.name, channel: "telegram" });
   if (result.outcome === "confirmed" || result.outcome === "declined") {
-    await answerCallback(parsed.callbackQueryId, result.outcome === "confirmed" ? "Booking confirmed." : "Booking declined.").catch(() => undefined);
+    await answerCallback(parsed.callbackQueryId, result.outcome === "confirmed" ? "Booking confirmed." : "Booking declined.").catch((e) => logger.error("telegram_answer_failed", { error: (e as Error).message }));
     await broadcastDecision(parsed.requestId);
   } else if (result.outcome === "already_handled") {
-    await answerCallback(parsed.callbackQueryId, `Already handled by ${result.decidedBy ?? "the team"}.`).catch(() => undefined);
+    await answerCallback(parsed.callbackQueryId, `Already handled by ${result.decidedBy ?? "the team"}.`).catch((e) => logger.error("telegram_answer_failed", { error: (e as Error).message }));
   } else if (result.outcome === "expired") {
-    await answerCallback(parsed.callbackQueryId, "This one expired. Please use the admin.").catch(() => undefined);
+    await answerCallback(parsed.callbackQueryId, "This one expired. Please use the admin.").catch((e) => logger.error("telegram_answer_failed", { error: (e as Error).message }));
   } else {
-    await answerCallback(parsed.callbackQueryId, "Unknown booking. Please use the admin.").catch(() => undefined);
+    await answerCallback(parsed.callbackQueryId, "Unknown booking. Please use the admin.").catch((e) => logger.error("telegram_answer_failed", { error: (e as Error).message }));
   }
   return json({ ok: true }, req);
 });

@@ -84,6 +84,37 @@ describe("POST /api/webhooks/telegram", () => {
     expect(reply).toBeDefined();
   });
 
+  it("denies /start with a wrong or missing code and changes nothing", async () => {
+    telegramCalls.length = 0;
+    const { POST } = await import("@/app/api/webhooks/telegram/route");
+    const { getSettings } = await import("@/lib/admin/settings");
+    const before = (await getSettings()).approvalManagers;
+
+    const res1 = await POST(hook({
+      update_id: 6,
+      message: { message_id: 2, from: { id: 555, first_name: "Mallory" }, chat: { id: 555 }, text: "/start wrong-code-999" },
+    }), { params: Promise.resolve({}) });
+    expect(res1.status).toBe(200);
+
+    const res2 = await POST(hook({
+      update_id: 7,
+      message: { message_id: 3, from: { id: 555, first_name: "Mallory" }, chat: { id: 555 }, text: "/start" },
+    }), { params: Promise.resolve({}) });
+    expect(res2.status).toBe(200);
+
+    // Both attempts got the polite denial, addressed to chat 555.
+    const denials = telegramCalls.filter((c) =>
+      c.method === "sendMessage" && c.body.chat_id === "555" &&
+      String(c.body.text).includes("This bot only serves") && String(c.body.text).includes("staff"),
+    );
+    expect(denials).toHaveLength(2);
+
+    // And the managers list is deep-equal untouched: nobody got linked.
+    const after = (await getSettings()).approvalManagers;
+    expect(after).toEqual(before);
+    expect(after.some((m) => m.chatId === "555")).toBe(false);
+  });
+
   it("ignores taps from unknown chats", async () => {
     telegramCalls.length = 0;
     const { POST } = await import("@/app/api/webhooks/telegram/route");
