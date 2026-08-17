@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import { eq, and, inArray, lt, gt, sql } from "drizzle-orm";
+import { env } from "@/env";
 import { getDb } from "@/lib/db/client";
 import {
   vehicles, customers, bookings, bookingAddOns, addOns, insuranceTiers, driverLicenses,
@@ -140,12 +141,15 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
 
   // If the owner zeroed both deposit knobs the booking could never be charged
   // (chargeForBooking throws), so reject up front instead of stranding a hold.
-  const amounts = paymentAmounts(breakdown, input.paymentOption, {
-    depositPercent: settings.depositPercent,
-    depositMinCents: settings.depositMinCents,
-  });
-  if (amounts.payNowCents <= 0) {
-    throw Errors.badRequest("Online reservation is unavailable right now; please contact us to book");
+  // Desk mode never charges online, so the guard does not apply there.
+  if (env.PAYMENT_MODE === "online") {
+    const amounts = paymentAmounts(breakdown, input.paymentOption, {
+      depositPercent: settings.depositPercent,
+      depositMinCents: settings.depositMinCents,
+    });
+    if (amounts.payNowCents <= 0) {
+      throw Errors.badRequest("Online reservation is unavailable right now; please contact us to book");
+    }
   }
 
   const termsVersion = (await getLatestPolicy("rental_terms"))?.version ?? 0;

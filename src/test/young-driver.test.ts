@@ -40,7 +40,7 @@ describe("publicBookingConfig", () => {
     expect(cfg.openingTime).toBe("08:00");
     expect(cfg.closingTime).toBe("18:00");
     // nothing else leaks (no admin recipients, no retention settings)
-    expect(Object.keys(cfg).sort()).toEqual(["closingTime", "currency", "minDriverAge", "openingTime", "youngDriverAge", "youngDriverFeeCentsPerDay"]);
+    expect(Object.keys(cfg).sort()).toEqual(["closingTime", "currency", "minDriverAge", "openingTime", "paymentMode", "youngDriverAge", "youngDriverFeeCentsPerDay"]);
   });
 });
 

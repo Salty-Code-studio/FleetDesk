@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { env } from "@/env";
+import { env, isDeskMode } from "@/env";
 import { logger } from "@/lib/logger";
 import { expireStaleHolds } from "@/lib/payments/holds";
 import { sweepInspectionMedia, sweepDriverLicenses } from "@/lib/admin/inspections";
@@ -20,7 +20,9 @@ export async function GET(req: Request): Promise<NextResponse> {
   if (!env.CRON_SECRET || auth !== `Bearer ${env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const cancelled = await expireStaleHolds(30); // holds older than 30 min, unpaid
+  // Desk mode has no online checkout to abandon; expiring "unpaid" pending
+  // holds would cancel every real desk booking after 30 minutes.
+  const cancelled = isDeskMode ? 0 : await expireStaleHolds(30);
   const mediaPurged = await sweepInspectionMedia();
   const licensesPurged = await sweepDriverLicenses();
   logger.info("cron_expire_holds", { cancelled, mediaPurged, licensesPurged });

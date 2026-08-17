@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { env } from "@/env";
+import { env, isDeskMode } from "@/env";
 import { logger } from "@/lib/logger";
 import { getStripe } from "@/lib/payments/stripe-client";
 import { processStripeEvent } from "@/lib/payments/webhook";
@@ -17,6 +17,10 @@ export const dynamic = "force-dynamic";
  * stops retrying a genuine-but-unhandled event.
  */
 export async function POST(req: Request): Promise<NextResponse> {
+  // This route is not wrapped in withRoute (see comment above), so match its
+  // existing direct-NextResponse error style rather than throwing Errors.*.
+  if (isDeskMode) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const sig = req.headers.get("stripe-signature");
   if (!sig) return NextResponse.json({ error: "Missing signature" }, { status: 400 });
 
