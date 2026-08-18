@@ -86,6 +86,10 @@ static site.
       registered (Vercel → Cron) and `CRON_SECRET` is set. Without it,
       unanswered approval requests never get their reminder ping, no matter
       what the reminder interval under **Settings > Booking approvals** says.
+      Vercel's Hobby plan only allows daily crons, so vercel.json ships with
+      a daily 10:00 UTC run (a morning sweep of overnight bookings). On a
+      Pro team, change the schedule to `0 * * * *` for hourly reminders so
+      the Settings reminder interval is honored within the hour.
 
 ## 9. Security checklists (fort) before go-live
 

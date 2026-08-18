@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron/approval-reminders",
-      "schedule": "0 * * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
