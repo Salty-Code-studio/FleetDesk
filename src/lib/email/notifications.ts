@@ -10,7 +10,8 @@ import { bookings, vehicles, customers, payments } from "@/lib/db/schema";
 import { getSettings } from "@/lib/admin/settings";
 import { sendAndLog, sendToMany } from "@/lib/email/send";
 import {
-  bookingConfirmedEmail, bookingCancelledEmail, adminNewBookingEmail, adminPaymentEmail, bookingExtendedEmail,
+  bookingConfirmedEmail, bookingCancelledEmail, adminNewBookingEmail, adminPaymentEmail,
+  adminReservationConfirmedEmail, bookingExtendedEmail,
 } from "@/lib/email/templates";
 import { notifyAdmin, sendOwnerWhatsApp } from "@/lib/notify";
 import { logger } from "@/lib/logger";
@@ -20,7 +21,8 @@ import type { QuoteBreakdown } from "@/lib/booking/quote";
 async function context(bookingId: string) {
   const db = await getDb();
   const [row] = await db.select({
-    booking: bookings, vehicleName: vehicles.name, customerEmail: customers.email,
+    booking: bookings, vehicleName: vehicles.name, vehicleClass: vehicles.class,
+    customerEmail: customers.email, customerName: customers.name,
   }).from(bookings)
     .innerJoin(vehicles, eq(bookings.vehicleId, vehicles.id))
     .innerJoin(customers, eq(bookings.customerId, customers.id))
@@ -71,8 +73,12 @@ export async function notifyBookingConfirmed(bookingId: string): Promise<void> {
     await sendAndLog({
       to: ctx.customerEmail, type: "booking_confirmed",
       ...bookingConfirmedEmail({
-        vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
+        bookingId,
+        vehicleClass: ctx.vehicleClass, vehicleName: ctx.vehicleName,
+        startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
+        customerName: ctx.customerName,
         rentalTotalCents: breakdown.subtotalCents, currency: pay?.currency ?? breakdown.currency,
+        depositCents: breakdown.depositCents,
         amountPaidCents: pay?.amountCents, chargeType: pay?.type,
         paid,
       }),
@@ -84,6 +90,18 @@ export async function notifyBookingConfirmed(bookingId: string): Promise<void> {
         ...adminPaymentEmail({
           vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
           amountCents: pay.amountCents, currency: pay.currency,
+          customerEmail: ctx.customerEmail,
+        }),
+      }));
+    } else {
+      // Desk confirm (Telegram tap, email link, or admin button): no payment
+      // row to report, so the owner gets a reservation-confirmed summary
+      // instead of a payment alert. Same recipients, same best-effort fan-out.
+      await sendToMany(settings.adminAlertRecipients, (to) => ({
+        to, type: "admin_reservation_confirmed",
+        ...adminReservationConfirmedEmail({
+          vehicleName: ctx.vehicleName, startAt: ctx.booking.startAt, endAt: ctx.booking.endAt,
+          rentalTotalCents: breakdown.subtotalCents, currency: breakdown.currency,
           customerEmail: ctx.customerEmail,
         }),
       }));
