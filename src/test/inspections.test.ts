@@ -93,6 +93,26 @@ describe("recordDeskBalancePayment", () => {
     const b = await mkBooking("insp-desk-2", "confirmed");
     await expect(recordDeskBalancePayment(b.id, 40001, adminId)).rejects.toThrow(/more than the open balance/i);
   });
+
+  it("still settles a COMPLETED rental (the desk often collects after return)", async () => {
+    const b = await mkBooking("insp-desk-3", "completed");
+    const updated = await recordDeskBalancePayment(b.id, 40000, adminId);
+    expect(updated.amountPaidCents).toBe(40000);
+    const rows = await db.select().from(payments).where(eq(payments.bookingId, b.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.status).toBe("succeeded");
+  });
+
+  it("refuses a cancelled booking", async () => {
+    const b = await mkBooking("insp-desk-4", "cancelled");
+    await expect(recordDeskBalancePayment(b.id, 40000, adminId)).rejects.toThrow(/no longer take payments/i);
+  });
+
+  it("still refuses a second payment once the balance is closed", async () => {
+    const b = await mkBooking("insp-desk-5", "completed");
+    await recordDeskBalancePayment(b.id, 40000, adminId);
+    await expect(recordDeskBalancePayment(b.id, 1, adminId)).rejects.toThrow(/more than the open balance/i);
+  });
 });
 
 describe("getHandover", () => {

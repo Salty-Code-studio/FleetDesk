@@ -102,7 +102,11 @@ export async function recordDeskBalancePayment(
   return db.transaction(async (tx) => {
     const [booking] = await tx.select().from(bookings).where(eq(bookings.id, bookingId)).for("update");
     if (!booking) throw Errors.notFound("Booking not found");
-    if (booking.status === "cancelled" || booking.status === "completed") {
+    // A completed rental can still owe money: the desk regularly settles up
+    // after the vehicle is back, and the planning board now flags exactly those
+    // bookings. Only a cancelled booking is closed to money — its refunds run
+    // through the refund path instead.
+    if (booking.status === "cancelled") {
       throw Errors.conflict("This booking can no longer take payments");
     }
     const breakdown = booking.priceBreakdown as Partial<QuoteBreakdown>;
