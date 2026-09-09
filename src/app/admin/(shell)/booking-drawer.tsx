@@ -130,6 +130,8 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     setShowSwap(false);
     setSwapAdvisory(null);
     setRepairFor(null);
+    setShowOtherAmount(false);
+    setOtherAmountCents(null);
   }, [bookingId]);
 
   async function openMove() {
