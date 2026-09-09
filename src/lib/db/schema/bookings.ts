@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, timestamp, uuid, jsonb, check } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, timestamp, date, uuid, jsonb, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { vehicles } from "./fleet";
 import { customers } from "./customers";
@@ -37,6 +37,10 @@ export const bookings = pgTable("bookings", {
   // Sum of settled money on this booking. Credited by the Stripe webhook and by
   // desk payments, debited by refunds, so balance-due is queryable.
   amountPaidCents: integer("amount_paid_cents").notNull().default(0),
+  // Monthly long-term rentals: the desk marks how far the renter has paid
+  // ("betaald t/m"). When set it overrides the amount-based unpaid flag on the
+  // planning board; the money ledger above stays independent.
+  paidUntil: date("paid_until"),
   acceptedPolicyVersion: integer("accepted_policy_version").notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull(),
   idempotencyKey: text("idempotency_key").notNull().unique(),

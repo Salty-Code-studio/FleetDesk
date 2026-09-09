@@ -176,6 +176,13 @@
       "when": 1786968554247,
       "tag": "0024_magenta_captain_midlands",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788946018915,
+      "tag": "0025_paid_until",
+      "breakpoints": true
     }
   ]
 }
