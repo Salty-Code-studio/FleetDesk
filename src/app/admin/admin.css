@@ -263,6 +263,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-bar--due_back_soon { background: var(--pickup); outline: 2px solid var(--amber); outline-offset: -2px; cursor: default; }
 .pl-bar--overdue { background: var(--overdue); cursor: default; }
 .pl-bar--completed { background: var(--ok); cursor: default; }
+.pl-bar--unpaid { background: repeating-linear-gradient(45deg, #C0473A 0 6px, #922C23 6px 12px); color: #fff; }
 .pl-bar.manual::after { content: "✦"; margin-left: .35rem; opacity: .85; font-size: .68rem; }
 .pl-bar.dragging { opacity: .35; }
 .pl-block { position: absolute; top: 8px; height: 30px; border-radius: 8px; color: #2b3252; display: flex; align-items: center; padding: 0 .5rem; font-size: .72rem; font-weight: 600; font-family: var(--font-mono); overflow: hidden; white-space: nowrap; cursor: pointer; user-select: none; background: repeating-linear-gradient(45deg, #d8ccb4, #d8ccb4 6px, #c8baa0 6px, #c8baa0 12px); }

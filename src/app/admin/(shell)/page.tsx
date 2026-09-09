@@ -19,7 +19,7 @@ import { createDragClickGuard, type DragClickGuard } from "@/lib/admin/drag-clic
 import { BookingDrawer } from "./booking-drawer";
 import "./dashboard.css";
 
-interface Bar { id: string; start: string; end: string; startAt: string; endAt: string; status: string; source: string; label: string; notes: string | null }
+interface Bar { id: string; start: string; end: string; startAt: string; endAt: string; status: string; source: string; label: string; notes: string | null; unpaid?: boolean; paidUntil?: string | null; paidNote?: string | null; balanceDueCents?: number }
 interface Block { id: string; start: string; end: string; startAt: string; endAt: string; type: string; reason: string }
 interface Vehicle { id: string; name: string; slug: string; plate: string; class: string; openNotes: number; bookings: Bar[]; blocks: Block[] }
 interface Category { class: string; vehicles: Vehicle[] }
@@ -338,6 +338,7 @@ export default function AdminDashboard() {
           <span><i className="pl-swatch" style={{ background: "#0E3A40" }} /> confirmed</span>
           <span><i className="pl-swatch" style={{ background: "#2C5F8A" }} /> with customer</span>
           <span><i className="pl-swatch" style={{ background: "#2C5F8A", outline: "2px solid #C98A33", outlineOffset: "-2px" }} /> due back soon</span>
+          <span><i className="pl-swatch" style={{ background: "repeating-linear-gradient(45deg, #C0473A 0 4px, #922C23 4px 8px)" }} /> unpaid</span>
           <span><i className="pl-swatch" style={{ background: "#8A2C2C" }} /> overdue</span>
           <span><i className="pl-swatch" style={{ background: "#2E7D5B" }} /> completed</span>
           <span><i className="pl-swatch" style={{ background: "#c8baa0" }} /> blocked</span>
@@ -410,8 +411,8 @@ export default function AdminDashboard() {
                           const s = hourSpan(zoomDay!, b.startAt, b.endAt);
                           if (!s) return null;
                           return (
-                            <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} pl-bar--zoom ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
-                              title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}`}
+                            <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} pl-bar--zoom ${b.unpaid ? "pl-bar--unpaid" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
+                              title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.paidNote ? ` · ${b.paidNote}` : ""}`}
                               onClick={() => setDrawerBookingId(b.id)}>
                               {s.cutStart ? "‹ " : `${formatTime(b.startAt)} · `}{b.label}{s.cutEnd ? " ›" : ` · ${formatTime(b.endAt)}`}
                             </div>
@@ -475,8 +476,8 @@ export default function AdminDashboard() {
                         const dimmed = moveCand?.bookingId === b.id;
                         const s = barSpan(data.days, b.startAt, b.endAt);
                         return s ? (
-                          <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} ${dimmed ? "dragging" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
-                            title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.source === "manual" ? " · manual" : ""}`}
+                          <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} ${b.unpaid ? "pl-bar--unpaid" : ""} ${dimmed ? "dragging" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
+                            title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.paidNote ? ` · ${b.paidNote}` : ""}${b.source === "manual" ? " · manual" : ""}`}
                             onPointerDown={(e) => onBarPointerDown(e, v, b)}
                             onClick={() => { if (dragClickGuard.consumeSuppressed()) return; setDrawerBookingId(b.id); }}>
                             {b.label}
