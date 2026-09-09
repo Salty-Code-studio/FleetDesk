@@ -72,7 +72,7 @@ describe("incremental migration upgrade on a populated DB", () => {
         INSERT INTO "bookings"
           ("vehicle_id", "customer_id", "start_date", "end_date", "buffer_end_date", "status", "price_breakdown", "payment_option", "accepted_policy_version", "accepted_at", "idempotency_key")
         SELECT v."id", c."id", DATE '2026-07-01', DATE '2026-07-08', DATE '2026-07-09', 'confirmed',
-               '{"totalCents":10000}'::jsonb, 'reservation_fee', 1, now(), 'mig-key-1'
+               '{"subtotalCents":10000}'::jsonb, 'reservation_fee', 1, now(), 'mig-key-1'
         FROM "vehicles" v, "customers" c
         WHERE v."slug" = 'mig-car' AND c."email" = 'mig@t.com'`);
 

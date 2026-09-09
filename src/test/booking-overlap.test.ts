@@ -22,7 +22,7 @@ const mkBooking = (
 ) => ({
   vehicleId: forVehicleId ?? vehicleId,
   customerId, startAt: at(start), endAt: at(end), bufferEndAt: at(bufferEnd ?? end), status,
-  priceBreakdown: { totalCents: 10000 },
+  priceBreakdown: { subtotalCents: 10000 },
   paymentOption: "deposit" as const,
   acceptedPolicyVersion: 1,
   acceptedAt: new Date(),
