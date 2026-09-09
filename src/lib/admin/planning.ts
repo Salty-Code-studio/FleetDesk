@@ -8,6 +8,7 @@ import { getDb } from "@/lib/db/client";
 import { vehicles, bookings, customers, availabilityBlocks, blackoutDates } from "@/lib/db/schema";
 import { atAruba, arubaDateOf, arubaTimeOf, addHoursIso } from "@/lib/time/format";
 import { openNoteCounts } from "@/lib/admin/vehicle-notes";
+import { paidState } from "@/lib/admin/paid-state";
 
 export interface PlanningBar {
   id: string;
@@ -18,6 +19,13 @@ export interface PlanningBar {
   status: string;
   source: string; // online | manual
   label: string;
+  /** Money is outstanding on a rental that is out or already back. See paid-state.ts. */
+  unpaid: boolean;
+  /** "betaald t/m" marker (YYYY-MM-DD) on monthly rentals; null when unused. */
+  paidUntil: string | null;
+  /** Server-formatted sentence for the tooltip, so the board does no money maths. */
+  paidNote: string | null;
+  balanceDueCents: number;
   notes: string | null;
 }
 export interface PlanningBlock {
@@ -65,6 +73,7 @@ export async function getPlanning(from: string, to: string): Promise<Planning> {
   const toExclusive = new Date(Date.parse(`${to}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
   const fromAt = atAruba(from, "00:00");
   const toExclusiveAt = atAruba(toExclusive, "00:00");
+  const todayLocal = arubaDateOf(new Date().toISOString());
 
   const vehicleRows = await db.select().from(vehicles)
     .where(ne(vehicles.status, "retired"))
@@ -73,6 +82,8 @@ export async function getPlanning(from: string, to: string): Promise<Planning> {
   const bookingRows = await db.select({
     id: bookings.id, vehicleId: bookings.vehicleId, startAt: bookings.startAt, endAt: bookings.endAt,
     status: bookings.status, source: bookings.source, notes: bookings.notes,
+    amountPaidCents: bookings.amountPaidCents, priceBreakdown: bookings.priceBreakdown,
+    paidUntil: bookings.paidUntil,
     customerName: customers.name, customerEmail: customers.email,
   }).from(bookings)
     .innerJoin(customers, eq(bookings.customerId, customers.id))
@@ -96,10 +107,25 @@ export async function getPlanning(from: string, to: string): Promise<Planning> {
   }
   for (const b of bookingRows) {
     const pv = byVehicle.get(b.vehicleId);
-    if (pv) pv.bookings.push({
+    if (!pv) continue;
+    // priceBreakdown is untyped jsonb and comes in two shapes (a full
+    // QuoteBreakdown for online bookings, a flat {manual, subtotalCents} for
+    // desk-created ones), so read it defensively.
+    const bd = (b.priceBreakdown ?? {}) as { subtotalCents?: number; currency?: string };
+    const paid = paidState({
+      status: b.status,
+      paidUntil: b.paidUntil,
+      subtotalCents: Number(bd.subtotalCents ?? 0),
+      amountPaidCents: b.amountPaidCents,
+      currency: bd.currency ?? "USD",
+      todayLocal,
+    });
+    pv.bookings.push({
       id: b.id, start: arubaDateOf(b.startAt), end: exclusiveEndDay(b.endAt),
       startAt: b.startAt, endAt: b.endAt, status: b.status, source: b.source,
       label: b.customerName || b.customerEmail.split("@")[0]!, notes: b.notes,
+      unpaid: paid.unpaid, paidUntil: b.paidUntil,
+      paidNote: paid.note, balanceDueCents: paid.balanceDueCents,
     });
   }
   for (const bl of blockRows) {
