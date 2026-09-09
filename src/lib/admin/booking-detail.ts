@@ -14,7 +14,8 @@ import { getDb } from "@/lib/db/client";
 import { bookings, customers, vehicles, payments } from "@/lib/db/schema";
 import { getSettings } from "@/lib/admin/settings";
 import { isFreeCancellation } from "@/lib/booking/cancellation";
-import { arubaNowIso } from "@/lib/time/format";
+import { arubaNowIso, arubaDateOf } from "@/lib/time/format";
+import { paidState } from "@/lib/admin/paid-state";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
 
 export interface BookingDetailPayment {
@@ -39,11 +40,17 @@ export interface BookingDetail {
     notes: string | null;
     priceBreakdown: QuoteBreakdown;
     amountPaidCents: number;
+    /** "betaald t/m" coverage marker for rolling monthly rentals, or null. */
+    paidUntil: string | null;
   };
   customer: { name: string; email: string; phone: string };
   vehicle: { id: string; name: string; plate: string };
   payments: BookingDetailPayment[];
   balanceDueCents: number;
+  /** True when the board hatches this booking red. */
+  unpaid: boolean;
+  /** Why, in one sentence, or null when there is nothing to say. */
+  paidNote: string | null;
   policySaysFree: boolean;
 }
 
@@ -54,6 +61,7 @@ export async function getBookingDetail(id: string): Promise<BookingDetail | unde
     id: bookings.id, status: bookings.status, source: bookings.source,
     startAt: bookings.startAt, endAt: bookings.endAt, paymentOption: bookings.paymentOption,
     notes: bookings.notes, priceBreakdown: bookings.priceBreakdown, amountPaidCents: bookings.amountPaidCents,
+    paidUntil: bookings.paidUntil,
     customerName: customers.name, customerEmail: customers.email, customerPhone: customers.phone,
     vehicleId: vehicles.id, vehicleName: vehicles.name, vehiclePlate: vehicles.plate,
   }).from(bookings)
@@ -70,13 +78,22 @@ export async function getBookingDetail(id: string): Promise<BookingDetail | unde
   const policySaysFree = isFreeCancellation({ startAt: row.startAt }, settings, arubaNowIso());
 
   const breakdown = row.priceBreakdown as QuoteBreakdown;
-  const balanceDueCents = Math.max(0, breakdown.subtotalCents - row.amountPaidCents);
+  // One rule, shared with the planning board (paid-state.ts), so the drawer can
+  // never disagree with the colour of the bar the owner just clicked.
+  const paid = paidState({
+    status: row.status,
+    paidUntil: row.paidUntil,
+    subtotalCents: Number(breakdown.subtotalCents ?? 0),
+    amountPaidCents: row.amountPaidCents,
+    currency: breakdown.currency ?? "USD",
+    todayLocal: arubaDateOf(arubaNowIso()),
+  });
 
   return {
     booking: {
       id: row.id, status: row.status, source: row.source, startAt: row.startAt, endAt: row.endAt,
       paymentOption: row.paymentOption, notes: row.notes, priceBreakdown: breakdown,
-      amountPaidCents: row.amountPaidCents,
+      amountPaidCents: row.amountPaidCents, paidUntil: row.paidUntil,
     },
     customer: { name: row.customerName, email: row.customerEmail, phone: row.customerPhone },
     vehicle: { id: row.vehicleId, name: row.vehicleName, plate: row.vehiclePlate },
@@ -84,7 +101,9 @@ export async function getBookingDetail(id: string): Promise<BookingDetail | unde
       id: p.id, type: p.type, method: p.method, amountCents: p.amountCents, refundedCents: p.refundedCents,
       status: p.status, createdAt: p.createdAt.toISOString(), stripePaymentIntentId: p.stripePaymentIntentId,
     })),
-    balanceDueCents,
+    balanceDueCents: paid.balanceDueCents,
+    unpaid: paid.unpaid,
+    paidNote: paid.note,
     policySaysFree,
   };
 }

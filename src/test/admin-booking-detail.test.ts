@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, settings, customers, bookings, payments } from "@/lib/db/schema";
@@ -7,6 +8,30 @@ import { atAruba, parseTs } from "@/lib/time/format";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "", customerId = "";
+let month = 1;
+
+// Modelled on the factory in inspections.test.ts, extended with the
+// breakdown/amountPaidCents knobs the paid-state tests need.
+async function mkBooking(
+  key: string,
+  status: "pending" | "confirmed" | "picked_up" | "completed" | "cancelled",
+  breakdown: Record<string, unknown>,
+  amountPaidCents: number,
+) {
+  const m = String(month++).padStart(2, "0");
+  const [b] = await db.insert(bookings).values({
+    vehicleId, customerId,
+    startAt: `2028-${m}-01T13:00:00Z`,
+    endAt: `2028-${m}-05T13:00:00Z`,
+    bufferEndAt: `2028-${m}-06T13:00:00Z`,
+    status,
+    priceBreakdown: breakdown,
+    amountPaidCents,
+    paymentOption: "full", acceptedPolicyVersion: 1, acceptedAt: new Date(),
+    idempotencyKey: key,
+  }).returning();
+  return b!;
+}
 
 // Reads come back as Postgres text (a different literal offset than what we
 // inserted), so compare the underlying instant, never the raw string.
@@ -92,5 +117,33 @@ describe("getBookingDetail", () => {
   it("returns undefined for an unknown booking id", async () => {
     const detail = await getBookingDetail("00000000-0000-0000-0000-000000000000");
     expect(detail).toBeUndefined();
+  });
+});
+
+describe("booking detail paid state", () => {
+  it("reports the balance and a plain-language note when money is owed", async () => {
+    const b = await mkBooking("bd-unpaid", "picked_up", { subtotalCents: 24000, currency: "USD" }, 0);
+    const d = (await getBookingDetail(b.id))!;
+    expect(d.balanceDueCents).toBe(24000);
+    expect(d.unpaid).toBe(true);
+    expect(d.paidNote).toBe("Unpaid: $240.00 still due");
+    expect(d.booking.paidUntil).toBeNull();
+  });
+
+  it("goes quiet once the balance is settled", async () => {
+    const b = await mkBooking("bd-settled", "picked_up", { subtotalCents: 24000, currency: "USD" }, 24000);
+    const d = (await getBookingDetail(b.id))!;
+    expect(d.balanceDueCents).toBe(0);
+    expect(d.unpaid).toBe(false);
+    expect(d.paidNote).toBeNull();
+  });
+
+  it("surfaces a paid-until marker and lets it win", async () => {
+    const b = await mkBooking("bd-marker", "picked_up", { subtotalCents: 24000, currency: "USD" }, 0);
+    await db.update(bookings).set({ paidUntil: "2099-01-01" }).where(eq(bookings.id, b.id));
+    const d = (await getBookingDetail(b.id))!;
+    expect(d.booking.paidUntil).toBe("2099-01-01");
+    expect(d.unpaid).toBe(false);
+    expect(d.paidNote).toBe("Paid until 2099-01-01");
   });
 });
