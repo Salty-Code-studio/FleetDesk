@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { encryptField } from "@/lib/crypto/fields";
 import { Errors } from "@/lib/http/errors";
+import { licenceDateBounds } from "@/lib/booking/license-bounds";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD");
 
@@ -50,13 +51,29 @@ export function driverAgeBand(
 }
 
 /**
- * Enforce the licence rules: it must stay valid through the return date, the
- * driver must meet the minimum age at pick-up, and issue must precede expiry.
+ * Enforce the licence rules: each date must sit inside the same window the
+ * booking wizard offers (license-bounds.ts), it must stay valid through the
+ * return date, the driver must meet the minimum age at pick-up, and issue must
+ * precede expiry.
+ *
+ * The bounds are checked here and not only in the picker because the picker is
+ * a convenience; this is the gate. Without it the server happily accepted a
+ * 2030 date of birth and printed it on the rental contract.
  */
 export function validateLicense(
   license: LicenseInput,
-  ctx: { minDriverAge: number; rentalStart: string; rentalEnd: string },
+  ctx: { minDriverAge: number; rentalStart: string; rentalEnd: string; today: string },
 ): void {
+  const bounds = licenceDateBounds(ctx.today);
+  if (license.dob > bounds.dob.max || license.dob < bounds.dob.min) {
+    throw Errors.badRequest("Please check the date of birth");
+  }
+  if (license.issueDate > bounds.issueDate.max || license.issueDate < bounds.issueDate.min) {
+    throw Errors.badRequest("Please check the licence issue date");
+  }
+  if (license.expiryDate > bounds.expiryDate.max) {
+    throw Errors.badRequest("Please check the licence expiry date");
+  }
   if (license.issueDate >= license.expiryDate) {
     throw Errors.badRequest("Licence issue date must be before its expiry date");
   }

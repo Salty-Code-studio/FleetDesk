@@ -10,7 +10,7 @@ const valid = {
   expiryDate: "2030-01-01",
   dob: "2000-05-17",
 };
-const ctx = { minDriverAge: 21, rentalStart: "2026-07-01", rentalEnd: "2026-07-08" };
+const ctx = { minDriverAge: 21, rentalStart: "2026-07-01", rentalEnd: "2026-07-08", today: "2026-06-01" };
 
 describe("ageOn", () => {
   it("computes whole years, accounting for birthday not yet reached", () => {
@@ -36,7 +36,9 @@ describe("validateLicense", () => {
     expect(() => validateLicense({ ...valid, expiryDate: "2026-07-05" }, ctx)).toThrow(/valid through/i);
   });
   it("rejects issue date not before expiry", () => {
-    expect(() => validateLicense({ ...valid, issueDate: "2030-01-01", expiryDate: "2030-01-01" }, ctx)).toThrow(/before its expiry/i);
+    // Both dates must stay inside the new bounds (ctx.today = 2026-06-01) so
+    // this exercises the ordering check specifically, not the bounds check.
+    expect(() => validateLicense({ ...valid, issueDate: "2026-01-01", expiryDate: "2026-01-01" }, ctx)).toThrow(/before its expiry/i);
   });
   it("schema rejects malformed dates and empty fields", () => {
     expect(LicenseSchema.safeParse({ ...valid, dob: "17-05-2000" }).success).toBe(false);
@@ -74,5 +76,33 @@ describe("driverAgeBand", () => {
     const flat = { minDriverAge: 21, youngDriverAge: 21 };
     expect(driverAgeBand("2007-01-01", "2026-07-01", flat)).toBe("under_min");
     expect(driverAgeBand("2000-01-01", "2026-07-01", flat)).toBe("standard");
+  });
+});
+
+describe("validateLicense date bounds", () => {
+  it("rejects a date of birth in the future", () => {
+    expect(() => validateLicense({ ...valid, dob: "2030-05-17" }, ctx)).toThrow(/date of birth/i);
+  });
+
+  it("rejects an issue date in the future", () => {
+    // Issue 2027 is still before the 2030 expiry, so the ordering check would
+    // have let this through; only the today bound catches it.
+    expect(() => validateLicense({ ...valid, issueDate: "2027-01-01" }, ctx)).toThrow(/issue date/i);
+  });
+
+  it("rejects an implausibly old date of birth", () => {
+    expect(() => validateLicense({ ...valid, dob: "1850-01-01" }, ctx)).toThrow(/date of birth/i);
+  });
+
+  it("rejects an implausibly old issue date", () => {
+    expect(() => validateLicense({ ...valid, issueDate: "1900-01-01" }, ctx)).toThrow(/issue date/i);
+  });
+
+  it("rejects an expiry beyond the accepted horizon", () => {
+    expect(() => validateLicense({ ...valid, expiryDate: "2099-01-01" }, ctx)).toThrow(/expiry date/i);
+  });
+
+  it("accepts a 2036 expiry, the case the picker could not reach", () => {
+    expect(() => validateLicense({ ...valid, expiryDate: "2036-05-17" }, ctx)).not.toThrow();
   });
 });

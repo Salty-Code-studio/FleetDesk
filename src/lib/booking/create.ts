@@ -80,7 +80,12 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
   // Guardrails (throw 4xx on violation).
   validateDates(input.startAt, input.endAt, settings, nowIso);
   const pickupDateStr = arubaDateOf(input.startAt);
-  validateLicense(input.license, { minDriverAge: settings.minDriverAge, rentalStart: pickupDateStr, rentalEnd: arubaDateOf(input.endAt) });
+  validateLicense(input.license, {
+    minDriverAge: settings.minDriverAge,
+    rentalStart: pickupDateStr,
+    rentalEnd: arubaDateOf(input.endAt),
+    today: arubaDateOf(nowIso),
+  });
 
   // Young-driver truth check (workstream 5): the licence DOB decides the
   // surcharge, never the claimed band. under_min never reaches here.
