@@ -66,6 +66,10 @@ export function applyPriceOverride(
  * owed one honest total, not a running commentary on how it was reached.
  */
 export function publicBreakdown(breakdown: OverridableBreakdown): OverridableBreakdown {
-  const { priceOverride: _o, adjustmentCents: _a, ...rest } = breakdown;
+  // Copy first, then drop: destructuring-to-omit would leave unused bindings
+  // that the linter flags, and the input must not be mutated either way.
+  const rest: OverridableBreakdown = { ...breakdown };
+  delete rest.priceOverride;
+  delete rest.adjustmentCents;
   return rest;
 }
