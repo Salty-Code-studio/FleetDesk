@@ -12,6 +12,7 @@ import { Errors } from "@/lib/http/errors";
 import { getLatestPolicy, getPolicyVersion } from "@/lib/admin/policies";
 import { getSettings } from "@/lib/admin/settings";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
+import { originalSubtotalCents } from "@/lib/booking/price-override";
 import { assertBookingTransition } from "@/lib/booking/transitions";
 import { renderContractPdf } from "@/lib/pdf/contract";
 import { putObject, getObject, deleteObject } from "@/lib/storage";
@@ -166,7 +167,11 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
   const priceLines: HandoverPriceLine[] = [
     {
       label: breakdown.days ? `Vehicle (${breakdown.days} day${breakdown.days === 1 ? "" : "s"})` : "Vehicle",
-      cents: breakdown.vehicleCents ?? subtotal,
+      // Fall back to the ORIGINAL quoted subtotal, not the current (possibly
+      // overridden) one — a manual booking has no vehicleCents at all, and if
+      // the fallback used the post-override subtotal here, the Adjustment
+      // line below would apply the override's difference a second time.
+      cents: breakdown.vehicleCents ?? originalSubtotalCents(breakdown),
     },
     ...(breakdown.insuranceCents ? [{ label: "Insurance", cents: breakdown.insuranceCents }] : []),
     ...(breakdown.addOns ?? []).map((a) => ({ label: `${a.name} x${a.qty}`, cents: a.cents })),
@@ -308,7 +313,10 @@ async function finalizePickupArtifacts(booking: BookingRow, insp: Inspection): P
     periodStart: formatDateTime(booking.startAt),
     periodEnd: formatDateTime(booking.endAt),
     lines: [
-      { label: breakdown.days ? `Vehicle (${breakdown.days} days)` : "Vehicle", amount: money(breakdown.vehicleCents ?? subtotal, currency) },
+      // Same original-subtotal fallback as getHandover's priceLines above —
+      // this document is what the customer signs, so it must never double
+      // count an override's adjustment against the Vehicle line.
+      { label: breakdown.days ? `Vehicle (${breakdown.days} days)` : "Vehicle", amount: money(breakdown.vehicleCents ?? originalSubtotalCents(breakdown), currency) },
       ...(breakdown.insuranceCents ? [{ label: "Insurance", amount: money(breakdown.insuranceCents, currency) }] : []),
       ...(breakdown.addOns ?? []).map((a) => ({ label: `${a.name} x${a.qty}`, amount: money(a.cents, currency) })),
       ...(breakdown.youngDriverCents ? [{ label: "Young driver fee", amount: money(breakdown.youngDriverCents, currency) }] : []),

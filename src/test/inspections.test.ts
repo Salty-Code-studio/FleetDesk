@@ -9,17 +9,19 @@ import { cancelBookingAdmin } from "@/lib/admin/move-booking";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "", customerId = "", adminId = "";
-let month = 1;
+let monthIndex = 0; // 0-based; rolls over into the next year instead of overflowing past month 12
 
 async function mkBooking(key: string, status: "pending" | "confirmed" | "picked_up" | "completed" | "cancelled") {
-  const m = String(month++).padStart(2, "0");
+  const idx = monthIndex++;
+  const year = 2027 + Math.floor(idx / 12);
+  const m = String((idx % 12) + 1).padStart(2, "0");
   const [b] = await db.insert(bookings).values({
     vehicleId, customerId,
     // startAt/endAt/bufferEndAt are `mode: "string"` timestamptz columns in this
     // codebase, so they take ISO strings (not Date objects).
-    startAt: `2027-${m}-01T13:00:00Z`,
-    endAt: `2027-${m}-05T13:00:00Z`,
-    bufferEndAt: `2027-${m}-06T13:00:00Z`,
+    startAt: `${year}-${m}-01T13:00:00Z`,
+    endAt: `${year}-${m}-05T13:00:00Z`,
+    bufferEndAt: `${year}-${m}-06T13:00:00Z`,
     status,
     priceBreakdown: { subtotalCents: 40000, vehicleCents: 40000, insuranceCents: 0, addOns: [], addOnsCents: 0, days: 4, currency: "USD" },
     paymentOption: "deposit", acceptedPolicyVersion: 1, acceptedAt: new Date(),
@@ -152,6 +154,36 @@ describe("getHandover", () => {
     const b = await mkBooking("insp-handover-noadj", "confirmed");
     const h = await getHandover(b.id);
     expect(h.booking.priceLines.some((l) => l.label === "Adjustment")).toBe(false);
+  });
+
+  it("does not double-count the adjustment on an overridden manual booking with no vehicleCents", async () => {
+    const b = await mkBooking("insp-handover-manual-adj", "confirmed");
+    await db.update(bookings)
+      .set({ priceBreakdown: {
+        manual: true, subtotalCents: 45000, currency: "USD", adjustmentCents: -5000,
+        priceOverride: { previousSubtotalCents: 50000, reason: "owner discount", byAdminId: adminId, at: "2026-09-08T12:00:00.000Z" },
+      } })
+      .where(eq(bookings.id, b.id));
+
+    const h = await getHandover(b.id);
+    const vehicleLine = h.booking.priceLines.find((l) => l.label === "Vehicle")!;
+    const adj = h.booking.priceLines.find((l) => l.label === "Adjustment")!;
+    expect(vehicleLine.cents).toBe(50000);
+    expect(adj.cents).toBe(-5000);
+    expect(h.booking.priceLines.reduce((sum, l) => sum + l.cents, 0)).toBe(h.booking.subtotalCents);
+  });
+
+  it("uses the flat subtotal as the single Vehicle line for a never-overridden manual booking", async () => {
+    const b = await mkBooking("insp-handover-manual-noadj", "confirmed");
+    await db.update(bookings)
+      .set({ priceBreakdown: { manual: true, subtotalCents: 50000, currency: "USD" } })
+      .where(eq(bookings.id, b.id));
+
+    const h = await getHandover(b.id);
+    expect(h.booking.priceLines.some((l) => l.label === "Adjustment")).toBe(false);
+    expect(h.booking.priceLines).toHaveLength(1);
+    expect(h.booking.priceLines[0]!.label).toBe("Vehicle");
+    expect(h.booking.priceLines[0]!.cents).toBe(50000);
   });
 });
 
