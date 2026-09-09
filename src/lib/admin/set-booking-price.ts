@@ -14,7 +14,7 @@ import { getDb } from "@/lib/db/client";
 import { bookings, payments } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
 import { applyPriceOverride, type OverridableBreakdown } from "@/lib/booking/price-override";
-import type { BookingRow } from "@/lib/admin/inspections";
+import { money, type BookingRow } from "@/lib/admin/inspections";
 import type { AdminRole } from "@/lib/auth/admin-auth";
 
 export interface SetPriceInput {
@@ -60,8 +60,14 @@ export async function setBookingPrice(
       throw Errors.conflict("This booking is cancelled, its price can no longer change");
     }
     if (input.subtotalCents < booking.amountPaidCents) {
+      // Honest, not misdirecting: refundPayment() throws for any payment with
+      // no Stripe intent, which is every desk payment, and both live clients
+      // run desk mode. The owner has chosen not to build a desk-refund
+      // capability, so the fix is to set the price before recording payment,
+      // not to point at a refund path that's actually a locked door.
+      const currency = String((booking.priceBreakdown as OverridableBreakdown).currency ?? "USD");
       throw Errors.badRequest(
-        "That is less than has already been paid on this booking. Record a refund first.",
+        `Set the price before recording the payment; ${money(booking.amountPaidCents, currency)} is already paid on this booking.`,
       );
     }
 

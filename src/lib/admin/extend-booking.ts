@@ -6,6 +6,7 @@ import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
 import { checkAvailability } from "@/lib/booking/availability";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
+import { applyPriceOverride, originalSubtotalCents, type OverridableBreakdown } from "@/lib/booking/price-override";
 import { createExtensionCheckout } from "@/lib/payments/checkout";
 import { addHoursIso, parseTs } from "@/lib/time/format";
 import type { AdminRole } from "@/lib/auth/admin-auth";
@@ -83,7 +84,7 @@ export async function extendBooking(
       if (parseTs(newEndAt) <= parseTs(b.endAt)) throw Errors.badRequest("The new return must be after the current return");
 
       const prevEnd = b.endAt;
-      const oldBreakdown = b.priceBreakdown as QuoteBreakdown;
+      const oldBreakdown = b.priceBreakdown as QuoteBreakdown & OverridableBreakdown;
       const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, b.vehicleId));
       if (!vehicle) throw Errors.notFound("Vehicle not found");
 
@@ -121,7 +122,22 @@ export async function extendBooking(
         youngDriver: oldBreakdown.youngDriver ?? false,
         youngDriverFeeCentsPerDay: settings.youngDriverFeeCentsPerDay,
       });
-      const deltaCents = Math.max(0, newBreakdown.subtotalCents - (oldBreakdown.subtotalCents ?? 0));
+      // Carry an owner price override across the re-quote (Task 18): the
+      // adjustment is a FIXED cents amount, preserved verbatim, and must NOT
+      // scale with the new duration — a settlement is worth what it is worth
+      // regardless of how many extra days the car stays out. The delta the
+      // customer is actually billed is measured against the ORIGINAL quote,
+      // never the overridden subtotal, otherwise a settled discount/top-up
+      // gets silently re-billed as if it never happened.
+      const carried = oldBreakdown.priceOverride;
+      const finalBreakdown = carried
+        ? applyPriceOverride(
+            newBreakdown as unknown as OverridableBreakdown,
+            Math.max(0, newBreakdown.subtotalCents + Number(oldBreakdown.adjustmentCents ?? 0)),
+            { reason: carried.reason, byAdminId: carried.byAdminId, at: carried.at },
+          )
+        : newBreakdown;
+      const deltaCents = Math.max(0, newBreakdown.subtotalCents - originalSubtotalCents(oldBreakdown));
       // ── end re-quote block ──
 
       // dryRun: the caller only wants the live preview number. Unwind the
@@ -132,8 +148,8 @@ export async function extendBooking(
       const isDeskPaid = opts.payment === "desk" && deltaCents > 0;
       const [updated] = await tx.update(bookings)
         .set(isDeskPaid
-          ? { endAt: newEndAt, bufferEndAt, priceBreakdown: newBreakdown, amountPaidCents: sql`${bookings.amountPaidCents} + ${deltaCents}`, updatedAt: new Date() }
-          : { endAt: newEndAt, bufferEndAt, priceBreakdown: newBreakdown, updatedAt: new Date() })
+          ? { endAt: newEndAt, bufferEndAt, priceBreakdown: finalBreakdown, amountPaidCents: sql`${bookings.amountPaidCents} + ${deltaCents}`, updatedAt: new Date() }
+          : { endAt: newEndAt, bufferEndAt, priceBreakdown: finalBreakdown, updatedAt: new Date() })
         .where(eq(bookings.id, id))
         .returning();
 

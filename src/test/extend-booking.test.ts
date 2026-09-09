@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, settings, customers, bookings, payments, addOns, bookingAddOns } from "@/lib/db/schema";
 import { extendBooking } from "@/lib/admin/extend-booking";
+import { applyPriceOverride } from "@/lib/booking/price-override";
 import { atAruba } from "@/lib/time/format";
 
 // The link path stands up a Stripe Checkout session; every Stripe call funnels
@@ -374,5 +375,104 @@ describe("extendBooking money gate: desk settlement is owner-only", () => {
     expect(r.deltaCents).toBe(8000);
     const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
     expect(after!.amountPaidCents).toBe(16000);
+  });
+});
+
+// Task 18: extend-booking used to re-quote and overwrite priceBreakdown
+// wholesale, silently destroying an owner's price override, and additionally
+// misprice the delta against the OVERRIDDEN subtotal instead of the ORIGINAL
+// quote — a real overcharge. These tests pin the corrected behaviour: the
+// delta is the worth of the ADDED days measured against the original quote,
+// and the fixed-cents adjustment survives the re-quote unscaled.
+describe("extendBooking: an owner price override survives the re-quote (Task 18)", () => {
+  const OVERRIDE_META = { reason: "settled against key work", byAdminId: "admin-1", at: "2026-09-08T12:00:00.000Z" };
+
+  it("desk path: bills the added days against the ORIGINAL quote, not the overridden subtotal, and carries the override forward", async () => {
+    // day rate 12000, week/month priced astronomically so the DP never picks
+    // them: 2 days -> quoted 24000, but the ORIGINAL quote stored is 46000
+    // (a prior snapshot at different rates) so the override's math is explicit
+    // and independent of the vehicle's current catalog, matching the brief's
+    // concrete failure scenario (quoted 46000, overridden to 30000).
+    const vehicleId = await makeVehicle({ day: 12000, week: 999999999, month: 999999999 });
+    const overriddenBreakdown = applyPriceOverride(breakdownFor(2, 46000), 30000, OVERRIDE_META);
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-04-01", "09:00"), end: atAruba("2027-04-03", "09:00"), buffer: atAruba("2027-04-04", "09:00"),
+      breakdown: overriddenBreakdown, amountPaidCents: 30000,
+    });
+
+    // 2 days -> 5 days: fresh re-quote is 5 * 12000 = 60000. The OLD (wrong)
+    // code charges 60000 - 30000 (the overridden subtotal) = 30000. The
+    // correct delta is 60000 - 46000 (the ORIGINAL quote) = 14000 — the
+    // catalogue worth of the 3 added days, independent of any settlement.
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-04-06", "09:00"), payment: "desk", role: "owner" });
+
+    expect(r.deltaCents).toBe(14000);
+
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.amountPaidCents).toBe(44000); // 30000 already paid + 14000 corrected delta
+
+    const bd = after!.priceBreakdown as Record<string, unknown>;
+    expect(bd.subtotalCents).toBe(44000); // max(0, 60000 fresh quote + (-16000) carried adjustment)
+    expect(bd.adjustmentCents).toBe(-16000); // same signed amount as before the extension
+    const po = bd.priceOverride as { reason: string; byAdminId: string; at: string; previousSubtotalCents: number };
+    expect(po.reason).toBe(OVERRIDE_META.reason);
+    expect(po.byAdminId).toBe(OVERRIDE_META.byAdminId);
+    expect(po.at).toBe(OVERRIDE_META.at);
+    expect(po.previousSubtotalCents).toBe(60000); // the NEW quote for the new duration (decision 4)
+
+    // the contract's line items plus the adjustment still sum to the subtotal
+    const lines = (bd.vehicleCents as number) + (bd.insuranceCents as number)
+      + (bd.addOnsCents as number) + (bd.youngDriverCents as number) + (bd.adjustmentCents as number);
+    expect(lines).toBe(bd.subtotalCents);
+
+    const [pay] = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, b.id), eq(payments.type, "extension")));
+    expect(pay?.amountCents).toBe(14000);
+  });
+
+  it("link path: stands up a checkout for the corrected delta and never touches the ledger, while still carrying the override forward", async () => {
+    const vehicleId = await makeVehicle({ day: 12000, week: 999999999, month: 999999999 });
+    const overriddenBreakdown = applyPriceOverride(breakdownFor(2, 46000), 30000, OVERRIDE_META);
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-04-10", "09:00"), end: atAruba("2027-04-12", "09:00"), buffer: atAruba("2027-04-13", "09:00"),
+      breakdown: overriddenBreakdown, amountPaidCents: 30000,
+    });
+
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-04-15", "09:00"), payment: "link", role: "owner" });
+
+    expect(r.deltaCents).toBe(14000);
+    expect(r.checkoutUrl).toMatch(/^https:/);
+
+    const [pay] = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, b.id), eq(payments.type, "extension")));
+    expect(pay?.method).toBe("stripe");
+    expect(pay?.status).toBe("pending");
+    expect(pay?.amountCents).toBe(14000);
+
+    // link path never bumps the ledger; the customer settles via Stripe, not the desk
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    expect(after!.amountPaidCents).toBe(30000);
+
+    const bd = after!.priceBreakdown as Record<string, unknown>;
+    expect(bd.adjustmentCents).toBe(-16000);
+    expect((bd.priceOverride as { reason: string }).reason).toBe(OVERRIDE_META.reason);
+  });
+
+  it("a booking with NO override behaves exactly as before (regression guard)", async () => {
+    const vehicleId = await makeVehicle({ day: 8000, week: 100000, month: 400000 });
+    const b = await makeBooking({
+      vehicleId,
+      start: atAruba("2027-04-20", "09:00"), end: atAruba("2027-04-22", "09:00"), buffer: atAruba("2027-04-23", "09:00"),
+      breakdown: breakdownFor(2, 16000), amountPaidCents: 16000,
+    });
+    const r = await extendBooking(b.id, { endAt: atAruba("2027-04-23", "09:00"), payment: "desk", role: "owner" });
+    expect(r.deltaCents).toBe(8000);
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, b.id));
+    const bd = after!.priceBreakdown as Record<string, unknown>;
+    expect(bd.priceOverride).toBeUndefined();
+    expect(bd.adjustmentCents).toBeUndefined();
+    expect(bd.subtotalCents).toBe(24000);
   });
 });

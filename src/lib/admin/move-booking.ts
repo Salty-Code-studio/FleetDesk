@@ -7,6 +7,7 @@ import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
 import { checkAvailability } from "@/lib/booking/availability";
 import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
+import { applyPriceOverride, type OverridableBreakdown } from "@/lib/booking/price-override";
 import { isFreeCancellation } from "@/lib/booking/cancellation";
 import { refundPayment } from "@/lib/payments/refunds";
 import { addHoursIso, parseTs } from "@/lib/time/format";
@@ -96,7 +97,7 @@ export async function moveBooking(id: string, input: MoveInput) {
       // move can neither oversell shared equipment nor leave a stale total on the
       // booking, the confirmation email, and revenue reports. Manual bookings
       // hold a flat desk-set amount and no add-ons → left untouched.
-      let priceBreakdown = booking.priceBreakdown as QuoteBreakdown;
+      let priceBreakdown: QuoteBreakdown | OverridableBreakdown = booking.priceBreakdown as QuoteBreakdown;
       if (booking.source === "online") {
         const lines = await tx.select({
           addOnId: bookingAddOns.addOnId, qty: bookingAddOns.qty,
@@ -124,7 +125,7 @@ export async function moveBooking(id: string, input: MoveInput) {
         }
 
         const days = rentalDays(startAt, endAt);
-        priceBreakdown = quote({
+        const newBreakdown = quote({
           days,
           vehicle: {
             priceDayCents: vehicle.priceDayCents,
@@ -138,8 +139,21 @@ export async function moveBooking(id: string, input: MoveInput) {
           depositMinCents: settings.depositMinCents,
           currency: settings.currency,
         });
+        // Carry an owner price override across the re-quote (Task 18): the
+        // adjustment is a FIXED cents amount, preserved verbatim, that must
+        // NOT scale with the new duration. A move can also SHORTEN a booking,
+        // so a large negative adjustment against a much smaller fresh quote is
+        // clamped at 0 rather than going negative.
+        const carried = (booking.priceBreakdown as OverridableBreakdown).priceOverride;
+        priceBreakdown = carried
+          ? applyPriceOverride(
+              newBreakdown as unknown as OverridableBreakdown,
+              Math.max(0, newBreakdown.subtotalCents + Number((booking.priceBreakdown as OverridableBreakdown).adjustmentCents ?? 0)),
+              { reason: carried.reason, byAdminId: carried.byAdminId, at: carried.at },
+            )
+          : newBreakdown;
         // Refresh each add-on's per-line snapshot (per_day lines scale with days).
-        for (const line of priceBreakdown.addOns) {
+        for (const line of newBreakdown.addOns) {
           await tx.update(bookingAddOns).set({ priceSnapshotCents: line.cents })
             .where(and(eq(bookingAddOns.bookingId, id), eq(bookingAddOns.addOnId, line.id)));
         }

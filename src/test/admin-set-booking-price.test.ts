@@ -95,10 +95,16 @@ describe("setBookingPrice: guards", () => {
     expect((after!.priceBreakdown as { subtotalCents: number }).subtotalCents).toBe(45000);
   });
 
-  it("rejects a price below what has already been settled", async () => {
+  it("rejects a price below what has already been settled, and honestly points at the fix (set price before payment) with the paid amount as the floor", async () => {
+    // The old wording ("Record a refund first") pointed at a door that's
+    // locked: refundPayment() throws for any payment with no Stripe intent,
+    // which is every desk payment, and both live clients run desk mode. The
+    // reworded guard must say what actually works and include the floor.
     const b = await mkBooking({ amountPaidCents: 40000 });
     await expect(setBookingPrice(b.id, owner({ subtotalCents: 30000 })))
-      .rejects.toThrow(/already been paid|record a refund/i);
+      .rejects.toThrow(/set the price before recording the payment/i);
+    await expect(setBookingPrice(b.id, owner({ subtotalCents: 30000 })))
+      .rejects.toThrow(/400\.00/);
   });
 
   it("allows a price exactly equal to what has been settled", async () => {

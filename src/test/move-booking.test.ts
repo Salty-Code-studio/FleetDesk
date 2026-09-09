@@ -5,6 +5,7 @@ import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, settings, customers, bookings } from "@/lib/db/schema";
 import { moveBooking, cancelBookingAdmin } from "@/lib/admin/move-booking";
 import { createManualBooking } from "@/lib/admin/manual-booking";
+import { applyPriceOverride } from "@/lib/booking/price-override";
 import { atAruba, parseTs } from "@/lib/time/format";
 import { expectReject } from "./util";
 
@@ -102,6 +103,107 @@ describe("moveBooking", () => {
     }).returning();
     const bk = await createManualBooking({ vehicleId: carA, startAt: at("2028-06-01"), endAt: at("2028-06-05"), customerName: "ToRetired" });
     await expectReject(moveBooking(bk.id, { vehicleId: ret!.id }), /not available/i);
+  });
+});
+
+// Task 18: move-booking used to re-quote an online booking's price and
+// overwrite priceBreakdown wholesale, silently destroying an owner's price
+// override. These tests pin the corrected behaviour: the fixed-cents
+// adjustment is carried forward across the re-quote, and the re-applied
+// subtotal is clamped at 0 rather than going negative when the move shortens
+// the booking.
+const OVR_META = { reason: "settled against key work", byAdminId: "admin-1", at: "2026-09-08T12:00:00.000Z" };
+const OVR_BASE = {
+  days: 4, vehicleCents: 40000, insuranceCents: 0, addOns: [], addOnsCents: 0,
+  subtotalCents: 40000, depositCents: null, youngDriverCents: 0,
+  depositPercent: 25, depositMinCents: 3000, currency: "USD",
+};
+
+async function makeOverrideVehicle(slug: string) {
+  const [v] = await db.insert(vehicles).values({
+    slug, plate: slug.toUpperCase(), class: "SUV", name: `Override ${slug}`, seats: 5,
+    transmission: "Automatic", doors: 5,
+    priceDayCents: 10000, priceWeekCents: 999999999, priceMonthCents: 999999999,
+  }).returning();
+  return v!.id;
+}
+
+describe("moveBooking: an owner price override survives the re-quote (Task 18)", () => {
+  it("preserves the override and its adjustment when moving an ONLINE booking's dates", async () => {
+    const vehicleId = await makeOverrideVehicle("mv-ovr-1");
+    const [c] = await db.insert(customers).values({ email: "mv-override-1@test.com" }).returning();
+    const overridden = applyPriceOverride(OVR_BASE, 25000, OVR_META); // 40000 -> 25000, adjustment -15000
+    const [bk] = await db.insert(bookings).values({
+      vehicleId, customerId: c!.id,
+      startAt: at("2028-10-01"), endAt: at("2028-10-05"), bufferEndAt: at("2028-10-06"),
+      status: "confirmed", priceBreakdown: overridden, paymentOption: "full", amountPaidCents: 25000,
+      acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "mv-ovr-1",
+    }).returning();
+
+    // same 4-day duration, different dates -> fresh quote is again 40000
+    const moved = await moveBooking(bk!.id, { startAt: at("2028-11-01"), endAt: at("2028-11-05") });
+
+    const bd = moved.priceBreakdown as Record<string, unknown>;
+    expect(bd.subtotalCents).toBe(25000); // max(0, 40000 fresh quote + (-15000) carried adjustment)
+    expect(bd.adjustmentCents).toBe(-15000); // preserved verbatim, does not scale with duration
+    const po = bd.priceOverride as { reason: string; byAdminId: string; at: string };
+    expect(po.reason).toBe(OVR_META.reason);
+    expect(po.byAdminId).toBe(OVR_META.byAdminId);
+    expect(po.at).toBe(OVR_META.at);
+
+    const lines = (bd.vehicleCents as number) + (bd.insuranceCents as number)
+      + (bd.addOnsCents as number) + (bd.youngDriverCents as number) + (bd.adjustmentCents as number);
+    expect(lines).toBe(bd.subtotalCents);
+  });
+
+  it("clamps the re-applied subtotal at 0 rather than going negative when moving to a much shorter window", async () => {
+    const vehicleId = await makeOverrideVehicle("mv-ovr-2");
+    const [c] = await db.insert(customers).values({ email: "mv-override-2@test.com" }).returning();
+    // a heavy barter/settlement discount: 40000 -> 3000, adjustment -37000
+    const overridden = applyPriceOverride(OVR_BASE, 3000, OVR_META);
+    const [bk] = await db.insert(bookings).values({
+      vehicleId, customerId: c!.id,
+      startAt: at("2028-10-10"), endAt: at("2028-10-14"), bufferEndAt: at("2028-10-15"),
+      status: "confirmed", priceBreakdown: overridden, paymentOption: "full", amountPaidCents: 3000,
+      acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "mv-ovr-2",
+    }).returning();
+
+    // shrink to a single day: fresh quote is 10000, and 10000 + (-37000) is negative
+    const moved = await moveBooking(bk!.id, { startAt: at("2028-10-10"), endAt: at("2028-10-11") });
+
+    const bd = moved.priceBreakdown as Record<string, unknown>;
+    expect(bd.subtotalCents).toBe(0); // clamped, never negative
+    const lines = (bd.vehicleCents as number) + (bd.insuranceCents as number)
+      + (bd.addOnsCents as number) + (bd.youngDriverCents as number) + (bd.adjustmentCents as number);
+    expect(lines).toBe(bd.subtotalCents);
+  });
+
+  it("leaves a manual booking's flat amount untouched by the carry-forward logic", async () => {
+    const bk = await createManualBooking({
+      vehicleId: carA, startAt: at("2028-12-01"), endAt: at("2028-12-05"),
+      customerName: "Flat Amount", priceCents: 22000,
+    });
+    const moved = await moveBooking(bk.id, { startAt: at("2029-01-01"), endAt: at("2029-01-05") });
+    const bd = moved.priceBreakdown as Record<string, unknown>;
+    expect(bd.manual).toBe(true);
+    expect(bd.subtotalCents).toBe(22000);
+    expect(bd.priceOverride).toBeUndefined();
+  });
+
+  it("an ONLINE booking with NO override still re-quotes normally, unaffected by the carry-forward change", async () => {
+    const vehicleId = await makeOverrideVehicle("mv-ovr-3");
+    const [c] = await db.insert(customers).values({ email: "mv-override-3@test.com" }).returning();
+    const [bk] = await db.insert(bookings).values({
+      vehicleId, customerId: c!.id,
+      startAt: at("2029-02-01"), endAt: at("2029-02-05"), bufferEndAt: at("2029-02-06"),
+      status: "confirmed", priceBreakdown: OVR_BASE, paymentOption: "full", amountPaidCents: 40000,
+      acceptedPolicyVersion: 1, acceptedAt: new Date(), idempotencyKey: "mv-ovr-3",
+    }).returning();
+    const moved = await moveBooking(bk!.id, { startAt: at("2029-03-01"), endAt: at("2029-03-05") });
+    const bd = moved.priceBreakdown as Record<string, unknown>;
+    expect(bd.subtotalCents).toBe(40000);
+    expect(bd.priceOverride).toBeUndefined();
+    expect(bd.adjustmentCents).toBeUndefined();
   });
 });
 
