@@ -6,7 +6,7 @@ import { Drawer, Modal, useToast, SkeletonRows } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, parseTs } from "@/lib/time/format";
 import { InspectionPanel } from "./inspection-panel";
-import type { BookingDetail, BookingDetailPayment } from "@/lib/admin/booking-detail";
+import type { BookingDetailResponse, BookingDetailPayment } from "@/lib/admin/booking-detail";
 import "./booking-drawer.css";
 
 interface VehicleOption { id: string; plate: string; name: string; class?: string; status?: string }
@@ -48,7 +48,7 @@ const money = (c: number) => `$${(c / 100).toFixed(2)}`;
  * own vehicle list (for Move) so the parent board only has to pass an id.
  */
 export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = null }: BookingDrawerProps) {
-  const [detail, setDetail] = useState<BookingDetail | null>(null);
+  const [detail, setDetail] = useState<BookingDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [showMove, setShowMove] = useState(false);
@@ -69,6 +69,11 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   const [payBusy, setPayBusy] = useState(false);
   const [showOtherAmount, setShowOtherAmount] = useState(false);
   const [otherAmountCents, setOtherAmountCents] = useState<number | null>(null);
+
+  const [showPriceEdit, setShowPriceEdit] = useState(false);
+  const [priceDraftCents, setPriceDraftCents] = useState<number | null>(null);
+  const [priceReason, setPriceReason] = useState("");
+  const [priceBusy, setPriceBusy] = useState(false);
 
   const [showExtend, setShowExtend] = useState(false);
   const [exBusy, setExBusy] = useState(false);
@@ -107,7 +112,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     if (!bookingId) { setDetail(null); return; }
     setLoading(true);
     try {
-      const d = await apiGet<BookingDetail>(`/api/admin/bookings/${bookingId}`);
+      const d = await apiGet<BookingDetailResponse>(`/api/admin/bookings/${bookingId}`);
       setDetail(d);
       setPaidUntilDraft(d.booking.paidUntil ?? "");
     } catch (e) {
@@ -132,6 +137,9 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     setRepairFor(null);
     setShowOtherAmount(false);
     setOtherAmountCents(null);
+    setShowPriceEdit(false);
+    setPriceDraftCents(null);
+    setPriceReason("");
   }, [bookingId]);
 
   async function openMove() {
@@ -394,7 +402,35 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     }
   }
 
+  async function savePrice() {
+    if (!detail || priceDraftCents === null || priceReason.trim().length < 3) return;
+    setPriceBusy(true);
+    try {
+      await apiPatch(`/api/admin/bookings/${detail.booking.id}/price`, {
+        subtotalCents: priceDraftCents,
+        reason: priceReason.trim(),
+      });
+      setShowPriceEdit(false);
+      setPriceReason("");
+      onChanged();
+      await load();
+      toast.show({ type: "success", message: "Price updated" });
+    } catch (e) {
+      toast.show({ type: "error", message: (e as ApiError).message });
+    } finally {
+      setPriceBusy(false);
+    }
+  }
+
   const b = detail?.booking;
+  // priceBreakdown is typed as QuoteBreakdown but is untyped jsonb at rest, and
+  // a manual booking's shape is missing most of it — read through a cast with
+  // fallbacks rather than trusting the declared type.
+  const breakdown = detail?.booking.priceBreakdown as
+    | { subtotalCents?: number; priceOverride?: { previousSubtotalCents: number; reason: string } }
+    | undefined;
+  const currentSubtotalCents = Number(breakdown?.subtotalCents ?? 0);
+  const priceOverride = breakdown?.priceOverride;
   const canConfirm = paymentMode === "desk" && b?.status === "pending";
   const canCancel = b?.status === "pending" || b?.status === "confirmed";
   // A car can be swapped for any live booking, including one already picked up
@@ -472,6 +508,46 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
               <p className="bd-balance">Paid {money(b.amountPaidCents)} · Balance due at pickup {money(detail.balanceDueCents)}</p>
               {detail.paidNote && (
                 <p className={detail.unpaid ? "bd-paidnote bd-paidnote--unpaid" : "bd-paidnote"}>{detail.paidNote}</p>
+              )}
+
+              {detail.viewerRole === "owner" && b.status !== "cancelled" && (
+                <div className="bd-moneygroup">
+                  <h4 className="bd-moneygroup__title">Price</h4>
+                  <p className="bd-priceline">
+                    {money(currentSubtotalCents)}
+                    {priceOverride && (
+                      <span className="muted"> · was {money(priceOverride.previousSubtotalCents)} · {priceOverride.reason}</span>
+                    )}
+                  </p>
+                  {!showPriceEdit ? (
+                    <button type="button" className="btn btn--quiet"
+                      onClick={() => {
+                        setPriceDraftCents(currentSubtotalCents);
+                        setPriceReason("");
+                        setShowPriceEdit(true);
+                      }}>Change price…</button>
+                  ) : (
+                    <div className="bd-priceedit">
+                      <label>New price
+                        <MoneyInput cents={priceDraftCents} ariaLabel="New price"
+                          onChange={(cents) => setPriceDraftCents(cents)} autoFocus />
+                      </label>
+                      <label>Reason
+                        <input value={priceReason} maxLength={500}
+                          placeholder="e.g. settled against key work"
+                          onChange={(e) => setPriceReason(e.target.value)} />
+                      </label>
+                      <p className="muted">The customer&apos;s confirmation email still shows the old price. Nothing is re-sent.</p>
+                      <div className="pl-pop-actions">
+                        <button type="button" className="btn btn--accent"
+                          disabled={priceBusy || priceDraftCents === null || priceReason.trim().length < 3}
+                          onClick={savePrice}>{priceBusy ? "Saving…" : "Save price"}</button>
+                        <button type="button" className="btn btn--quiet" disabled={priceBusy}
+                          onClick={() => setShowPriceEdit(false)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {b.status !== "cancelled" && detail.balanceDueCents > 0 && (
