@@ -64,6 +64,12 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   const [cancelBusy, setCancelBusy] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
 
+  const [paidUntilDraft, setPaidUntilDraft] = useState("");
+  const [paidUntilBusy, setPaidUntilBusy] = useState(false);
+  const [payBusy, setPayBusy] = useState(false);
+  const [showOtherAmount, setShowOtherAmount] = useState(false);
+  const [otherAmountCents, setOtherAmountCents] = useState<number | null>(null);
+
   const [showExtend, setShowExtend] = useState(false);
   const [exBusy, setExBusy] = useState(false);
   const [ex, setEx] = useState({ endDate: "", endTime: "09:00" });
@@ -101,7 +107,9 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     if (!bookingId) { setDetail(null); return; }
     setLoading(true);
     try {
-      setDetail(await apiGet<BookingDetail>(`/api/admin/bookings/${bookingId}`));
+      const d = await apiGet<BookingDetail>(`/api/admin/bookings/${bookingId}`);
+      setDetail(d);
+      setPaidUntilDraft(d.booking.paidUntil ?? "");
     } catch (e) {
       toast.show({ type: "error", message: (e as ApiError).message });
     }
@@ -342,6 +350,48 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     }
   }
 
+  /** "Betaald t/m": add one month, clamped to the target month's length. */
+  const addMonth = (iso: string): string => {
+    const [y, m, d] = iso.split("-").map(Number);
+    const ty = m === 12 ? y! + 1 : y!, tm = m === 12 ? 1 : m! + 1;
+    const dim = new Date(Date.UTC(ty, tm, 0)).getUTCDate();
+    return `${ty}-${String(tm).padStart(2, "0")}-${String(Math.min(d!, dim)).padStart(2, "0")}`;
+  };
+
+  async function savePaidUntil(value: string | null) {
+    if (!detail) return;
+    setPaidUntilBusy(true);
+    try {
+      await api(`/api/admin/bookings/${detail.booking.id}/paid-until`, { paidUntil: value });
+      onChanged();
+      await load();
+      toast.show({ type: "success", message: value ? `Marked paid until ${value}` : "Paid-until marker cleared" });
+    } catch (e) {
+      toast.show({ type: "error", message: (e as ApiError).message });
+    } finally {
+      setPaidUntilBusy(false);
+    }
+  }
+
+  /** Record cash taken at the desk. Reuses the check-in wizard's route, which
+   *  writes a succeeded desk 'balance' payment and bumps the ledger atomically. */
+  async function recordPayment(amountCents: number) {
+    if (!detail || amountCents <= 0) return;
+    setPayBusy(true);
+    try {
+      await api(`/api/admin/bookings/${detail.booking.id}/desk-payment`, { amountCents });
+      setShowOtherAmount(false);
+      setOtherAmountCents(null);
+      onChanged();
+      await load();
+      toast.show({ type: "success", message: `Recorded ${money(amountCents)} received` });
+    } catch (e) {
+      toast.show({ type: "error", message: (e as ApiError).message });
+    } finally {
+      setPayBusy(false);
+    }
+  }
+
   const b = detail?.booking;
   const canConfirm = paymentMode === "desk" && b?.status === "pending";
   const canCancel = b?.status === "pending" || b?.status === "confirmed";
@@ -418,6 +468,59 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 </div>
               )}
               <p className="bd-balance">Paid {money(b.amountPaidCents)} · Balance due at pickup {money(detail.balanceDueCents)}</p>
+              {detail.paidNote && (
+                <p className={detail.unpaid ? "bd-paidnote bd-paidnote--unpaid" : "bd-paidnote"}>{detail.paidNote}</p>
+              )}
+
+              {b.status !== "cancelled" && detail.balanceDueCents > 0 && (
+                <div className="bd-moneygroup">
+                  <h4 className="bd-moneygroup__title">Amount received</h4>
+                  <div className="pl-pop-actions">
+                    <button type="button" className="btn btn--accent" disabled={payBusy}
+                      onClick={() => recordPayment(detail.balanceDueCents)}>
+                      {payBusy ? "Saving…" : `Mark as paid (${money(detail.balanceDueCents)})`}
+                    </button>
+                    <button type="button" className="btn btn--quiet" disabled={payBusy}
+                      onClick={() => setShowOtherAmount((v) => !v)}>
+                      {showOtherAmount ? "Cancel" : "Other amount…"}
+                    </button>
+                  </div>
+                  {showOtherAmount && (
+                    <div className="bd-otheramount">
+                      <label>Amount received
+                        <MoneyInput cents={otherAmountCents} ariaLabel="Amount received"
+                          onChange={(cents) => setOtherAmountCents(cents)} autoFocus />
+                      </label>
+                      <button type="button" className="btn btn--accent"
+                        disabled={payBusy || otherAmountCents === null || otherAmountCents <= 0}
+                        onClick={() => recordPayment(otherAmountCents!)}>
+                        {payBusy ? "Saving…" : "Record payment"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(b.status === "picked_up" || b.status === "confirmed" || b.status === "completed") && (
+                <div className="bd-moneygroup">
+                  <h4 className="bd-moneygroup__title">Paid until</h4>
+                  <div className="bd-paiduntil">
+                    <label className="bd-paiduntil__label">
+                      <DatePicker value={paidUntilDraft} onChange={(iso) => setPaidUntilDraft(iso)} ariaLabel="Paid until" />
+                    </label>
+                    <button type="button" className="btn btn--quiet"
+                      disabled={paidUntilBusy || !paidUntilDraft || paidUntilDraft === (b.paidUntil ?? "")}
+                      onClick={() => savePaidUntil(paidUntilDraft)}>Save</button>
+                    <button type="button" className="btn btn--quiet" disabled={paidUntilBusy}
+                      onClick={() => savePaidUntil(addMonth(paidUntilDraft || arubaDateOf(arubaNowIso())))}>+1 month</button>
+                    {b.paidUntil && (
+                      <button type="button" className="btn btn--quiet" disabled={paidUntilBusy}
+                        onClick={() => savePaidUntil(null)}>Clear</button>
+                    )}
+                  </div>
+                  <p className="muted bd-paiduntil__hint">For rentals paid by the month. Set the last day the customer has covered. Once that date passes, the bar on the board turns red striped. Leave this empty for ordinary rentals — then the balance above decides.</p>
+                </div>
+              )}
             </section>
 
             {extraSections ?? <InspectionPanel bookingId={b.id} onChanged={onChanged} />}
