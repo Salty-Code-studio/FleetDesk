@@ -39,7 +39,7 @@ export async function listCustomerBookings(customerId: string): Promise<Customer
   // publicBreakdown for why.
   return rows.map((r) => ({
     ...r,
-    breakdown: publicBreakdown(r.breakdown as OverridableBreakdown) as QuoteBreakdown,
+    breakdown: publicBreakdown(r.breakdown as OverridableBreakdown) as unknown as QuoteBreakdown,
   }));
 }
 
