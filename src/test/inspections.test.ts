@@ -129,6 +129,30 @@ describe("getHandover", () => {
     expect(h.license).toBeNull();
     expect(h.booking.priceLines[0]!.cents).toBe(40000);
   });
+
+  it("adds an Adjustment line when the price was overridden, so the lines add up", async () => {
+    const b = await mkBooking("insp-handover-adj", "confirmed");
+    await db.update(bookings)
+      .set({ priceBreakdown: {
+        days: 4, vehicleCents: 40000, insuranceCents: 0, addOns: [], addOnsCents: 0,
+        subtotalCents: 32000, adjustmentCents: -8000, currency: "USD",
+        priceOverride: { previousSubtotalCents: 40000, reason: "settled in kind", byAdminId: adminId, at: "2026-09-08T12:00:00.000Z" },
+      } })
+      .where(eq(bookings.id, b.id));
+
+    const h = await getHandover(b.id);
+    const adj = h.booking.priceLines.find((l) => l.label === "Adjustment")!;
+    expect(adj).toBeDefined();
+    expect(adj.cents).toBe(-8000);
+    expect(h.booking.priceLines.reduce((sum, l) => sum + l.cents, 0)).toBe(h.booking.subtotalCents);
+    expect(h.booking.balanceDueCents).toBe(32000);
+  });
+
+  it("adds no Adjustment line when the price was never overridden", async () => {
+    const b = await mkBooking("insp-handover-noadj", "confirmed");
+    const h = await getHandover(b.id);
+    expect(h.booking.priceLines.some((l) => l.label === "Adjustment")).toBe(false);
+  });
 });
 
 describe("cancelBookingAdmin transition guard", () => {

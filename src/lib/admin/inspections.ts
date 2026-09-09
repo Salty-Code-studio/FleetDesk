@@ -161,7 +161,7 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
   const policy = await getLatestPolicy("rental_terms");
   const insp = await db.select().from(inspections).where(eq(inspections.bookingId, bookingId));
 
-  const breakdown = b.priceBreakdown as Partial<QuoteBreakdown> & { youngDriverCents?: number };
+  const breakdown = b.priceBreakdown as Partial<QuoteBreakdown> & { youngDriverCents?: number; adjustmentCents?: number };
   const subtotal = breakdown.subtotalCents ?? 0;
   const priceLines: HandoverPriceLine[] = [
     {
@@ -171,6 +171,10 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
     ...(breakdown.insuranceCents ? [{ label: "Insurance", cents: breakdown.insuranceCents }] : []),
     ...(breakdown.addOns ?? []).map((a) => ({ label: `${a.name} x${a.qty}`, cents: a.cents })),
     ...(breakdown.youngDriverCents ? [{ label: "Young driver fee", cents: breakdown.youngDriverCents }] : []),
+    // A desk price override keeps the original quote's lines and carries the
+    // difference here, so the itemisation still sums to the total the customer
+    // is asked to pay. Signed: negative for a discount, positive for a top-up.
+    ...(breakdown.adjustmentCents ? [{ label: "Adjustment", cents: breakdown.adjustmentCents }] : []),
   ];
 
   return {
@@ -274,7 +278,7 @@ async function finalizePickupArtifacts(booking: BookingRow, insp: Inspection): P
     ? await getPolicyVersion("rental_terms", insp.acceptedPolicyVersion)
     : undefined) ?? await getLatestPolicy("rental_terms");
 
-  const breakdown = booking.priceBreakdown as Partial<QuoteBreakdown> & { youngDriverCents?: number };
+  const breakdown = booking.priceBreakdown as Partial<QuoteBreakdown> & { youngDriverCents?: number; adjustmentCents?: number };
   const currency = breakdown.currency ?? "USD";
   const subtotal = breakdown.subtotalCents ?? 0;
   const balance = Math.max(0, subtotal - booking.amountPaidCents);
@@ -308,6 +312,7 @@ async function finalizePickupArtifacts(booking: BookingRow, insp: Inspection): P
       ...(breakdown.insuranceCents ? [{ label: "Insurance", amount: money(breakdown.insuranceCents, currency) }] : []),
       ...(breakdown.addOns ?? []).map((a) => ({ label: `${a.name} x${a.qty}`, amount: money(a.cents, currency) })),
       ...(breakdown.youngDriverCents ? [{ label: "Young driver fee", amount: money(breakdown.youngDriverCents, currency) }] : []),
+      ...(breakdown.adjustmentCents ? [{ label: "Adjustment", amount: money(breakdown.adjustmentCents, currency) }] : []),
     ],
     totalAmount: money(subtotal, currency),
     paidAmount: money(booking.amountPaidCents, currency),
