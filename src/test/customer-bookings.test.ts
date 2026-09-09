@@ -67,4 +67,31 @@ describe("customer bookings", () => {
     const done = await mk(aliceId, "completed");
     await expectReject(cancelOwnBooking(aliceId, done.id, atAruba("2026-01-01", "09:00")), /no longer be cancelled/i);
   });
+
+  it("never leaks the owner's override reason, admin id, or adjustment to the customer", async () => {
+    const m = String(cursor++).padStart(2, "0");
+    const overriddenBreakdown = {
+      subtotalCents: 38000,
+      currency: "USD",
+      adjustmentCents: -8000,
+      priceOverride: {
+        previousSubtotalCents: 46000,
+        reason: "gave in, customer threatened chargeback",
+        byAdminId: "admin-1",
+        at: "2026-09-08T12:00:00.000Z",
+      },
+    };
+    const [b] = await db.insert(bookings).values({
+      vehicleId, customerId: aliceId,
+      startAt: atAruba(`2027-${m}-01`, "09:00"), endAt: atAruba(`2027-${m}-05`, "09:00"), bufferEndAt: atAruba(`2027-${m}-06`, "09:00"),
+      status: "confirmed", priceBreakdown: overriddenBreakdown, paymentOption: "deposit", acceptedPolicyVersion: 1,
+      acceptedAt: new Date(), idempotencyKey: `cb-override-${m}`,
+    }).returning();
+    const [view] = await listCustomerBookings(aliceId).then((rows) => rows.filter((r) => r.id === b!.id));
+    expect(view).toBeDefined();
+    expect(view!.breakdown).not.toHaveProperty("priceOverride");
+    expect(view!.breakdown).not.toHaveProperty("adjustmentCents");
+    expect(view!.breakdown.subtotalCents).toBe(38000);
+    expect((view!.breakdown as { currency: string }).currency).toBe("USD");
+  });
 });

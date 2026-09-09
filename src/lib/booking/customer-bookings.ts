@@ -12,6 +12,7 @@ import { refundPayment } from "@/lib/payments/refunds";
 import { Errors } from "@/lib/http/errors";
 import { logger } from "@/lib/logger";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
+import { publicBreakdown, type OverridableBreakdown } from "@/lib/booking/price-override";
 
 export interface CustomerBookingView {
   id: string;
@@ -33,7 +34,13 @@ export async function listCustomerBookings(customerId: string): Promise<Customer
     .innerJoin(vehicles, eq(bookings.vehicleId, vehicles.id))
     .where(eq(bookings.customerId, customerId))
     .orderBy(desc(bookings.createdAt));
-  return rows.map((r) => ({ ...r, breakdown: r.breakdown as QuoteBreakdown }));
+  // Strip desk-internal override keys (owner's free-text reason, admin id,
+  // pre-override price) before this crosses to the customer — see
+  // publicBreakdown for why.
+  return rows.map((r) => ({
+    ...r,
+    breakdown: publicBreakdown(r.breakdown as OverridableBreakdown) as QuoteBreakdown,
+  }));
 }
 
 export interface CancelledBooking {

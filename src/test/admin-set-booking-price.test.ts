@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, customers, bookings, payments, adminUsers } from "@/lib/db/schema";
 import { setBookingPrice } from "@/lib/admin/set-booking-price";
+import { GET as getPublicBooking } from "@/app/api/bookings/[id]/route";
 
 let db: Awaited<ReturnType<typeof getDb>>;
 let vehicleId = "", customerId = "", adminId = "";
@@ -148,5 +149,33 @@ describe("setBookingPrice: repeated edits", () => {
     expect(bd.adjustmentCents).toBe(-4000);
     expect((bd.priceOverride as { previousSubtotalCents: number }).previousSubtotalCents).toBe(45000);
     expect(r.previousSubtotalCents).toBe(38000); // what it was immediately before THIS edit, for the audit row
+  });
+});
+
+describe("the public booking route never leaks an override's audit trail", () => {
+  it("strips priceOverride and adjustmentCents but keeps subtotalCents and currency", async () => {
+    // Not mkBooking(): that shares the `seq` counter (already at its ceiling
+    // of 12 months by here) with every test above, so a 13th call would
+    // overflow into an invalid "2027-13-01" date. This booking's date and
+    // idempotency key are fixed and disjoint from every mkBooking() row.
+    const [b] = await db.insert(bookings).values({
+      vehicleId, customerId,
+      startAt: "2028-01-01T13:00:00Z", endAt: "2028-01-05T13:00:00Z", bufferEndAt: "2028-01-06T13:00:00Z",
+      status: "confirmed", priceBreakdown: QUOTED, amountPaidCents: 0,
+      paymentOption: "full", acceptedPolicyVersion: 1, acceptedAt: new Date(),
+      idempotencyKey: "setprice-public-route-leak",
+    }).returning();
+    await setBookingPrice(b!.id, owner({ reason: "gave in, customer threatened chargeback" }));
+
+    const res = await getPublicBooking(
+      new Request(`http://localhost:3000/api/bookings/${b!.id}`, { headers: { "user-agent": "t" } }),
+      { params: Promise.resolve({ id: b!.id }) },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.priceBreakdown).not.toHaveProperty("priceOverride");
+    expect(body.priceBreakdown).not.toHaveProperty("adjustmentCents");
+    expect(body.priceBreakdown.subtotalCents).toBe(38000);
+    expect(body.priceBreakdown.currency).toBe("USD");
   });
 });

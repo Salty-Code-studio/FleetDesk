@@ -57,3 +57,15 @@ export function applyPriceOverride(
     priceOverride: { previousSubtotalCents: original, ...meta },
   };
 }
+
+/**
+ * Strip desk-internal keys from a price breakdown before it crosses to a
+ * customer. `priceOverride` carries the owner's free-text reason, the admin's
+ * id and the pre-override price — all of it is audit-trail material, none of
+ * it is the customer's business. `adjustmentCents` goes too: the customer is
+ * owed one honest total, not a running commentary on how it was reached.
+ */
+export function publicBreakdown(breakdown: OverridableBreakdown): OverridableBreakdown {
+  const { priceOverride: _o, adjustmentCents: _a, ...rest } = breakdown;
+  return rest;
+}
