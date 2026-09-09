@@ -12,10 +12,24 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
+
+/** True when `s` is not just YYYY-MM-DD-shaped but a real calendar date — e.g.
+ *  rejects 2027-02-30. `Date` silently rolls an out-of-range day/month into the
+ *  next one (new Date("2027-02-30") becomes March 2nd), so a format-only regex
+ *  lets nonsense through; round-tripping back to the same ISO date string
+ *  catches that roll-over without a date library. */
+function isRealCalendarDate(s: string): boolean {
+  const d = new Date(`${s}T00:00:00.000Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
 const BodySchema = z.object({
   // "Betaald t/m": how far the renter has paid on a monthly rental. null clears
   // the marker and the board falls back to the amount-based unpaid flag.
-  paidUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD").nullable(),
+  paidUntil: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD")
+    .refine(isRealCalendarDate, "must be a real calendar date")
+    .nullable(),
 }).strict();
 
 /** POST /api/admin/bookings/:id/paid-until — set or clear the paid-until
