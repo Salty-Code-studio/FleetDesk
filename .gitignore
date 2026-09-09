@@ -30,3 +30,8 @@ npm-debug.log*
 
 # local object-storage driver (STORAGE_DRIVER=local)
 .dev-storage
+.vercel
+.env*
+
+# Supabase CLI link state (machine-local, never shared)
+supabase/.temp/

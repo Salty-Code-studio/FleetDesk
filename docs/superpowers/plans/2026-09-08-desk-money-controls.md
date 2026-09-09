@@ -11,7 +11,8 @@
 ## Global Constraints
 
 - Admin UI copy stays **English**. No i18n layer is introduced.
-- Price override is **owner-only**. Mark-as-paid is available to owner and staff.
+- Price override is **owner-only**, enforced twice (route role gate + domain function check).
+- **Every admin route in this plan stays owner-only.** The design said staff may mark a booking paid, but `read`/`mutate` default to `roles: ["owner"]` (`admin-auth.ts:72`) and the booking-detail GET already relies on that default, so staff cannot open the drawer at all today. Widening staff access is a security decision outside this plan's scope — do not add `roles: ["owner", "staff"]` to any route here.
 - The reason for a price change is **required, free text**, 3–500 characters after trim.
 - Whatever the owner types is the revenue. No separate barter/settled payment method, no new `payment_method` enum value.
 - No customer email is sent or re-sent by any change in this plan.
