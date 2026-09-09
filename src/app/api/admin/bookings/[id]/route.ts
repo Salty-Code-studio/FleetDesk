@@ -15,7 +15,10 @@ const ParamsSchema = z.object({ id: z.string().uuid() });
  *  vehicle, every payment row, and the computed balance/policy the drawer needs. */
 export const GET = withRoute(async (req, { params }) => {
   const { id } = parseParams(await params, ParamsSchema);
-  const detail = await read(req, () => getBookingDetail(id));
+  const detail = await read(req, async (ctx) => {
+    const d = await getBookingDetail(id);
+    return d ? { ...d, viewerRole: ctx.admin.role } : undefined;
+  });
   if (!detail) throw Errors.notFound("Booking not found");
   return json(detail, req);
 });

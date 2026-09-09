@@ -17,6 +17,7 @@ import { isFreeCancellation } from "@/lib/booking/cancellation";
 import { arubaNowIso, arubaDateOf } from "@/lib/time/format";
 import { paidState } from "@/lib/admin/paid-state";
 import type { QuoteBreakdown } from "@/lib/booking/quote";
+import type { AdminRole } from "@/lib/auth/admin-auth";
 
 export interface BookingDetailPayment {
   id: string;
@@ -52,6 +53,16 @@ export interface BookingDetail {
   /** Why, in one sentence, or null when there is nothing to say. */
   paidNote: string | null;
   policySaysFree: boolean;
+}
+
+/**
+ * What GET /api/admin/bookings/:id actually returns. The viewer's role rides
+ * along so the drawer can hide owner-only controls; the route, not this
+ * module, fills it in, because only the route knows who is asking. It is a
+ * display hint — every owner-only route enforces the role itself.
+ */
+export interface BookingDetailResponse extends BookingDetail {
+  viewerRole: AdminRole;
 }
 
 export async function getBookingDetail(id: string): Promise<BookingDetail | undefined> {
