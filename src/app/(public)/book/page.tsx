@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { DatePicker, TimeSelect } from "@/components/ui";
+import { licenceDateBounds } from "@/lib/booking/license-bounds";
 import { paymentAmounts, depositSettingsFromSnapshot } from "@/lib/payments/amounts";
 
 interface ClassOption { class: string; fromDayCents: number; depositCents: number | null; cars: number; available: boolean | null; carSlug: string | null }
@@ -220,6 +221,10 @@ export default function BookPage() {
     () => Object.entries(qty).filter(([, q]) => q > 0).map(([addOnId, q]) => ({ addOnId, qty: q })),
     [qty],
   );
+
+  // Computed once per mount: a wizard session never spans midnight in practice,
+  // and recomputing per render would churn the DatePicker's year list.
+  const licenceBounds = useMemo(() => licenceDateBounds(todayISO()), []);
 
   // Live USD quote whenever the (resolved) car, dates, times, insurance or extras change.
   useEffect(() => {
@@ -574,9 +579,9 @@ export default function BookPage() {
                   <label className="fld">Name on licence<input id="lic-name" required value={license.nameOnLicense} onChange={(e) => { setLicense({ ...license, nameOnLicense: e.target.value }); setStepError(""); }} /></label>
                   <label className="fld">Licence number<input id="lic-num" required value={license.licenseNumber} onChange={(e) => { setLicense({ ...license, licenseNumber: e.target.value }); setStepError(""); }} /></label>
                   <label className="fld">Issuing country<input id="lic-country" required value={license.issuingCountry} onChange={(e) => { setLicense({ ...license, issuingCountry: e.target.value }); setStepError(""); }} /></label>
-                  <label className="fld">Date of birth<DatePicker id="lic-dob" required value={license.dob} onChange={(iso) => { setLicense({ ...license, dob: iso }); setStepError(""); }} ariaLabel="Date of birth" /></label>
-                  <label className="fld">Issue date<DatePicker id="lic-issue" required value={license.issueDate} onChange={(iso) => { setLicense({ ...license, issueDate: iso }); setStepError(""); }} ariaLabel="Licence issue date" /></label>
-                  <label className="fld">Expiry date<DatePicker id="lic-expiry" required value={license.expiryDate} onChange={(iso) => { setLicense({ ...license, expiryDate: iso }); setStepError(""); }} ariaLabel="Licence expiry date" /></label>
+                  <label className="fld">Date of birth<DatePicker id="lic-dob" required min={licenceBounds.dob.min} max={licenceBounds.dob.max} value={license.dob} onChange={(iso) => { setLicense({ ...license, dob: iso }); setStepError(""); }} ariaLabel="Date of birth" /></label>
+                  <label className="fld">Issue date<DatePicker id="lic-issue" required min={licenceBounds.issueDate.min} max={licenceBounds.issueDate.max} value={license.issueDate} onChange={(iso) => { setLicense({ ...license, issueDate: iso }); setStepError(""); }} ariaLabel="Licence issue date" /></label>
+                  <label className="fld">Expiry date<DatePicker id="lic-expiry" required min={licenceBounds.expiryDate.min} max={licenceBounds.expiryDate.max} value={license.expiryDate} onChange={(iso) => { setLicense({ ...license, expiryDate: iso }); setStepError(""); }} ariaLabel="Licence expiry date" /></label>
                 </div>
               </div>
             )}
