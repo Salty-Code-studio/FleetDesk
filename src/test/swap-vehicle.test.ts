@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
 import { vehicles, settings, customers, bookings, availabilityBlocks } from "@/lib/db/schema";
@@ -102,12 +102,19 @@ describe("swapVehicle", () => {
     await expectReject(swapVehicle(bk.id, { vehicleId: retired }), /not available/i);
   });
 
-  it("rejects a swap onto a car that is really booked in the same window (409)", async () => {
-    await createManualBooking({ vehicleId: carB, startAt: at("2029-07-01"), endAt: at("2029-07-05"), customerName: "Occupant" });
+  it("auto-sorts: the rental already on the target moves to a free car instead of refusing", async () => {
+    const occ = await createManualBooking({ vehicleId: carB, startAt: at("2029-07-01"), endAt: at("2029-07-05"), customerName: "Occupant" });
     const bk = await createManualBooking({ vehicleId: carA, startAt: at("2029-07-01"), endAt: at("2029-07-05"), customerName: "Clash" });
-    await expectReject(swapVehicle(bk.id, { vehicleId: carB }), /already|overlap|conflict|booked|not available/i);
-    const [after] = await db.select().from(bookings).where(eq(bookings.id, bk.id));
-    expect(after!.vehicleId).toBe(carA);
+    const swapped = await swapVehicle(bk.id, { vehicleId: carB });
+    expect(swapped.vehicleId).toBe(carB);
+    expect(swapped.moved).toHaveLength(1);
+    expect(swapped.moved[0]!.id).toBe(occ.id);
+    expect(swapped.moved[0]!.customerName).toBe("Occupant");
+    const [after] = await db.select().from(bookings).where(eq(bookings.id, occ.id));
+    expect(after!.vehicleId).not.toBe(carB);
+    expect(after!.status).toBe(occ.status);
+    expect(sameInstant(after!.startAt, "2029-07-01")).toBe(true);
+    expect(after!.priceBreakdown).toEqual(occ.priceBreakdown);
   });
 
   it("surfaces an advisory conflict for a soft block on the target, and honours override", async () => {
@@ -124,5 +131,104 @@ describe("swapVehicle", () => {
     }
     const forced = await swapVehicle(bk.id, { vehicleId: carC, override: true });
     expect(forced.vehicleId).toBe(carC);
+  });
+
+  describe("auto-sort across an identical fleet", () => {
+    /** A private class per scenario so other tests' cars never join the pool. */
+    async function fleet(cls: string, n: number) {
+      const ids: string[] = [];
+      for (let i = 1; i <= n; i++) {
+        const [v] = await db.insert(vehicles).values({
+          slug: `${cls}-${i}`, plate: `${cls.toUpperCase()}-${i}`, class: cls, name: `${cls} ${i}`, seats: 2,
+          transmission: "Automatic", doors: 0, priceDayCents: 2250, priceWeekCents: 15000, priceMonthCents: 30000,
+        }).returning();
+        ids.push(v!.id);
+      }
+      return ids;
+    }
+    const vehicleOf = async (id: string) => (await db.select().from(bookings).where(eq(bookings.id, id)))[0]!.vehicleId;
+
+    it("re-sorts a chain when moving only the clashing rental does not fit", async () => {
+      const [s1, s2, s3] = await fleet("chain", 3);
+      await db.insert(availabilityBlocks).values({ vehicleId: s3!, startAt: at("2030-01-01"), endAt: at("2030-01-20"), type: "maintenance", reason: "" });
+      const b = await seedBooking({ vehicleId: s1!, start: "2030-01-01", end: "2030-01-03", key: "ch-b" });
+      const e = await seedBooking({ vehicleId: s1!, start: "2030-01-05", end: "2030-01-10", key: "ch-e" });
+      const d = await seedBooking({ vehicleId: s2!, start: "2030-01-02", end: "2030-01-08", key: "ch-d" });
+      const swapped = await swapVehicle(b.id, { vehicleId: s2! });
+      expect(swapped.vehicleId).toBe(s2);
+      expect(await vehicleOf(d.id)).toBe(s1);
+      expect(await vehicleOf(e.id)).toBe(s2);
+      expect(swapped.moved.map((m) => m.id).sort()).toEqual([d.id, e.id].sort());
+    });
+
+    it("refuses when the target scooter is still out with another renter", async () => {
+      const [s1, s2] = await fleet("outx", 2);
+      const b = await seedBooking({ vehicleId: s1!, start: "2030-02-01", end: "2030-02-05", key: "out-b" });
+      await seedBooking({ vehicleId: s2!, start: "2030-01-28", end: "2030-02-03", status: "picked_up", key: "out-p" });
+      await expectReject(swapVehicle(b.id, { vehicleId: s2! }), /still marked as out/i);
+      expect(await vehicleOf(b.id)).toBe(s1);
+    });
+
+    it("refuses and changes nothing when the fleet is genuinely full", async () => {
+      const [s1, s2, s3] = await fleet("full", 3);
+      await db.insert(availabilityBlocks).values({ vehicleId: s3!, startAt: at("2030-03-01"), endAt: at("2030-03-20"), type: "maintenance", reason: "" });
+      const b = await seedBooking({ vehicleId: s1!, start: "2030-03-01", end: "2030-03-03", key: "full-b" });
+      await seedBooking({ vehicleId: s1!, start: "2030-03-04", end: "2030-03-10", status: "picked_up", key: "full-e" });
+      const d = await seedBooking({ vehicleId: s2!, start: "2030-03-02", end: "2030-03-08", key: "full-d" });
+      await expectReject(swapVehicle(b.id, { vehicleId: s2! }), /no free vehicle/i);
+      expect(await vehicleOf(b.id)).toBe(s1);
+      expect(await vehicleOf(d.id)).toBe(s2);
+      const [dAfter] = await db.select().from(bookings).where(eq(bookings.id, d.id));
+      expect(dAfter!.status).toBe("confirmed");
+    });
+
+    it("moves several clashing rentals at once and keeps their statuses", async () => {
+      const [s1, s2, s3, s4] = await fleet("multi", 4);
+      const b = await seedBooking({ vehicleId: s1!, start: "2030-04-01", end: "2030-04-10", key: "mu-b" });
+      const x = await seedBooking({ vehicleId: s2!, start: "2030-04-01", end: "2030-04-03", status: "pending", key: "mu-x" });
+      const y = await seedBooking({ vehicleId: s2!, start: "2030-04-05", end: "2030-04-07", key: "mu-y" });
+      await seedBooking({ vehicleId: s3!, start: "2030-04-01", end: "2030-04-12", key: "mu-z" });
+      const swapped = await swapVehicle(b.id, { vehicleId: s2! });
+      expect(swapped.moved).toHaveLength(2);
+      for (const id of [x.id, y.id]) expect([s1, s4]).toContain(await vehicleOf(id));
+      expect((await db.select().from(bookings).where(eq(bookings.id, x.id)))[0]!.status).toBe("pending");
+    });
+
+    it("Sjonnie's case: walk-in gets scooter 5, its Nov-Jan rental finds a home even when that means shuffling others", async () => {
+      const [s1, s2, s3] = await fleet("winter", 3); // s1 plays "scooter 5"
+      const long = await seedBooking({ vehicleId: s1!, start: "2030-11-01", end: "2031-01-31", key: "w-long" });
+      const a = await seedBooking({ vehicleId: s2!, start: "2030-10-20", end: "2030-11-10", key: "w-a" });
+      const b = await seedBooking({ vehicleId: s2!, start: "2030-12-01", end: "2030-12-20", key: "w-b" });
+      const c = await seedBooking({ vehicleId: s3!, start: "2030-11-15", end: "2030-11-30", key: "w-c" });
+      const d = await seedBooking({ vehicleId: s3!, start: "2031-01-05", end: "2031-01-20", key: "w-d" });
+      // The walk-in was put on s3 (free that week) and then handed scooter 5.
+      const walk = await seedBooking({ vehicleId: s3!, start: "2030-10-29", end: "2030-11-03", key: "w-walk" });
+
+      const swapped = await swapVehicle(walk.id, { vehicleId: s1!, reason: "walk_in" });
+      expect(swapped.vehicleId).toBe(s1);
+      expect(await vehicleOf(long.id)).not.toBe(s1);
+
+      // Every rental keeps its dates, sits on one scooter, and no scooter is double-booked.
+      const all = await db.select().from(bookings).where(inArray(bookings.id, [long.id, a.id, b.id, c.id, d.id, walk.id]));
+      for (const x of all) {
+        for (const y of all) {
+          if (x.id < y.id && x.vehicleId === y.vehicleId) {
+            expect(parseTs(x.startAt) < parseTs(y.bufferEndAt) && parseTs(y.startAt) < parseTs(x.bufferEndAt)).toBe(false);
+          }
+        }
+      }
+      const longAfter = all.find((x) => x.id === long.id)!;
+      expect(sameInstant(longAfter.startAt, "2030-11-01")).toBe(true);
+      expect(sameInstant(longAfter.endAt, "2031-01-31")).toBe(true);
+      expect(swapped.moved.some((m) => m.id === long.id)).toBe(true);
+    });
+
+    it("a repair swap never hands re-sorted rentals to the broken scooter", async () => {
+      const [s1, s2, s3] = await fleet("brk", 3);
+      const bk = await seedBooking({ vehicleId: s1!, start: "2030-05-01", end: "2030-05-05", status: "picked_up", key: "brk-b" });
+      const occ = await seedBooking({ vehicleId: s2!, start: "2030-05-02", end: "2030-05-04", key: "brk-o" });
+      await swapVehicle(bk.id, { vehicleId: s2!, reason: "repair" });
+      expect(await vehicleOf(occ.id)).toBe(s3);
+    });
   });
 });

@@ -59,6 +59,7 @@ export async function checkAvailability(
   endAt: string,
   settings: { turnaroundBufferHours: number },
   excludeBookingId?: string,
+  opts: { ignoreBookings?: boolean } = {},
 ): Promise<AvailabilityResult> {
   const db = await getDb();
 
@@ -75,7 +76,7 @@ export async function checkAvailability(
   // longer over-rejects a slot the authoritative constraint would still accept.
   const newBufferEnd = addHoursIso(endAt, settings.turnaroundBufferHours);
 
-  const clashing = await db.select({ id: bookings.id }).from(bookings).where(and(
+  const clashing = opts.ignoreBookings ? [] : await db.select({ id: bookings.id }).from(bookings).where(and(
     eq(bookings.vehicleId, vehicleId),
     inArray(bookings.status, ["pending", "confirmed", "picked_up"]),
     excludeBookingId ? ne(bookings.id, excludeBookingId) : sql`true`,

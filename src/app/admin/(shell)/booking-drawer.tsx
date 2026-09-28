@@ -78,6 +78,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   const [showSwap, setShowSwap] = useState(false);
   const [swapBusy, setSwapBusy] = useState(false);
   const [swapVehicleId, setSwapVehicleId] = useState("");
+  const [swapReason, setSwapReason] = useState<"walk_in" | "repair" | "damaged" | "other">("walk_in");
   const [swapAdvisory, setSwapAdvisory] = useState<string | null>(null);
   const [repairFor, setRepairFor] = useState<{ vehicleId: string; plate: string } | null>(null);
   const [repair, setRepair] = useState({ type: "maintenance", startDate: "", endDate: "", reason: "" });
@@ -160,6 +161,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   async function openSwap() {
     if (!detail) return;
     setSwapVehicleId("");
+    setSwapReason("walk_in");
     setSwapAdvisory(null);
     setShowSwap(true);
     if (vehicles.length === 0) {
@@ -174,15 +176,28 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     const brokenCar = { vehicleId: detail.vehicle.id, plate: detail.vehicle.plate };
     setSwapBusy(true);
     try {
-      await api(`/api/admin/bookings/${bookingId}/swap-vehicle`, { vehicleId: swapVehicleId, override });
-      toast.show({ type: "success", message: "Swapped." });
+      const res = await api<{ moved?: Array<{ customerName: string; fromPlate: string; toPlate: string }> }>(
+        `/api/admin/bookings/${bookingId}/swap-vehicle`, { vehicleId: swapVehicleId, override, reason: swapReason });
+      const moved = res?.moved ?? [];
+      toast.show({
+        type: "success",
+        message: moved.length === 0
+          ? "Swapped."
+          : `Swapped. Also re-sorted ${moved.length} other rental${moved.length === 1 ? "" : "s"}: `
+            + moved.map((m) => `${m.customerName || "rental"} ${m.fromPlate} → ${m.toPlate}`).join(", "),
+        // Long enough to read which plates changed; 0 would pin it.
+        duration: moved.length === 0 ? undefined : 12_000,
+      });
       setShowSwap(false);
       setSwapAdvisory(null);
       onChanged();
       await load();
-      // Ask whether to take the broken car off the road (spec: ask each time).
-      setRepair({ type: "maintenance", startDate: arubaDateOf(arubaNowIso()), endDate: "", reason: "" });
-      setRepairFor(brokenCar);
+      // Only a repair/damage swap asks to take the old car off the road. A
+      // walk-in swap just hands out a different car; nothing is broken.
+      if (swapReason === "repair" || swapReason === "damaged") {
+        setRepair({ type: "maintenance", startDate: arubaDateOf(arubaNowIso()), endDate: "", reason: swapReason === "damaged" ? "Damaged" : "Repair" });
+        setRepairFor(brokenCar);
+      }
     } catch (e) {
       const err = e as ApiError;
       // A soft block/blackout on the target is overridable by the desk; a real
@@ -451,7 +466,19 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                       placeholder={vehicles.length === 0 ? "Loading cars…" : "Choose a replacement car"}
                     />
                   </label>
-                  <p className="muted">Same dates and same price. Only the car changes.</p>
+                  <label>Reason
+                    <Select
+                      value={swapReason}
+                      onChange={(v) => setSwapReason(v as typeof swapReason)}
+                      options={[
+                        { value: "walk_in", label: "Walk-in (handed out this car)" },
+                        { value: "repair", label: "Repair (car needs work)" },
+                        { value: "damaged", label: "Damaged" },
+                        { value: "other", label: "Other" },
+                      ]}
+                    />
+                  </label>
+                  <p className="muted">Same dates and same price. Only the car changes. Other rentals on that car move to a free one automatically.</p>
                   <div className="pl-pop-actions">
                     <button type="button" className="btn btn--accent" disabled={swapBusy || !swapVehicleId} onClick={() => submitSwap(false)}>{swapBusy ? "Swapping…" : "Swap car"}</button>
                     <button type="button" className="btn btn--quiet" onClick={() => setShowSwap(false)}>Back</button>

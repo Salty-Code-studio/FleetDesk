@@ -17,11 +17,16 @@ export const POST = withRoute(async (req, { params }) => {
     const row = await swapVehicle(id, input);
     return {
       result: row, entity: "booking", entityId: id,
-      after: { vehicleId: row.vehicleId, startAt: row.startAt, endAt: row.endAt },
+      after: {
+        vehicleId: row.vehicleId, startAt: row.startAt, endAt: row.endAt,
+        reason: input.reason ?? null,
+        // Rentals the auto-sort re-homed to make room, for the audit trail.
+        moved: row.moved.map((m) => ({ id: m.id, from: m.fromPlate, to: m.toPlate })),
+      },
     };
   }, { roles: ["owner", "staff"] });
   return json(
-    { id: updated.id, vehicleId: updated.vehicleId, startAt: updated.startAt, endAt: updated.endAt },
+    { id: updated.id, vehicleId: updated.vehicleId, startAt: updated.startAt, endAt: updated.endAt, moved: updated.moved },
     req,
   );
 });
