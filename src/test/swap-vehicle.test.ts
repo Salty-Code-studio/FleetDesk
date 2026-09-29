@@ -230,5 +230,18 @@ describe("swapVehicle", () => {
       await swapVehicle(bk.id, { vehicleId: s2!, reason: "repair" });
       expect(await vehicleOf(occ.id)).toBe(s3);
     });
+
+    it("sees older rentals too: a swap of a rental picked up in the past never lands the moved one on a hidden clash", async () => {
+      // Dates in the PAST: the swapped rental was picked up days ago, and the one
+      // on the target began even earlier. A rental that ended before the swapped
+      // one started can still clash with the one being moved.
+      const [s1, s2, s3] = await fleet("past", 3);
+      await seedBooking({ vehicleId: s1!, start: "2026-09-03", end: "2026-09-08", key: "past-z" }); // hidden clash for D on s1
+      const b = await seedBooking({ vehicleId: s1!, start: "2026-09-10", end: "2099-01-01", status: "picked_up", key: "past-b" });
+      const d = await seedBooking({ vehicleId: s2!, start: "2026-09-05", end: "2099-01-05", key: "past-d" });
+      const swapped = await swapVehicle(b.id, { vehicleId: s2!, reason: "walk_in" });
+      expect(swapped.vehicleId).toBe(s2);
+      expect(await vehicleOf(d.id)).toBe(s3);
+    });
   });
 });

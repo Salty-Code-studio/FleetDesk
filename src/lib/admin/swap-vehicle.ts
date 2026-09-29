@@ -6,7 +6,7 @@ import { Errors } from "@/lib/http/errors";
 import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
 import { checkAvailability } from "@/lib/booking/availability";
-import { arubaDateOf, arubaNowIso, parseTs } from "@/lib/time/format";
+import { arubaDateOf, parseTs } from "@/lib/time/format";
 import { planAssignment, planAssignmentExact, timeCluster, type PlanBooking } from "@/lib/admin/reshuffle";
 
 /**
@@ -116,8 +116,10 @@ export async function swapVehicle(id: string, input: SwapInput) {
         .sort((a, b) => a.plate.localeCompare(b.plate)).map((v) => v.id);
       const laneSet = new Set(laneIds);
 
-      const nowIso = arubaNowIso();
-      const floor = parseTs(booking.startAt) < parseTs(nowIso) ? booking.startAt : nowIso;
+      // Every live rental on these scooters, however old. A moved rental can start
+      // well before the swapped one (a stale "confirmed" that was never checked
+      // out), so no date floor is safe here: a hidden older rental is exactly
+      // what the exclusion constraint would then trip over.
       const fleetIds = fleet.map((v) => v.id);
       const rows = await tx.select({
         id: bookings.id, vehicleId: bookings.vehicleId, status: bookings.status,
@@ -125,11 +127,12 @@ export async function swapVehicle(id: string, input: SwapInput) {
       }).from(bookings).where(and(
         inArray(bookings.vehicleId, fleetIds),
         inArray(bookings.status, [...LIVE]),
-        gt(bookings.bufferEndAt, floor),
       ));
+      // Blocks only matter from the earliest live rental onwards.
+      const earliest = rows.reduce((m, r) => (parseTs(r.startAt) < parseTs(m) ? r.startAt : m), booking.startAt);
       const blockRows = await tx.select().from(availabilityBlocks).where(and(
         inArray(availabilityBlocks.vehicleId, fleetIds),
-        gt(availabilityBlocks.endAt, floor),
+        gt(availabilityBlocks.endAt, earliest),
       ));
 
       const toPlan = (r: { id: string; vehicleId: string; startAt: string; endAt: string; bufferEndAt: string }): PlanBooking => ({
