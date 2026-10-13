@@ -1,0 +1,71 @@
+/* src/app/tokens.css
+   Yabi design tokens. ONE source for every scope (admin shell, public booking,
+   marketing). The scopes alias these; they never redeclare a hex.
+   Palette: Sand & Surf. Coral is the SIGNAL colour: it means "tap this" and
+   nothing else. Status is ink (teal, amber, green, red), never coral.
+   Guarded by src/test/tokens-single-source.test.ts. */
+:root {
+  /* canvas + surfaces */
+  --sand:      #F2EBDD;
+  --sand-2:    #EAE0CD;
+  --panel:     #FCFAF4;
+  --fill:      #F4EEE1;
+  --line:      #E3DAC8;
+  --line-soft: #EDE5D6;
+
+  /* ink */
+  --teal:      #0E3A40;
+  --teal-700:  #0A2C31;
+  --teal-600:  #14474E;
+  --ink:       #1C2B2E;
+  --ink-soft:  #586A6D;
+  --ink-mute:  #8B9B9D;
+
+  /* accents */
+  --coral:     #FF6F59;
+  --coral-600: #F2563F;
+  --coral-lift:#FF7D68;
+  --sky:       #4FA8C9;
+
+  /* THE signal colour. Only buttons and controls the user should tap use it. */
+  --signal:     var(--coral);
+  --signal-600: var(--coral-600);
+  --signal-ink: var(--teal-700);
+
+  /* status (ink, never signal) */
+  --ok:        #2E7D5B;
+  --ok-bg:     #E2F0E7;
+  --danger:    #C0473A;
+  --danger-bg: #F6E3DF;
+  --amber:     #C98A33;
+  --amber-bg:  #F6E9CF;
+  --pickup:    #2C5F8A;
+  --overdue:   #8A2C2C;
+
+  /* type scale: skip the middle sizes. One huge thing, everything else small. */
+  --fs-huge:   clamp(2.75rem, 7vw, 4.5rem);
+  --fs-big:    1.6rem;
+  --fs-body:   .95rem;
+  --fs-small:  .82rem;
+  --fs-tiny:   .7rem;
+
+  /* fonts: next/font sets the hashed families on each layout wrapper; these are
+     the literal fallbacks so var() resolves on any surface. */
+  --font-display-fallback: "Space Grotesk", system-ui, sans-serif;
+  --font-mono-fallback:    "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-body-fallback:    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-display-fallback);
+  --font-mono:    var(--font-mono-fallback);
+  --font-body:    var(--font-body-fallback);
+
+  /* shape + motion */
+  --radius:    14px;
+  --radius-sm: 10px;
+  --radius-lg: 18px;
+  --ease:      cubic-bezier(.22,.61,.36,1);
+  --dur-fast:  .12s;
+  --dur-base:  .2s;
+  --shadow-sm: 0 1px 2px rgba(14,58,64,.06), 0 1px 8px rgba(14,58,64,.05);
+  --shadow-md: 0 12px 30px -14px rgba(14,58,64,.22);
+  --shadow-lg: 0 24px 60px -22px rgba(14,58,64,.30);
+}

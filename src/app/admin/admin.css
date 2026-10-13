@@ -13,52 +13,13 @@
    ============================================================ */
 
 :root {
-  /* Sand & Surf */
-  --sand:        #F2EBDD;  /* canvas */
-  --sand-2:      #EAE0CD;  /* deeper sand: weekend, hover tints */
-  --panel:       #FCFAF4;  /* warm near-white surfaces */
-  --teal:        #0E3A40;  /* primary ink / buttons / sidebar */
-  --teal-700:    #0A2C31;  /* button hover */
-  --teal-600:    #14474E;
-  --coral:       #FF6F59;  /* THE accent — one emphasis per view */
-  --coral-600:   #F2563F;
-  --sky:         #4FA8C9;  /* secondary accent: tags, charts, info */
-  --ink:         #1C2B2E;  /* Driftwood — text + headings */
-  --ink-soft:    #586A6D;  /* muted teal-gray */
-  --ink-mute:    #8B9B9D;
-  --line:        #E3DAC8;  /* warm sand border */
-  --line-soft:   #EDE5D6;
-  --fill:        #F4EEE1;  /* input / subtle fills */
-  --ok:          #2E7D5B;
-  --ok-bg:       #E2F0E7;
-  --danger:      #C0473A;
-  --danger-bg:   #F6E3DF;
-  --amber:       #C98A33;  /* pending status */
-  --amber-bg:    #F6E9CF;
-  --pickup:      #2C5F8A;  /* picked up / with customer */
-  --overdue:     #8A2C2C;  /* overdue return */
-
-  /* legacy names → repointed so old var() usages adopt the new palette */
+  /* Palette, type scale, fonts and motion live in src/app/tokens.css.
+     Only legacy aliases stay here so old var() usages keep resolving. */
   --blue: var(--teal);
   --blue-dark: var(--teal-700);
   --orange: var(--coral);
   --navy: var(--teal);
   --surface: var(--fill);
-
-  /* next/font sets --font-display/-mono/-body on the wrappers; these declare the
-     literal fallback fonts in the same family stack so var() resolves either way. */
-  --font-display-fallback: "Space Grotesk", system-ui, sans-serif;
-  --font-mono-fallback: "JetBrains Mono", ui-monospace, Menlo, monospace;
-  --font-body-fallback: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: var(--font-display-fallback);
-  --font-mono: var(--font-mono-fallback);
-  --font-body: var(--font-body-fallback);
-
-  --shadow-sm: 0 1px 2px rgba(14,58,64,.06), 0 1px 8px rgba(14,58,64,.05);
-  --shadow-md: 0 12px 30px -14px rgba(14,58,64,.22);
-  --shadow-lg: 0 24px 60px -22px rgba(14,58,64,.30);
-  --radius: 14px;
-  --ease: cubic-bezier(.22,.61,.36,1);
 }
 
 * { box-sizing: border-box; }

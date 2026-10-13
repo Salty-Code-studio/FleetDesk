@@ -3,40 +3,19 @@
    One Surf Coral accent per view. Sand and Teal carry the weight. */
 
 .mkt {
-  /* canvas + surfaces */
-  --warm-sand: #f2ebdd;
-  --sand-2: #eae0cd;
-  --panel: #fcfaf4;
+  /* Tokens come from src/app/tokens.css. Marketing kept its own names; map
+     them here so the 1,300 lines below need no edits. */
+  --warm-sand: var(--sand);
+  --deep-teal: var(--teal);
+  --surf-coral: var(--coral);
+  --sky-blue: var(--sky);
 
-  /* ink + structure */
-  --deep-teal: #0e3a40;
-  --teal-700: #0a2c31;
-  --ink: #1c2b2e;
-  --ink-soft: #586a6d;
-  --line: #e3dac8;
-
-  /* accents */
-  --surf-coral: #ff6f59;
-  --coral-600: #f2563f;
-  --sky-blue: #4fa8c9;
-
-  /* type */
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  --font-body: "Inter", system-ui, sans-serif;
-
-  /* rhythm */
+  /* rhythm (marketing only) */
   --shell: 1140px;
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
   --radius: 16px;
   --radius-lg: 24px;
-  --radius-sm: 10px;
   --section-y: clamp(4rem, 9vw, 7.5rem);
-
-  /* shadows kept soft and warm */
-  --shadow-sm: 0 1px 2px rgba(14, 58, 64, 0.06);
-  --shadow-md: 0 18px 40px -24px rgba(14, 58, 64, 0.32);
-  --shadow-lg: 0 40px 80px -40px rgba(14, 58, 64, 0.4);
 
   color: var(--ink);
   background: var(--warm-sand);

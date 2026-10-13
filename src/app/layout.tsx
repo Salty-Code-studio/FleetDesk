@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
+import "./tokens.css";
 
 export const metadata = {
   title: "FleetDesk",
   description: "FleetDesk booking platform.",
 };
 
-// Minimal root layout so the App Router is satisfied. This starter is API-first;
-// there is no client UI to attack-surface here.
+// Minimal root layout. tokens.css is the one source of design tokens for every
+// scope below (admin shell, public booking, marketing); see tokens.css.
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
