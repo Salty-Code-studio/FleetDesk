@@ -1,0 +1,8 @@
+If your app feels flat, design in three planes.
+Big type in the back, you're subject in the middle, and the button's on top.
+That overlap is what makes the screen feel deep.
+If people can't tell what to tap, you need to pick a signal color.
+One color that only ever means tap this, and everything else is just ink and paper.
+And if your app still looks default, skip the middle sizes.
+Make one thing huge, everything else tiny, and nothing in between.
+Share this video with your AI or developer so they can try it in your app.

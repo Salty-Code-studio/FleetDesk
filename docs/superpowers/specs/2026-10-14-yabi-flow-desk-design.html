@@ -1,0 +1,375 @@
+<title>Yabi Flow Desk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, 68ch, with full-bleed mock panels and a sticky chapter rail on wide screens.
+   Palette is Yabi's own Sand & Surf. Coral is used ONLY as the signal colour, exactly as the brief argues. */
+:root{
+  --sand:#F2EBDD; --panel:#FCFAF4; --fill:#F4EEE1; --line:#E3DAC8; --line-soft:#EDE5D6;
+  --teal:#0E3A40; --teal-700:#0A2C31; --ink:#1C2B2E; --ink-soft:#586A6D; --ink-mute:#8B9B9D;
+  --signal:#FF6F59; --signal-ink:#0A2C31;
+  --ok:#2E7D5B; --warn:#C98A33; --bad:#C0473A;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --radius:14px; --shadow:0 10px 30px rgba(14,58,64,.08);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --sand:#0F1F22; --panel:#152A2E; --fill:#1B3337; --line:#27454A; --line-soft:#1F3A3F;
+  --teal:#DCEBEA; --teal-700:#F2EBDD; --ink:#EEF3F2; --ink-soft:#A9BCBE; --ink-mute:#7E9497;
+  --signal:#FF7D68; --signal-ink:#0A2C31; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --sand:#0F1F22; --panel:#152A2E; --fill:#1B3337; --line:#27454A; --line-soft:#1F3A3F;
+  --teal:#DCEBEA; --teal-700:#F2EBDD; --ink:#EEF3F2; --ink-soft:#A9BCBE; --ink-mute:#7E9497;
+  --signal:#FF7D68; --signal-ink:#0A2C31; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--sand);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;margin:0;padding-block:0 96px;padding-inline:16px}
+.wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:0}
+@media(min-width:960px){.wrap{grid-template-columns:200px minmax(0,1fr);gap:48px}}
+.rail{display:none}
+@media(min-width:960px){.rail{display:block;position:sticky;top:24px;align-self:start;padding-top:140px}
+.rail a{display:block;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink-mute);text-decoration:none;padding:6px 0;border-left:2px solid var(--line);padding-left:12px}
+.rail a:hover{color:var(--ink)}}
+main{min-width:0;max-width:68ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(44px,8vw,92px);line-height:.95;letter-spacing:-.03em;margin:24px 0 18px;text-wrap:balance;color:var(--teal)}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(28px,4vw,40px);line-height:1.05;letter-spacing:-.02em;margin:72px 0 14px;text-wrap:balance;color:var(--teal)}
+h3{font-family:var(--display);font-weight:600;font-size:20px;margin:32px 0 8px;color:var(--teal)}
+p{margin:0 0 14px}
+.lede{font-size:21px;line-height:1.45;color:var(--ink-soft);max-width:56ch}
+.hero{padding-top:56px;position:relative}
+.hero .plane{position:absolute;right:-8px;top:40px;font-family:var(--display);font-weight:700;font-size:clamp(90px,22vw,260px);line-height:1;color:var(--teal);opacity:.06;letter-spacing:-.05em;pointer-events:none;user-select:none}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:12px;color:var(--ink-mute);margin-top:12px}
+ul,ol{padding-left:22px;margin:0 0 16px}
+li{margin:0 0 8px}
+li::marker{color:var(--ink-mute)}
+strong{color:var(--teal);font-weight:600}
+a{color:var(--teal)}
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+.callout{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:20px 0}
+.callout .eyebrow{margin-bottom:6px}
+.rule{display:grid;grid-template-columns:1fr;gap:14px;margin:18px 0 24px}
+@media(min-width:700px){.rule{grid-template-columns:repeat(3,1fr)}}
+.rule div{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.rule b{display:block;font-family:var(--display);font-size:18px;color:var(--teal);margin-bottom:4px}
+.rule span{font-size:15px;color:var(--ink-soft)}
+blockquote{margin:22px 0;padding:0 0 0 18px;border-left:3px solid var(--signal);font-family:var(--display);font-size:21px;line-height:1.35;color:var(--teal)}
+blockquote cite{display:block;font-family:var(--mono);font-size:12px;font-style:normal;color:var(--ink-mute);margin-top:8px;letter-spacing:.04em}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:14px 0 22px}
+.tbl{overflow-x:auto;margin:0 0 18px}
+th{text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:14px}
+tr.total td{font-weight:600;color:var(--teal);border-top:2px solid var(--line)}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:var(--fill);color:var(--ink-soft);border:1px solid var(--line)}
+.tag.ok{color:var(--ok)} .tag.bad{color:var(--bad)} .tag.warn{color:var(--warn)}
+.big{font-family:var(--display);font-weight:700;font-size:clamp(40px,7vw,64px);line-height:1;letter-spacing:-.03em;color:var(--teal);margin:6px 0 2px;font-variant-numeric:tabular-nums}
+.big small{display:block;font-family:var(--mono);font-size:12px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-top:8px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0 24px}
+@media(min-width:700px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpis div{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.kpis .big{font-size:34px}
+
+/* ---- mockups ---- */
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:20px;margin:22px 0 28px;position:relative;overflow:hidden}
+.mock .label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:10px}
+.m-today{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:700px){.m-today{grid-template-columns:1.1fr 1fr}}
+.m-hero{position:relative;padding:18px 18px 22px;border-radius:14px;background:var(--fill);min-height:230px;overflow:hidden}
+.m-hero .back{position:absolute;left:-6px;bottom:-30px;font-family:var(--display);font-weight:700;font-size:200px;line-height:1;color:var(--teal);opacity:.07;letter-spacing:-.06em}
+.m-hero .mid{position:relative;font-family:var(--display);font-weight:700;font-size:52px;line-height:1;letter-spacing:-.03em;color:var(--teal);margin-top:28px}
+.m-hero .mid em{font-style:normal;display:block;font-size:17px;font-weight:500;letter-spacing:0;color:var(--ink-soft);margin-top:6px;font-family:var(--body)}
+.m-hero .top{position:relative;margin-top:22px}
+.btn{display:inline-block;font-family:var(--display);font-weight:600;font-size:15px;padding:12px 18px;border-radius:12px;background:var(--signal);color:var(--signal-ink);border:0;box-shadow:0 8px 18px rgba(255,111,89,.28)}
+.btn.ghost{background:transparent;color:var(--teal);border:1px solid var(--line);box-shadow:none;margin-left:8px}
+.queue{display:flex;flex-direction:column;gap:10px}
+.q{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.q .t{font-family:var(--mono);font-size:12px;color:var(--ink-mute);min-width:44px}
+.q .who{flex:1;min-width:0}
+.q .who b{display:block;font-family:var(--display);font-size:15px;color:var(--teal)}
+.q .who span{font-size:13px;color:var(--ink-soft)}
+.q .do{font-family:var(--display);font-size:13px;font-weight:600;color:var(--signal-ink);background:var(--signal);padding:7px 12px;border-radius:9px;white-space:nowrap}
+.q.done{opacity:.55}
+.q.done .do{background:transparent;color:var(--ok);padding:0}
+.progress{height:8px;border-radius:99px;background:var(--line-soft);overflow:hidden;margin:10px 0 4px}
+.progress i{display:block;height:100%;width:62%;background:var(--teal);border-radius:99px}
+.ba{display:grid;grid-template-columns:1fr;gap:14px;margin:18px 0 24px}
+@media(min-width:700px){.ba{grid-template-columns:1fr 1fr}}
+.ba .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.ba .card .label{margin-bottom:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pill{font-family:var(--display);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;border:1px solid var(--line);color:var(--teal);background:var(--fill)}
+.pill.sig{background:var(--signal);color:var(--signal-ink);border-color:transparent}
+.pill.teal{background:var(--teal);color:var(--sand);border-color:transparent}
+.steps{display:grid;grid-template-columns:1fr;gap:10px;margin:14px 0}
+@media(min-width:700px){.steps{grid-template-columns:repeat(3,1fr)}}
+.step{background:var(--fill);border-radius:12px;padding:14px}
+.step b{display:block;font-family:var(--display);font-size:16px;color:var(--teal);margin-bottom:4px}
+.step span{font-size:13px;color:var(--ink-soft)}
+.stage{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:10px 0 4px}
+.stage i{font-style:normal;font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:4px 10px;border-radius:999px;background:var(--fill);color:var(--ink-mute);border:1px solid var(--line)}
+.stage i.on{background:var(--teal);color:var(--sand);border-color:transparent}
+.stage i.now{background:var(--panel);color:var(--teal);border-color:var(--teal)}
+.decision{display:grid;grid-template-columns:1fr;gap:10px;margin:16px 0 24px}
+.decision div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.decision b{font-family:var(--display);color:var(--teal);display:block;margin-bottom:4px}
+.decision .rec{font-size:14px;color:var(--ink-soft)}
+.decision .rec strong{color:var(--signal)}
+.src{font-size:14px;color:var(--ink-soft)}
+.src li{margin-bottom:4px}
+.footer{margin-top:64px;font-family:var(--mono);font-size:12px;color:var(--ink-mute)}
+@media(prefers-reduced-motion:no-preference){.btn{transition:transform .18s cubic-bezier(.22,.61,.36,1)} .btn:hover{transform:translateY(-1px)}}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+</style>
+
+<div class="wrap">
+<nav class="rail" aria-label="Chapters">
+  <a href="#reel">The reel</a>
+  <a href="#audit">Where Yabi is</a>
+  <a href="#thesis">Game, not work</a>
+  <a href="#screens">Screen by screen</a>
+  <a href="#build">Build plan</a>
+  <a href="#tenancy">Multi-tenancy</a>
+  <a href="#money">The money</a>
+  <a href="#minds">Great minds</a>
+  <a href="#decide">Your calls</a>
+  <a href="#sources">Sources</a>
+</nav>
+<main>
+
+<section class="hero">
+  <div class="plane" aria-hidden="true">Yabi</div>
+  <div class="eyebrow">Design and business brief, 14 Oct 2026</div>
+  <h1>Running a fleet should feel like clearing a deck.</h1>
+  <p class="lede">A full redesign of Yabi, from the reel's three rules to a desk that feels like play. Plus the multi-tenant plan and the money it takes to get profitable.</p>
+  <div class="meta"><span>For Rudo</span><span>Source: live demo, repo audit, founder tests</span><span>Nothing built yet, this is the decision doc</span></div>
+</section>
+
+<h2 id="reel">What the reel actually says</h2>
+<p>The clip is 23 seconds by Ayo Omolewa (@ayoships). He shows three consumer screens: a headphone store, a church app, a coach's site. He gives three rules. I transcribed it, so this is his wording, not a summary.</p>
+<div class="rule">
+  <div><b>Design in three planes</b><span>"Big type in the back, your subject in the middle, and the button's on top. That overlap is what makes the screen feel deep."</span></div>
+  <div><b>Pick a signal colour</b><span>"One colour that only ever means tap this, and everything else is just ink and paper."</span></div>
+  <div><b>Skip the middle sizes</b><span>"Make one thing huge, everything else tiny, and nothing in between."</span></div>
+</div>
+<p><strong>What he is not saying.</strong> He is talking about one-screen consumer moments. A fleet desk is a tool people use 200 times a day. Rules one and three belong on the customer booking site and on every "hero" moment inside the desk. Rule two is the one that changes the desk the most, because today Yabi breaks it on every screen.</p>
+<p><strong>What he leaves out.</strong> Depth and contrast make a screen look premium. They do not make it fun. Fun comes from loops: a clear goal, instant feedback, visible progress, cheap undo. That part comes from game design, and it is where the "selling point nobody else has" lives. The next chapters combine both.</p>
+
+<h2 id="audit">Where Yabi is today</h2>
+<p>I walked the live demo and had the repo audited file by file. The honest read: the bones are strong, the skin is "good 2024 SaaS", and the desk still feels like admin software.</p>
+<div class="kpis">
+  <div><div class="big">47</div><small>screens and components (tsx)</small></div>
+  <div><div class="big">9,956</div><small>lines of React</small></div>
+  <div><div class="big">4,450</div><small>lines of hand-written CSS</small></div>
+  <div><div class="big">0</div><small>UI tests that would break on a restyle</small></div>
+</div>
+<h3>What is genuinely good</h3>
+<ul>
+  <li><strong>The planning board</strong> is the best screen. Drag to book, drag to move, click a day to zoom to hours. Competitors show lists. We show the fleet.</li>
+  <li><strong>The check-in wizard</strong> is already mobile-first, with photos, signature and resume-on-refresh. That is the "hand the phone to the customer" moment, and it is a gift for the game feel.</li>
+  <li><strong>The desk kit exists.</strong> Modal, drawer, toasts, confirm, skeletons, empty states and a Cmd+K palette are already shared components. A restyle does not need a component library.</li>
+  <li><strong>No visual tests exist, and that cuts both ways.</strong> Nothing breaks when we restyle. Nothing catches us either. All 500+ tests are logic and API, so behaviour is protected.</li>
+</ul>
+<h3>Why it still reads as "old software"</h3>
+<ul>
+  <li><strong>The signal colour is diluted.</strong> Coral means "Schedule service", "Add vehicle", "Year PDF" and "Continue". Teal means "Apply", "Sign in" and "Month PDF". Two colours fight for "tap this". Ayo's rule two, broken.</li>
+  <li><strong>Everything is medium.</strong> The dashboard opens with four small stat chips, a paragraph of instructions, a toolbar, then the board. Nothing is huge. Nothing is tiny. Rule three, broken.</li>
+  <li><strong>The sidebar is a list of nouns.</strong> Dashboard, Reports, Fleet, Add-ons, Settings, Policies, Staff, Audit log. A noun tells you where things are. A verb tells you what to do. Operators open the app to do, not to browse.</li>
+  <li><strong>There is no "today".</strong> Nothing answers the first question of every morning: who comes at 9, who returns at 4, who still owes money. You read it off the calendar bars.</li>
+  <li><strong>Tables everywhere.</strong> Fleet is a table. Reports is a table. Staff is a table. Tables are how databases think, not how an owner with ten cars thinks.</li>
+  <li><strong>Seven steps to book a car.</strong> The public wizard asks for the driver's licence number and expiry before you have even seen the price with extras. Every extra screen before the price loses people.</li>
+  <li><strong>Design tokens live in three places</strong> with different names (admin, public, marketing). That is also why per-operator theming is hard today. One token file fixes both the redesign and multi-tenancy at once.</li>
+</ul>
+
+<h2 id="thesis">Game, not work</h2>
+<p>You said it best: a game, but not fully a game. Fun to do, so you are not really working, you are just filling in what gets your business further. Here is why that works, and how to do it without becoming a cartoon.</p>
+<blockquote>"The biggest problem in education is not that we don't know how to teach. It's that people stop showing up."<cite>Luis von Ahn, Duolingo co-founder and CEO</cite></blockquote>
+<p>Swap "education" for "running a rental business" and you have the whole product problem. The operator stops showing up to the software, falls back to WhatsApp and a notebook, and churns. Duolingo's answer was not badges. It was a loop you can finish in five minutes and a streak you can see.</p>
+<p><strong>The failure to avoid.</strong> In 2012 Gartner predicted that 80% of gamified apps would fail by 2014, "primarily due to poor design". The reason: teams bolted on points, badges and leaderboards instead of designing a meaningful loop. Nobody wants a badge for adding a vehicle. So we build no badges, no points, no confetti.</p>
+<h3>The four loops that make a desk feel like play</h3>
+<ol>
+  <li><strong>A visible goal.</strong> Every screen asks one question. "What needs you today?" "Is this car ready to go out?" "What is still unpaid?" One question, one huge number, one button.</li>
+  <li><strong>Instant feedback.</strong> Every tap answers back in under 100 milliseconds. A button that presses down. A card that slides off when you clear it. A bar that turns from "pending" to "paid" in place, not after a reload.</li>
+  <li><strong>Progress you can see.</strong> A new operator sees "Your desk is 62% ready" with the next step named. A busy morning shows "3 of 5 handovers done". Progress bars and queues, not counters.</li>
+  <li><strong>Cheap undo.</strong> Gmail taught the world that "Undo" beats "Are you sure?". We replace most confirm dialogs with a 6-second undo toast. Less fear, faster hands, fewer clicks.</li>
+</ol>
+<blockquote>"Business tools should not be worse than my personal tools, if anything it should be better."<cite>Karri Saarinen, Linear co-founder</cite></blockquote>
+<p>Linear won developers from Jira by feeling fast and finished, not by having more features. Saarinen's first principle is "Quality is our first principle. Every other metric and decision flows from that." That is the bar: the desk should feel better than the operator's banking app.</p>
+
+<div class="mock">
+  <div class="label">Mockup: the new "Today" screen, built on Ayo's three planes</div>
+  <div class="m-today">
+    <div class="m-hero">
+      <div class="back" aria-hidden="true">3</div>
+      <div class="mid">3 go out today<em>Tuesday 14 October, Bonaire. 2 returns, 1 unpaid.</em></div>
+      <div class="top"><span class="btn">Start first handover</span><span class="btn ghost">Open board</span></div>
+    </div>
+    <div>
+      <div class="progress" aria-hidden="true"><i></i></div>
+      <div class="eyebrow" style="margin-bottom:10px">2 of 5 done</div>
+      <div class="queue">
+        <div class="q done"><span class="t">08:30</span><div class="who"><b>K. Martinus</b><span>Economy, DEMO-001, 3 days</span></div><span class="do">Handed over</span></div>
+        <div class="q done"><span class="t">09:00</span><div class="who"><b>Fam. de Vries</b><span>Compact SUV, DEMO-103, 7 days</span></div><span class="do">Handed over</span></div>
+        <div class="q"><span class="t">10:30</span><div class="who"><b>J. Winklaar</b><span>Compact, DEMO-101, unpaid €120</span></div><span class="do">Take payment</span></div>
+        <div class="q"><span class="t">14:00</span><div class="who"><b>S. Boekhoudt</b><span>Returns DEMO-002, deposit €250</span></div><span class="do">Check in</span></div>
+        <div class="q"><span class="t">16:00</span><div class="who"><b>M. Thielman</b><span>Returns DEMO-102</span></div><span class="do">Check in</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<p>Read the mock against the rules. Big "3" in the back. The sentence in the middle. One coral button on top. Coral appears only where you tap. Done items fade and go green, because status is ink, not signal. The queue empties as the day goes. That emptying is the game.</p>
+<p><strong>Premium, not playful.</strong> Your own rule stands: hairlines, soft shadows, tone on tone. The fun is in the motion and the loops, never in cartoon shapes or mascots.</p>
+
+<h2 id="screens">Screen by screen</h2>
+<p>Every screen keeps its behaviour. All 500+ logic tests stay green. What changes is the shell, the hierarchy, the colour discipline and the loops.</p>
+<h3>Desk shell</h3>
+<p>Sidebar of verbs: <span class="pill">Today</span> <span class="pill">Board</span> <span class="pill">Fleet</span> <span class="pill">Money</span> <span class="pill">Setup</span>. Staff see Today, Board and Fleet. Owners see all five. Policies, add-ons, staff and the audit log fold into Setup as sections, not top-level pages. Cmd+K stays. The wordmark becomes Yabi.</p>
+<h3>Today (new)</h3>
+<p>The mock above. The home screen for every login. Handovers, returns, unpaid, in time order. Each row has one action. Clearing the list is the day's goal.</p>
+<h3>Board (restyle, logic untouched)</h3>
+<p>Keep the drag model. Bars become small three-plane cards: plate in the back, customer name in the middle, status as a tiny chip. Stat chips move to Today. The instruction paragraph goes; a first-use hint replaces it once. Day zoom gets a smooth zoom instead of a cut.</p>
+<h3>Booking sheet (today's drawer)</h3>
+<div class="mock">
+  <div class="label">Mockup: stage track at the top of every booking</div>
+  <div class="stage"><i class="on">Reserved</i><i class="on">Paid</i><i class="now">Out</i><i>Back</i><i>Closed</i></div>
+  <div class="row"><span class="pill sig">Check in return</span><span class="pill">Extend</span><span class="pill">Swap car</span><span class="pill">Move</span></div>
+</div>
+<p>The drawer becomes a sheet with a stage track. Reserved, Paid, Out, Back, Closed. The one coral button is always the next stage. Everything else is a quiet pill. Money controls (mark paid, paid until, change price) stay exactly as specified in the desk-money-controls branch, only restyled.</p>
+<h3>Fleet</h3>
+<p>Cars become cards with a photo, the plate huge in the back, rates in the middle, "Edit rates" on top. Class filter stays. Retire, blocks and notes move into the card's sheet. A fleet of ten cars should look like a fleet, not a spreadsheet.</p>
+<h3>Money (today's Reports)</h3>
+<p>One huge number: revenue this month. Then one tiny line: last month and the delta. Then per-car bars. The PDF buttons become one quiet "Export" menu. Deposits held gets its own card, because operators ask about it daily.</p>
+<h3>Setup (today's Settings, Policies, Add-ons, Staff)</h3>
+<p>A guided checklist with a progress bar: hours, rates, deposits, insurance tiers, add-ons, policies, payment method, team, first booking. Each item opens inline. "Your desk is 62% ready" is the hook for new operators, and it is also the self-serve onboarding that multi-tenancy will need.</p>
+<h3>Check-in and check-out</h3>
+<p>Already good. Add a progress ring, a "hand the phone to the customer" interstitial with the operator's logo, and a finish screen that says what got done. The signature step is the most game-like moment in the whole product.</p>
+<h3>Public booking</h3>
+<div class="ba">
+  <div class="card"><div class="label">Today: 7 steps</div><div class="row"><span class="pill">Car type</span><span class="pill">Dates</span><span class="pill">Insurance</span><span class="pill">Extras</span><span class="pill">Licence</span><span class="pill">Details</span><span class="pill">Review</span></div></div>
+  <div class="card"><div class="label">Proposed: 3 screens</div><div class="steps"><div class="step"><b>When and what</b><span>Dates, times, car class. Live price updates as you tap.</span></div><div class="step"><b>Protect and add</b><span>Insurance tier and extras, price still live.</span></div><div class="step"><b>You and pay</b><span>Name, email, phone, deposit or full.</span></div></div></div>
+</div>
+<p>The licence moves to check-in, where the operator already photographs it. Price shows on screen one. The car hero gets the three planes: class name huge in the back, the car in the middle, "Continue" on top. This is a behaviour change, so it is one of your calls below.</p>
+
+<h2 id="build">Build plan and what it costs</h2>
+<p>Hours are mine with you reviewing, on a branch off the money-controls branch. Cash out is near zero. The cost is your weeks, so I price them at a placeholder €60 per hour so you can see the opportunity cost.</p>
+<div class="tbl"><table>
+<tr><th>Phase</th><th>What ships</th><th class="num">Hours</th><th class="num">At €60/h</th></tr>
+<tr><td>Foundation</td><td>One token file for all scopes, type scale, signal colour, motion tokens, Yabi wordmark</td><td class="num">24</td><td class="num">€1,440</td></tr>
+<tr><td>Shell and Today</td><td>Verb sidebar, new Today screen, undo toasts</td><td class="num">40</td><td class="num">€2,400</td></tr>
+<tr><td>Board</td><td>Three-plane bars, smooth zoom, stat chips removed</td><td class="num">32</td><td class="num">€1,920</td></tr>
+<tr><td>Sheet, Fleet, Money, Setup</td><td>Stage track, car cards, huge-number money, setup checklist</td><td class="num">56</td><td class="num">€3,360</td></tr>
+<tr><td>Public booking</td><td>3-screen flow, live price, three-plane car hero</td><td class="num">32</td><td class="num">€1,920</td></tr>
+<tr><td>Check-in and out</td><td>Progress ring, handover interstitial, finish screen</td><td class="num">16</td><td class="num">€960</td></tr>
+<tr><td>Port and QA</td><td>Carry to Tex Cars and Little John, manual visual pass on phone and desk</td><td class="num">24</td><td class="num">€1,440</td></tr>
+<tr class="total"><td>Total</td><td>About 7 weeks at 30 h/week</td><td class="num">224</td><td class="num">€13,440</td></tr>
+</table></div>
+<p><strong>Why foundation first.</strong> The three token scopes are the reason the demo, Tex Cars and Little John can drift apart. One file with operator-level overrides is also the per-operator theming that multi-tenancy needs. Doing it first means nothing from the redesign gets thrown away later.</p>
+<p><strong>Why no component library.</strong> The desk kit already exists and the CSP forbids CDN scripts and fonts. Adding Tailwind or shadcn now would be a rewrite of 4,450 lines for no user-visible gain. Underdo it.</p>
+<blockquote>"Underdo your competition."<cite>Jason Fried, 37signals, SXSW 2006 and Getting Real</cite></blockquote>
+
+<h2 id="tenancy">Multi-tenancy, taught properly</h2>
+<p>Today every client is its own universe: own Supabase project, own Cloudflare worker, own secrets, own domain. That is called single-tenant. It costs $30 a month per client before you earn a cent, and every fix ships three times.</p>
+<h3>The four ways to share</h3>
+<div class="tbl"><table>
+<tr><th>Model</th><th>How it works</th><th>Good</th><th>Bad</th></tr>
+<tr><td>Single-tenant (now)</td><td>One deploy and one database per client</td><td>Total isolation, client owns everything</td><td>$30/mo each, N deploys, N migrations, no self-serve</td></tr>
+<tr><td>Database per tenant, shared app</td><td>One codebase, a database per client</td><td>Isolation stays, one deploy</td><td>Still $25/mo each, connection sprawl</td></tr>
+<tr><td>Schema per tenant</td><td>One database, a Postgres schema per client</td><td>Cheap, isolated tables</td><td>Migrations run N times, tooling fights you</td></tr>
+<tr><td>Pooled with row-level security</td><td>One database, every row carries operator_id, Postgres enforces who sees what</td><td>Cheapest, one migration, self-serve possible</td><td>One bug can leak across operators, so RLS must be the guard, not app code</td></tr>
+</table></div>
+<p><strong>Recommendation: pooled with row-level security.</strong> It is what Supabase is built for, it drops the marginal cost per operator from $30 to roughly $2, and it is the only model where a new operator can sign up at 11pm and be live by midnight. The risk, cross-tenant leaks, is handled by making Postgres the guard. The app never gets to decide who sees what.</p>
+<h3>What has to be built</h3>
+<div class="tbl"><table>
+<tr><th>Piece</th><th>What it means in plain words</th><th class="num">Hours</th></tr>
+<tr><td>Tenancy column and RLS</td><td>Add operator_id to every table, write the policies, migrate the three live databases into one</td><td class="num">80</td></tr>
+<tr><td>Organisations and invites</td><td>An operator is an organisation; owners invite staff; roles stay as today</td><td class="num">40</td></tr>
+<tr><td>Self-serve provisioning</td><td>Sign up, pick a name, land in the Setup checklist, go live without us</td><td class="num">60</td></tr>
+<tr><td>Stripe Connect and Billing</td><td>Customer payments go straight to the operator's bank; Yabi takes a fee; Stripe bills the operator monthly</td><td class="num">60</td></tr>
+<tr><td>Theming and domains</td><td>Operator logo and colours from the token file; book.yabi.app/operator plus their own domain via Cloudflare</td><td class="num">40</td></tr>
+<tr><td>Storage and email scoping</td><td>Photos, contracts and sender names per operator</td><td class="num">20</td></tr>
+<tr><td>Security pass and tests</td><td>Try to read another operator's data every way we can. Then try again.</td><td class="num">60</td></tr>
+<tr class="total"><td>Total</td><td>About 12 weeks at 30 h/week</td><td class="num">360</td></tr>
+</table></div>
+<h3>When to build it</h3>
+<p>The board's verdict last week was "not before 10 paying operators", and Jason Lemkin's rule for SaaS agrees: ten unaffiliated customers who do not churn means you have something. Before that, every hour on tenancy is an hour not spent getting a reference.</p>
+<p><strong>But there is a migration tax.</strong> Every single-tenant client you add before the rebuild costs 8 to 16 hours to move later. Three clients is a weekend. Ten clients is a month. So the honest trigger is whichever comes first: ten paying operators, or five signed in the pipeline. At five, the tax equals a third of the build.</p>
+<p><strong>What we do now so nothing is wasted.</strong> The redesign's token file, the Setup checklist and the verb shell are tenant-ready by design. Add operator_id to new tables from now on. Do not add it to old tables yet.</p>
+
+<h2 id="money">The money, all of it</h2>
+<p>These numbers come from last week's founder tests, the live infra bills, and this brief's estimates. Where a number is a placeholder I say so.</p>
+<h3>What we already know</h3>
+<div class="kpis">
+  <div><div class="big">€21.8k</div><small>cash needed to break even (hybrid model)</small></div>
+  <div><div class="big">14</div><small>months to break even</small></div>
+  <div><div class="big">€214</div><small>blended monthly fee per operator</small></div>
+  <div><div class="big">€4,590</div><small>fixed costs per month (incl. €4,000 founder draw placeholder)</small></div>
+</div>
+<p>Pricing stays the hybrid the board funded: €750 to €2,000 setup by fleet size, then €129 to €399 a month, month to month, export anytime. The 0 of 100 buyer result was about trust, not price. The UI does not fix trust. References do. The UI fixes the demo, and the demo is what a reference call ends with.</p>
+<h3>Profit by operator count, after multi-tenancy</h3>
+<div class="tbl"><table>
+<tr><th class="num">Operators</th><th class="num">MRR</th><th class="num">Infra</th><th class="num">Support (1 h each at €30)</th><th class="num">Fixed</th><th class="num">Profit / month</th></tr>
+<tr><td class="num">10</td><td class="num">€2,140</td><td class="num">€80</td><td class="num">€300</td><td class="num">€4,590</td><td class="num">−€2,830</td></tr>
+<tr><td class="num">25</td><td class="num">€5,350</td><td class="num">€110</td><td class="num">€750</td><td class="num">€4,590</td><td class="num">−€100</td></tr>
+<tr><td class="num">50</td><td class="num">€10,700</td><td class="num">€160</td><td class="num">€1,500</td><td class="num">€4,590</td><td class="num">€4,450</td></tr>
+<tr><td class="num">100</td><td class="num">€21,400</td><td class="num">€260</td><td class="num">€3,000</td><td class="num">€4,590</td><td class="num">€13,550</td></tr>
+<tr><td class="num">250</td><td class="num">€53,500</td><td class="num">€560</td><td class="num">€7,500</td><td class="num">€4,590</td><td class="num">€40,850</td></tr>
+</table></div>
+<p>Setup fees are left out of that table on purpose. They are the ramp fuel, roughly €1,100 blended per operator, and they cover the gap on the way to 25. Subscription alone breaks even at about 25 operators. That is the number to tattoo somewhere.</p>
+<p><strong>Support is the hidden line.</strong> One hour per operator per month sounds small. At 250 operators it is a full-time person. The redesign's whole job, in money terms, is to push that hour toward zero. Every "where do I click" message is a design bug with a payroll cost.</p>
+<h3>The lever that gets you to millions</h3>
+<p>At €214 a month, one million euro a year needs about 390 operators. The lead list has 6,110. That is a 6% share of a list we already own, which is hard but not fantasy. The faster road is the one FareHarbor took.</p>
+<p>FareHarbor raised only $110,000, reached more than $50 million in revenue with about 5,000 operators, stayed profitable, and sold to Booking Holdings in 2018 for a sum reported in the hundreds of millions. Operators paid no subscription. The traveller paid a booking fee on every ticket. That is about $10,000 per operator per year, four times what a subscription gets you.</p>
+<p>For Yabi the equivalent is a small application fee through Stripe Connect. A ten-car operator at $40 a day and 55% utilisation books about $80,000 a year. A 1.5% fee is $1,200, call it €95 a month, on top of the €214. Per operator revenue goes from €2,570 a year to about €3,700. One million then needs 270 operators, not 390. That is why Stripe Connect sits inside the multi-tenant build and not after it.</p>
+<h3>Total investment to profitable</h3>
+<div class="tbl"><table>
+<tr><th>Item</th><th>Cash out</th><th>Your hours</th><th>Unlocks</th></tr>
+<tr><td>Redesign (this brief)</td><td>About €0 beyond current subscriptions</td><td class="num">224</td><td>A demo that sells, lower support load, tenant-ready tokens</td></tr>
+<tr><td>References from Tex Cars and Little John</td><td>€0</td><td class="num">8</td><td>The actual blocker in the panel</td></tr>
+<tr><td>Multi-tenancy at trigger</td><td>Infra drops from $30 to about $2 per operator</td><td class="num">360</td><td>Self-serve, Connect fee, one deploy</td></tr>
+<tr><td>Cash to month 14</td><td>€21.8k, or a deferred founder draw</td><td class="num">—</td><td>Survival through the ramp</td></tr>
+<tr class="total"><td>Total</td><td>About €22k cash plus living costs</td><td class="num">592</td><td>Break even at 25 paying operators</td></tr>
+</table></div>
+<p>Vertical SaaS is a slow, compounding business. ServiceTitan started in 2007 as a summer project for the founders' fathers, both contractors, and took a decade to become the operating system of the trades. It is the most expensive software in its market and still wins, because it is the whole business, not a feature. That is the shape of the Yabi bet.</p>
+
+<h2 id="minds">Great minds, and how they failed</h2>
+<h3>Booqable, Groningen</h3>
+<p>Three founders built internal software for Bjinse's camera rental shop in 2009, grew it to eight stores, then sold the software to other rental businesses from 2014. Their technical founder cites DHH and Jason Fried as the model for shipping quality fast. Tex Cars and Little John are your Budgetcam. The lesson: the product is already proven on your own operators; sell the proof.</p>
+<h3>Toast, Boston</h3>
+<p>In April 2020 Toast cut half its staff as restaurant sales fell 80%. Eighteen months later it listed at over $31 billion. The comeback came from helping restaurants own direct ordering as they grew angry at third-party delivery fees. Rental operators are angry at OTA commissions in exactly the same way. Toast's failure lesson is the first half: they had no cash buffer for a demand shock. Keep the €22k.</p>
+<h3>Getaround, San Francisco</h3>
+<p>A $1.2 billion SPAC in December 2022 fell 65% on day one and the company wound down US operations in 2025. They became the rental company, with cars, insurance and city-by-city fights. Yabi sells to the rental company. Never own the fleet.</p>
+<h3>Gamification, everywhere</h3>
+<p>Gartner's 80% failure call was right because teams shipped points and badges on top of the same boring task. Duolingo worked because the loop itself was redesigned to be finishable in five minutes. The brief's Today queue is the five-minute lesson. No badges.</p>
+<h3>Our own panel</h3>
+<p>Zero of one hundred simulated buyers bought at any price. 196 asked for "a call with an owner my size". The best interface in the industry does not answer that. Two reference calls do. The redesign is what the reference call ends by showing.</p>
+
+<h2 id="decide">Your calls</h2>
+<p>I will build whatever you pick. Where I have a recommendation it is marked.</p>
+<div class="decision">
+  <div><b>Direction</b>Approve "Flow desk": one signal colour, three planes, one huge thing per screen, loops not badges, premium not cartoon.<div class="rec"><strong>Recommend yes.</strong> It is the only direction that gives sales a demo nobody else has.</div></div>
+  <div><b>Name in product</b>Rename FleetDesk to Yabi in the wordmark, titles and emails during foundation.<div class="rec"><strong>Recommend yes.</strong> Cheapest moment to do it, and the demo should not sell a name we retired.</div></div>
+  <div><b>Booking funnel</b>Seven steps to three screens, licence captured at check-in instead of at booking.<div class="rec"><strong>Recommend yes.</strong> Price on screen one. The operator photographs the licence anyway.</div></div>
+  <div><b>Sequence</b>Redesign now, multi-tenancy at ten paying or five signed. Or both in parallel.<div class="rec"><strong>Recommend redesign first.</strong> Parallel doubles the calendar and the first ten come from references, not architecture.</div></div>
+  <div><b>Stripe Connect fee</b>Ship a 1 to 1.5% application fee as part of multi-tenancy.<div class="rec"><strong>Recommend 1.5%.</strong> Below OTA commissions by a factor of 15, and it is the road to seven figures.</div></div>
+  <div><b>Founder draw</b>The €4,000 placeholder sets every break-even number above. Confirm or replace it.<div class="rec">No recommendation, only you know this one.</div></div>
+</div>
+<p>One sentence from you per line and I start on the foundation phase on a fresh branch. The spec file for the build lives in the repo under docs/superpowers/specs, dated today.</p>
+
+<h2 id="sources">Sources</h2>
+<ul class="src">
+  <li>Ayo Omolewa reel, transcribed locally: <a href="https://www.instagram.com/reel/Dd-o8qwRHYh/">instagram.com/reel/Dd-o8qwRHYh</a></li>
+  <li>Luis von Ahn on people showing up: <a href="https://www.cmu.edu/engage/news-stories/news/cmu-alumnus-luis-von-ahn-gamified-language-learning-and-revolutionized">CMU</a>, <a href="https://www.acquired.fm/episodes/why-duolingo-worked-with-luis-von-ahn-ceo">Acquired</a></li>
+  <li>Gartner, 80% of gamified apps to fail by 2014: <a href="https://techcrunch.com/2012/11/27/badges-beware-80-of-gamification-apps-will-end-up-being-losers-says-gartner">TechCrunch</a>, <a href="https://www.cmswire.com/cms/social-business/gartner-gamification-report-80-of-implementations-will-fail-by-2014-from-poor-design-018424.php">CMSWire</a></li>
+  <li>Karri Saarinen on quality and business tools: <a href="https://review.firstround.com/linears-path-to-product-market-fit.md">First Round Review</a>, <a href="https://sequoiacap.com/article/linear-spotlight">Sequoia</a></li>
+  <li>Jason Fried, "Underdo your competition": <a href="https://amitunboxed.substack.com/p/underdo-your-competition">Unboxed</a>, <a href="https://www.windley.com/archives/2006/06/less_is_more.shtml">Windley, SXSW 2006</a></li>
+  <li>FareHarbor and Booking Holdings: <a href="https://www.sec.gov/Archives/edgar/data/0001075531/000107553118000023/fareharborpressrelease.htm">SEC 8-K</a>, <a href="https://skift.com/?p=282854">Skift</a>, <a href="https://www.phocuswire.com/booking-aquires-fareharbor">PhocusWire</a></li>
+  <li>ServiceTitan origin and positioning: <a href="https://www.builtinla.com/articles/silicon-hills-servicetitans-humble-origins">Built In LA</a>, <a href="https://research.contrary.com/report/servicetitan">Contrary Research</a></li>
+  <li>Booqable origin: <a href="https://booqable.com/about">booqable.com/about</a></li>
+  <li>Toast 2020 cuts and 2021 IPO: <a href="https://techcrunch.com/2020/04/07/restaurant-management-platform-toast-cuts-50-of-staff">TechCrunch</a>, <a href="https://www.fortune.com/2021/09/23/how-toast-came-back-from-the-brink">Fortune</a></li>
+  <li>Getaround SPAC and wind-down: <a href="https://www.cnbc.com/2022/12/09/getaround-shares-tank-after-going-public-in-spac-deal.html">CNBC</a>, <a href="https://www.pymnts.com/transportation/ridesharing/2025/carsharing-marketplaces-getaround-and-hyrecar-wind-down-us-operations/">PYMNTS</a></li>
+  <li>Jason Lemkin, ten unaffiliated customers: <a href="https://www.saastr.com/2013/01/09/if-you-have-10-unaffiliated-customers-in-saas-you-have-something">SaaStr</a></li>
+  <li>Yabi founder tests, 12 Oct 2026: 07-Operations/founder-tests/founder-board-report.html</li>
+</ul>
+<div class="footer">Yabi Flow Desk brief. Salty Code Studio, Bonaire. Numbers marked placeholder are yours to replace.</div>
+</main>
+</div>
