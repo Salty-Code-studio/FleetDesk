@@ -1,31 +1,8 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Space_Grotesk, JetBrains_Mono, Inter } from "next/font/google";
+import { fontVars } from "@/app/fonts";
 import "./marketing.css";
-
-// Fonts self-host at build time via next/font/google. They serve from 'self'
-// with inline @font-face, so they pass the strict UI CSP. No external loads.
-const display = Space_Grotesk({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700"],
-});
-
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-mono",
-  weight: ["400", "500", "600"],
-});
-
-const body = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-body",
-  weight: ["400", "500", "600"],
-});
 
 export const metadata: Metadata = {
   title: "FleetDesk · Booking and ops for car rental fleets",
@@ -38,8 +15,6 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
-
-const fontVars = `${display.variable} ${mono.variable} ${body.variable}`;
 
 // Show the "Live demo" entry only when the public demo is enabled. The server
 // door (POST /api/admin/auth/demo) is separately gated by DEMO_MODE.
