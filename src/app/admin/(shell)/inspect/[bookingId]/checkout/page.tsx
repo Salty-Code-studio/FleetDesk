@@ -106,7 +106,7 @@ export default function CheckoutWizard() {
       {finished ? (
         <div className="wiz-card">
           <p>This booking is already completed.</p>
-          <button type="button" className="wiz-btn primary" onClick={() => router.push("/admin")}>Back to the board</button>
+          <button type="button" className="wiz-btn primary" onClick={() => router.push("/admin")}>Back to Today</button>
         </div>
       ) : null}
 

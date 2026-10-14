@@ -11,6 +11,7 @@ import {
   registerPaletteAction,
 } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, TimeSelect } from "@/components/ui";
+import { SetupNav } from "../setup-nav";
 import "./settings.css";
 
 // A back-office manager who may confirm/decline desk-mode bookings. The
@@ -182,6 +183,7 @@ export default function SettingsPage() {
     <>
       <header className="set-head">
         <div className="set-head__lead">
+          <SetupNav />
           <h1>Settings</h1>
           <p className="sub">Fees, guardrails, and alerts. Every value here is live, no redeploy.</p>
         </div>

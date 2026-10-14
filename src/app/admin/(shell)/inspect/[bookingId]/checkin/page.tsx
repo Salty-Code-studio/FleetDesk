@@ -94,7 +94,7 @@ export default function CheckinWizard() {
       {finished ? (
         <div className="wiz-card">
           <p>This booking is already checked in. The record lives in the booking drawer.</p>
-          <button type="button" className="wiz-btn primary" onClick={() => router.push("/admin")}>Back to the board</button>
+          <button type="button" className="wiz-btn primary" onClick={() => router.push("/admin")}>Back to Today</button>
         </div>
       ) : null}
 

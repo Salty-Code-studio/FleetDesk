@@ -143,6 +143,12 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .card .t { font-size: .76rem; letter-spacing: .03em; text-transform: uppercase; font-family: var(--font-mono); color: var(--ink-soft); }
 .topbar { display: flex; justify-content: flex-end; align-items: center; gap: .8rem; margin-bottom: 1.4rem; font-size: .85rem; color: var(--ink-soft); }
 
+/* ---------- Setup sub-nav (settings, catalog, policies, staff, audit) ---------- */
+.setup-nav { display: flex; gap: .3rem; flex-wrap: wrap; margin: 0 0 1.4rem; padding-bottom: .9rem; border-bottom: 1px solid var(--line); }
+.setup-nav a { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-small); color: var(--ink-soft); text-decoration: none; padding: .42rem .75rem; border-radius: 999px; border: 1px solid transparent; transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+.setup-nav a:hover { background: var(--fill); color: var(--teal); }
+.setup-nav a.active { background: var(--teal); color: var(--sand); border-color: var(--teal); }
+
 /* ---------- hub pages: panels, tables, forms ---------- */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.4rem 1.5rem; margin-bottom: 1.5rem; max-width: 940px; box-shadow: var(--shadow-sm); }
 .panel h2 { margin: 0 0 1.1rem; font-size: 1.12rem; font-weight: 600; }

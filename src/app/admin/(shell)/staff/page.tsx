@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, apiGet, apiPatch, type ApiError } from "../../client";
 import { Modal, Skeleton, EmptyState, useConfirm, useToast } from "@/app/admin/_ui";
+import { SetupNav } from "../setup-nav";
 import "./staff.css";
 
 interface StaffRow { id: string; name: string | null; active: boolean; createdAt: string }
@@ -107,6 +108,7 @@ export default function StaffPage() {
     <>
       <header className="staff-head">
         <div>
+          <SetupNav />
           <h1>Staff logins</h1>
           <p className="sub">Give each person their own 6-digit code, so every action shows who did it.</p>
         </div>

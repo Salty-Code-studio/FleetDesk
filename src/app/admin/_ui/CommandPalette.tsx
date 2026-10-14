@@ -55,13 +55,15 @@ export function registerPaletteAction(action: PaletteAction): () => void {
 }
 
 const NAV: Array<{ label: string; hint: string; href: string; keywords?: string }> = [
-  { label: "Dashboard", hint: "Overview", href: "/admin", keywords: "home start" },
-  { label: "Reports", hint: "Revenue and utilization", href: "/admin/reports", keywords: "analytics revenue stats" },
-  { label: "Fleet & pricing", hint: "Vehicles and rates", href: "/admin/fleet", keywords: "cars vehicles rates pricing" },
-  { label: "Add-ons & insurance", hint: "Catalog", href: "/admin/catalog", keywords: "extras coverage" },
-  { label: "Settings", hint: "Operator configuration", href: "/admin/settings", keywords: "config preferences" },
-  { label: "Policies", hint: "Terms and rules", href: "/admin/policies", keywords: "terms rules legal" },
-  { label: "Audit log", hint: "Activity history", href: "/admin/audit", keywords: "history changes" },
+  { label: "Today", hint: "What needs you", href: "/admin", keywords: "home start dashboard handovers returns" },
+  { label: "Board", hint: "Fleet planning", href: "/admin/board", keywords: "planning calendar timeline" },
+  { label: "Fleet", hint: "Vehicles and rates", href: "/admin/fleet", keywords: "cars vehicles rates pricing" },
+  { label: "Money", hint: "Revenue and deposits", href: "/admin/reports", keywords: "reports analytics revenue stats" },
+  { label: "Setup", hint: "Operator configuration", href: "/admin/settings", keywords: "settings config preferences" },
+  { label: "Add-ons & insurance", hint: "Setup", href: "/admin/catalog", keywords: "extras coverage catalog" },
+  { label: "Policies", hint: "Setup", href: "/admin/policies", keywords: "terms rules legal" },
+  { label: "Staff", hint: "Setup", href: "/admin/staff", keywords: "team codes" },
+  { label: "Audit log", hint: "Setup", href: "/admin/audit", keywords: "history changes" },
 ];
 
 /**

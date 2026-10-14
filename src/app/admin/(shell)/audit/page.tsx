@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../../client";
 import { Skeleton, EmptyState } from "@/app/admin/_ui";
 import { Select } from "@/components/ui";
+import { SetupNav } from "../setup-nav";
 import "./audit.css";
 
 interface AuditRow {
@@ -56,6 +57,7 @@ export default function AuditPage() {
     <>
       <header className="audit-head">
         <div className="audit-head__lead">
+          <SetupNav />
           <h1>Audit log</h1>
           <p className="sub">Every admin action, newest first. Read-only.</p>
         </div>

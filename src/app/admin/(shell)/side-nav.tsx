@@ -3,21 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-interface NavLink { href: string; label: string; staff?: boolean }
+interface NavLink { href: string; label: string; staff?: boolean; also?: string[] }
 
-// staff: true marks the pages a staff code login may use (workstream 8).
-// Everything else is owner-only and hidden from staff. Hiding is presentation
-// only; the API role guards enforce the same list server-side.
-const LINKS: NavLink[] = [
-  { href: "/admin", label: "Dashboard", staff: true },
-  { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/fleet", label: "Fleet & pricing", staff: true },
-  { href: "/admin/catalog", label: "Add-ons & insurance" },
-  { href: "/admin/settings", label: "Settings" },
-  { href: "/admin/policies", label: "Policies" },
-  { href: "/admin/staff", label: "Staff" },
-  { href: "/admin/audit", label: "Audit log" },
+// Five verbs. staff: true marks the pages a staff code login may use; hiding is
+// presentation only, the API role guards enforce the same list server-side.
+// `also` lists the routes that count as "inside" this verb for the active state.
+export const LINKS: NavLink[] = [
+  { href: "/admin", label: "Today", staff: true },
+  { href: "/admin/board", label: "Board", staff: true },
+  { href: "/admin/fleet", label: "Fleet", staff: true },
+  { href: "/admin/reports", label: "Money" },
+  { href: "/admin/settings", label: "Setup", also: ["/admin/catalog", "/admin/policies", "/admin/staff", "/admin/audit"] },
 ];
+
+export function isActive(link: NavLink, pathname: string): boolean {
+  if (link.href === "/admin") return pathname === "/admin";
+  return [link.href, ...(link.also ?? [])].some((p) => pathname.startsWith(p));
+}
 
 export function SideNav({ role }: { role: "owner" | "staff" }) {
   const pathname = usePathname();
@@ -25,7 +27,7 @@ export function SideNav({ role }: { role: "owner" | "staff" }) {
   return (
     <nav className="side-nav">
       {visible.map((l) => {
-        const active = l.href === "/admin" ? pathname === "/admin" : pathname.startsWith(l.href);
+        const active = isActive(l, pathname);
         return (
           <Link key={l.href} href={l.href} className={active ? "active" : undefined} aria-current={active ? "page" : undefined}>
             {l.label}

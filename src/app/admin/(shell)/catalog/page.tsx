@@ -11,6 +11,7 @@ import {
   registerPaletteAction,
 } from "@/app/admin/_ui";
 import { MoneyInput, Select } from "@/components/ui";
+import { SetupNav } from "../setup-nav";
 import "./catalog.css";
 
 interface AddOn { id: string; name: string; description: string; priceCents: number; pricing: "per_day" | "per_rental"; category: string; stock: number | null; active: boolean }
@@ -155,6 +156,7 @@ export default function CatalogPage() {
     <>
       <header className="cat-head">
         <div className="cat-head__lead">
+          <SetupNav />
           <h1>Add-ons &amp; insurance</h1>
           <p className="sub">Extras and insurance tiers offered in the booking flow.</p>
         </div>

@@ -45,8 +45,8 @@ export default async function ShellLayout({ children }: { children: ReactNode })
             <span className="logo-mark" aria-hidden="true">
               ~&lt;
             </span>
-            <span className="logo-word">FleetDesk</span>
-            <span className="logo-tag">Admin</span>
+            <span className="logo-word">Yabi</span>
+            <span className="logo-tag">Desk</span>
           </div>
           <SideNav role={admin.role} />
           <div className="foot">

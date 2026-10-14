@@ -9,6 +9,7 @@ import {
   useToast,
   registerPaletteAction,
 } from "@/app/admin/_ui";
+import { SetupNav } from "../setup-nav";
 import "./policies.css";
 
 type PolicyType = "rental_terms" | "cancellation" | "privacy";
@@ -91,6 +92,7 @@ export default function PoliciesPage() {
     <>
       <header className="pol-head">
         <div className="pol-head__lead">
+          <SetupNav />
           <h1>Policies</h1>
           <p className="sub">Each save publishes a new immutable version. Older versions are kept; bookings record the version the customer accepted.</p>
         </div>
