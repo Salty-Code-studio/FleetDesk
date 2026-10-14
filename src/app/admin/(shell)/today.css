@@ -1,0 +1,44 @@
+/* src/app/admin/(shell)/today.css
+   Today screen. Three planes in the hero: the huge number behind, the sentence
+   in the middle, the one coral button on top. Status is ink; coral only taps. */
+.td { display: flex; flex-direction: column; gap: 1.4rem; max-width: 880px; }
+
+.td-hero { position: relative; overflow: hidden; padding: 2.2rem 2rem 2rem; border-radius: var(--radius-lg); background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-sm); min-height: 220px; display: flex; flex-direction: column; justify-content: flex-end; gap: 1.2rem; }
+.td-hero--skel { gap: .8rem; }
+.td-hero__back { position: absolute; right: -.06em; bottom: -.28em; font-family: var(--font-display); font-weight: 700; font-size: clamp(9rem, 26vw, 17rem); line-height: 1; letter-spacing: -.06em; color: var(--teal); opacity: .06; pointer-events: none; user-select: none; }
+.td-hero__mid { position: relative; }
+.td-hero__big { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-huge); line-height: .95; letter-spacing: -.03em; color: var(--teal); text-wrap: balance; font-variant-numeric: tabular-nums; }
+.td-hero__line { font-size: .42em; font-weight: 600; letter-spacing: -.01em; }
+.td-hero__tail { margin: .55rem 0 0; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+.td-hero__top { position: relative; display: flex; gap: .6rem; flex-wrap: wrap; }
+.td-cta.btn { width: auto; padding: .7rem 1.2rem; text-decoration: none; }
+
+.td-progress { position: relative; height: 8px; border-radius: 999px; background: var(--line-soft); overflow: visible; }
+.td-progress i { display: block; height: 100%; border-radius: 999px; background: var(--teal); transition: width .4s var(--ease); }
+.td-progress__label { position: absolute; right: 0; top: 14px; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+
+.td-queue { list-style: none; margin: 1.2rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+.td-row { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: .9rem; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-sm); transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), opacity var(--dur-base) var(--ease); }
+.td-row:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.td-row.is-done { opacity: .55; }
+.td-row.is-done:hover { transform: none; box-shadow: var(--shadow-sm); }
+.td-row--overdue { border-color: var(--overdue); }
+.td-row__time { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.td-row--overdue .td-row__time { color: var(--overdue); }
+.td-row__who { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.td-row__who b { font-family: var(--font-display); font-weight: 600; font-size: 1rem; color: var(--teal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-row__who span { font-size: var(--fs-small); color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-row__who:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; border-radius: 6px; }
+.td-row__do { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-small); color: var(--signal-ink); background: var(--signal); border: 0; border-radius: 9px; padding: .55rem .9rem; cursor: pointer; text-decoration: none; white-space: nowrap; transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
+.td-row__do:hover { background: var(--signal-600); transform: translateY(-1px); }
+.td-row__do:active { transform: translateY(0) scale(.98); }
+.td-row__done { font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ok); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .td-hero { padding: 1.6rem 1.2rem 1.4rem; min-height: 180px; }
+  .td-row { grid-template-columns: 44px 1fr; }
+  .td-row__do, .td-row__done { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .td-row, .td-row__do, .td-progress i { transition: none; }
+}
