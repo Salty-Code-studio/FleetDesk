@@ -3,12 +3,12 @@ import Link from "next/link";
 import Reveal from "../reveal";
 import "./pricing.css";
 
-// FleetDesk pricing. Sand and Surf palette, one coral accent per view (the Pro
+// Yabi pricing. Sand and Surf palette, one coral accent per view (the Pro
 // tier and its badge). Honest roadmap framing: Stripe payments, widget coming.
 // No external assets. No em-dashes in copy.
 
 export const metadata: Metadata = {
-  title: "Pricing · FleetDesk",
+  title: "Pricing · Yabi",
   description:
     "Starter, Pro and Business plans for small car rental fleets. Setup is one-time and early adopters lock about 30 percent off for life.",
 };
@@ -164,7 +164,7 @@ export default function PricingPage() {
               <span className="roadmap-flag soon">Coming</span>
               <h3 className="display-md">An embeddable booking widget</h3>
               <p>
-                Today you link to your FleetDesk booking page or send the link.
+                Today you link to your Yabi booking page or send the link.
                 A drop-in widget for your own site is on the roadmap. We will not
                 claim it ships before it does.
               </p>
@@ -194,7 +194,7 @@ export default function PricingPage() {
               <details>
                 <summary>Can I keep my own website?</summary>
                 <p className="faq-a">
-                  Yes. Link to your FleetDesk booking page today, or send the
+                  Yes. Link to your Yabi booking page today, or send the
                   link to a customer directly. An embeddable widget for your own
                   site is coming.
                 </p>

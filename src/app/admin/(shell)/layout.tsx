@@ -13,7 +13,7 @@ import { SideNav } from "./side-nav";
 import { fontVars } from "@/app/fonts";
 import "../admin.css";
 
-export const metadata = { title: "FleetDesk Admin", robots: { index: false, follow: false } };
+export const metadata = { title: "Yabi Desk", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 /**

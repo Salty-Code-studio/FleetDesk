@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
   if (mode === "staff") {
     return (
       <form className="auth-card" onSubmit={onStaffSubmit}>
-        <p className="auth-brand">FleetDesk</p>
+        <p className="auth-brand">Yabi</p>
         <h1>Staff sign in</h1>
         <p className="sub">Enter your personal 6-digit code.</p>
         <div className="field">
@@ -104,7 +104,7 @@ export default function AdminLoginPage() {
 
   return (
     <form className="auth-card" onSubmit={onSubmit}>
-      <p className="auth-brand">FleetDesk</p>
+      <p className="auth-brand">Yabi</p>
       <h1>Sign in</h1>
       <p className="sub">Welcome back to the operations dashboard.</p>
 

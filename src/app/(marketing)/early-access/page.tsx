@@ -3,14 +3,14 @@ import Reveal from "../reveal";
 import EarlyAccessForm from "./early-access-form";
 import "./early-access.css";
 
-// FleetDesk early access. The funnel endpoint. Short, reassuring intro on the
+// Yabi early access. The funnel endpoint. Short, reassuring intro on the
 // left, the lead-capture form on the right. Sand and Surf palette, one coral
 // accent per view (the submit button), varied rhythm. No external assets.
 
 export const metadata: Metadata = {
-  title: "Request early access · FleetDesk",
+  title: "Request early access · Yabi",
   description:
-    "Join FleetDesk early access. We onboard you personally, load your fleet, and lock your early-adopter price for life.",
+    "Join Yabi early access. We onboard you personally, load your fleet, and lock your early-adopter price for life.",
 };
 
 export default function EarlyAccessPage() {

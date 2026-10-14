@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import "./tokens.css";
 
 export const metadata = {
-  title: "FleetDesk",
-  description: "FleetDesk booking platform.",
+  title: "Yabi",
+  description: "Yabi booking platform.",
 };
 
 // Minimal root layout. tokens.css is the one source of design tokens for every

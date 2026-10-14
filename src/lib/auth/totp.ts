@@ -67,7 +67,7 @@ export function generateTotpSecret(): Buffer {
 }
 
 /** otpauth:// provisioning URI (Key URI Format), fully URL-encoded. */
-export function otpauthUri(accountLabel: string, secret: Buffer, issuerName = "FleetDesk Admin"): string {
+export function otpauthUri(accountLabel: string, secret: Buffer, issuerName = "Yabi Desk"): string {
   const issuer = encodeURIComponent(issuerName);
   const label = encodeURIComponent(`${issuerName}:${accountLabel}`);
   const base32 = base32Encode(secret);

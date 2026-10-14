@@ -47,7 +47,7 @@ describe("TOTP (RFC 6238)", () => {
   it("builds a well-formed, URL-encoded otpauth URI", () => {
     const secret = generateTotpSecret();
     const uri = otpauthUri("owner@fleetdesk.app", secret);
-    expect(uri).toMatch(/^otpauth:\/\/totp\/FleetDesk%20Admin%3Aowner%40fleetdesk\.app\?secret=[A-Z2-7]+&issuer=FleetDesk%20Admin&algorithm=SHA1&digits=6&period=30$/);
+    expect(uri).toMatch(/^otpauth:\/\/totp\/Yabi%20Desk%3Aowner%40fleetdesk\.app\?secret=[A-Z2-7]+&issuer=Yabi%20Desk&algorithm=SHA1&digits=6&period=30$/);
     expect(uri).toContain(base32Encode(secret));
   });
 

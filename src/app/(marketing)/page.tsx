@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Reveal from "./reveal";
 
-// FleetDesk home / funnel. Single narrative scroll. Sand and Surf palette,
+// Yabi home / funnel. Single narrative scroll. Sand and Surf palette,
 // one coral accent per view, varied section rhythm. No external assets.
 
 function ProductFrame({ title }: { title: string }) {
@@ -87,7 +87,7 @@ export default function HomePage() {
             <span className="eyebrow">Booking + ops for car rental fleets</span>
             <h1 className="display-xl">Run your fleet from one desk.</h1>
             <p className="lead">
-              FleetDesk takes online bookings, blocks double-bookings at the
+              Yabi takes online bookings, blocks double-bookings at the
               database, and keeps every car, reservation and quote in one place.
               Clean code, warm coast.
             </p>
@@ -104,7 +104,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="hero-visual" data-reveal data-reveal-delay="1">
-            <ProductFrame title="FleetDesk · Planning" />
+            <ProductFrame title="Yabi · Planning" />
           </div>
         </div>
       </section>
@@ -164,7 +164,7 @@ export default function HomePage() {
               &rarr;
             </div>
             <div className="ps-card solution">
-              <h3>With FleetDesk</h3>
+              <h3>With Yabi</h3>
               <ul className="ps-list">
                 <li>
                   <span className="ps-mark">+</span>One live calendar everyone
@@ -307,7 +307,7 @@ export default function HomePage() {
               </div>
             </div>
             <div data-reveal data-reveal-delay="1">
-              <ProductFrame title="FleetDesk · Fleet calendar" />
+              <ProductFrame title="Yabi · Fleet calendar" />
             </div>
           </div>
         </div>
@@ -400,7 +400,7 @@ export default function HomePage() {
             <div className="faq-item">
               <div className="faq-q">Can I keep my own website?</div>
               <p className="faq-a">
-                Yes. Link to your FleetDesk booking page today. An embeddable
+                Yes. Link to your Yabi booking page today. An embeddable
                 widget is coming.
               </p>
             </div>

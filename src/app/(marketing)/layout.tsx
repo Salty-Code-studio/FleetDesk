@@ -5,11 +5,11 @@ import { fontVars } from "@/app/fonts";
 import "./marketing.css";
 
 export const metadata: Metadata = {
-  title: "FleetDesk · Booking and ops for car rental fleets",
+  title: "Yabi · Booking and ops for car rental fleets",
   description:
-    "FleetDesk is booking plus operations software for small car rental operators. Online booking, a never double-books guarantee, and one ops desk to run it all.",
+    "Yabi is booking plus operations software for small car rental operators. Online booking, a never double-books guarantee, and one ops desk to run it all.",
   openGraph: {
-    title: "FleetDesk · Run your fleet from one desk",
+    title: "Yabi · Run your fleet from one desk",
     description:
       "Online booking, a never double-books guarantee, and one ops desk for small car rental operators.",
     type: "website",
@@ -41,11 +41,11 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 
       <header className="site-header">
         <div className="shell site-header-inner">
-          <Link className="brand" href="/" aria-label="FleetDesk home">
+          <Link className="brand" href="/" aria-label="Yabi home">
             <span className="brand-mark" aria-hidden="true">
               ~&lt;
             </span>
-            <span className="brand-word">FleetDesk</span>
+            <span className="brand-word">Yabi</span>
           </Link>
 
           <nav className="site-nav" aria-label="Primary">
@@ -79,12 +79,12 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <Link
               className="brand brand-on-teal"
               href="/"
-              aria-label="FleetDesk home"
+              aria-label="Yabi home"
             >
               <span className="brand-mark" aria-hidden="true">
                 ~&lt;
               </span>
-              <span className="brand-word">FleetDesk</span>
+              <span className="brand-word">Yabi</span>
             </Link>
             <p className="footer-pitch">
               Booking and ops for small car rental fleets. Run it all from one
@@ -101,7 +101,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 
           <div className="footer-fine">
             <span>Made by saltycodestudio</span>
-            <span>&copy; {new Date().getFullYear()} FleetDesk</span>
+            <span>&copy; {new Date().getFullYear()} Yabi</span>
           </div>
         </div>
       </footer>

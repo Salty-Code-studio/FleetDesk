@@ -33,7 +33,7 @@ export interface SiteConfig {
 }
 
 export const siteConfig: SiteConfig = {
-  siteName: process.env.NEXT_PUBLIC_SITE_NAME ?? "FleetDesk",
+  siteName: process.env.NEXT_PUBLIC_SITE_NAME ?? "Yabi",
   siteUrl,
   backLinkLabel: `Back to ${hostOf(siteUrl)}`,
   whatsappHref: whatsappDigits ? `https://wa.me/${whatsappDigits}` : null,
