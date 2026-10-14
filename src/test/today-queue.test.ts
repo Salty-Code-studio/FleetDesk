@@ -52,6 +52,14 @@ describe("buildToday", () => {
     expect(b.items[0]!.kind).toBe("handover");
   });
 
+  it("a same-day rental that is already out becomes a return, still one item", () => {
+    const b = buildToday([booking({ id: "s", status: "picked_up", startAt: at(day, "09:00"), endAt: at(day, "17:00") })], day, now);
+    expect(b.items).toHaveLength(1);
+    expect(b.items[0]).toMatchObject({ kind: "return", done: false, action: "Check in", href: "/admin/inspect/s/checkout" });
+    expect(b.goingOut).toBe(0);
+    expect(b.comingBack).toBe(1);
+  });
+
   it("an overdue rental from yesterday sorts first even though no date is today", () => {
     const b = buildToday([
       booking({ id: "a" }),
@@ -99,5 +107,13 @@ describe("buildToday", () => {
       booking({ id: "r", status: "picked_up", startAt: at("2028-03-07", "09:00"), endAt: at(day, "11:00") }),
     ], day, now);
     expect(b.items.map((i) => i.bookingId)).toEqual(["a", "r", "b"]);
+  });
+
+  it("a standing unpaid balance sorts after today's timed items", () => {
+    const b = buildToday([
+      booking({ id: "u", status: "completed", startAt: at("2028-02-20", "09:00"), endAt: at("2028-02-25", "09:00"), unpaid: true, balanceDueCents: 9000, paidNote: "Unpaid: $90.00 still due" }),
+      booking({ id: "a" }),
+    ], day, now);
+    expect(b.items.map((i) => i.bookingId)).toEqual(["a", "u"]);
   });
 });

@@ -2,7 +2,8 @@
  * The Today queue: what needs the operator today, in time order.
  *
  * One item per booking. Priority when a booking qualifies for more than one
- * kind: overdue > return > handover > unpaid. Unpaid is also carried as a flag
+ * kind: overdue, then return (a booking that ends today), then handover (a booking
+ * that starts today), then a standing unpaid balance. Unpaid is also carried as a flag
  * on every item, so a return that still owes money shows once, flagged.
  *
  * Pure: no database, no React, no clock. The route passes the Aruba day and
@@ -56,7 +57,7 @@ export interface TodayBoard {
 }
 
 const OUT_OR_DONE = new Set(["picked_up", "completed"]);
-const KIND_ORDER: Record<TodayKind, number> = { overdue: 0, return: 1, handover: 1, unpaid: 1 };
+const KIND_ORDER: Record<TodayKind, number> = { overdue: 0, return: 1, handover: 1, unpaid: 2 };
 
 function customerLabel(b: TodayBookingInput): string {
   return b.customerName || b.customerEmail.split("@")[0]!;
@@ -69,6 +70,12 @@ function classify(b: TodayBookingInput, day: string, nowIso: string): Omit<Today
   if (b.status === "picked_up" && !endsToday && parseTs(b.endAt) < parseTs(nowIso)) {
     return { kind: "overdue", at: b.endAt, time: arubaTimeOf(b.endAt), done: false, action: "Check in", href: `/admin/inspect/${b.id}/checkout` };
   }
+  if (endsToday && b.status === "picked_up") {
+    return { kind: "return", at: b.endAt, time: arubaTimeOf(b.endAt), done: false, action: "Check in", href: `/admin/inspect/${b.id}/checkout` };
+  }
+  if (endsToday && b.status === "completed") {
+    return { kind: "return", at: b.endAt, time: arubaTimeOf(b.endAt), done: true, action: "Back", href: null };
+  }
   if (startsToday && b.status === "pending") {
     return { kind: "handover", at: b.startAt, time: arubaTimeOf(b.startAt), done: false, action: "Confirm first", href: null };
   }
@@ -77,12 +84,6 @@ function classify(b: TodayBookingInput, day: string, nowIso: string): Omit<Today
   }
   if (startsToday && OUT_OR_DONE.has(b.status)) {
     return { kind: "handover", at: b.startAt, time: arubaTimeOf(b.startAt), done: true, action: "Handed over", href: null };
-  }
-  if (endsToday && b.status === "picked_up") {
-    return { kind: "return", at: b.endAt, time: arubaTimeOf(b.endAt), done: false, action: "Check in", href: `/admin/inspect/${b.id}/checkout` };
-  }
-  if (endsToday && b.status === "completed") {
-    return { kind: "return", at: b.endAt, time: arubaTimeOf(b.endAt), done: true, action: "Back", href: null };
   }
   if (b.unpaid && OUT_OR_DONE.has(b.status)) {
     return { kind: "unpaid", at: b.endAt, time: arubaTimeOf(b.endAt), done: false, action: "Take payment", href: null };
