@@ -87,7 +87,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 /* ---------- demo entry (sign-in page, DEMO_MODE only) ---------- */
 .demo-panel { margin: .25rem 0 1.1rem; }
 .btn-demo { background: var(--signal); color: var(--signal-ink); border-color: transparent; box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
-.btn-demo:hover { background: var(--signal-600); }
+.btn-demo:hover { background: var(--signal-600); border-color: transparent; }
 .demo-hint { margin: .55rem 0 0; font-size: .82rem; color: var(--ink-soft); text-align: center; }
 .demo-divider { display: flex; align-items: center; gap: .7rem; margin: 1.15rem 0 .2rem; color: var(--ink-soft); font-size: .78rem; }
 .demo-divider::before, .demo-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }

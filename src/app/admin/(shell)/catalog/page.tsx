@@ -154,9 +154,9 @@ export default function CatalogPage() {
 
   return (
     <>
+      <SetupNav />
       <header className="cat-head">
         <div className="cat-head__lead">
-          <SetupNav />
           <h1>Add-ons &amp; insurance</h1>
           <p className="sub">Extras and insurance tiers offered in the booking flow.</p>
         </div>

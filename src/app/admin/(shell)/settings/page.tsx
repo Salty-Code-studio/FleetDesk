@@ -181,9 +181,9 @@ export default function SettingsPage() {
 
   return (
     <>
+      <SetupNav />
       <header className="set-head">
         <div className="set-head__lead">
-          <SetupNav />
           <h1>Settings</h1>
           <p className="sub">Fees, guardrails, and alerts. Every value here is live, no redeploy.</p>
         </div>

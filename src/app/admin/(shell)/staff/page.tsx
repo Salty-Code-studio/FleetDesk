@@ -106,9 +106,9 @@ export default function StaffPage() {
 
   return (
     <>
+      <SetupNav />
       <header className="staff-head">
         <div>
-          <SetupNav />
           <h1>Staff logins</h1>
           <p className="sub">Give each person their own 6-digit code, so every action shows who did it.</p>
         </div>

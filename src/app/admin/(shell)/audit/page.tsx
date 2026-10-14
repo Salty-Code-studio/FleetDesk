@@ -55,9 +55,9 @@ export default function AuditPage() {
 
   return (
     <>
+      <SetupNav />
       <header className="audit-head">
         <div className="audit-head__lead">
-          <SetupNav />
           <h1>Audit log</h1>
           <p className="sub">Every admin action, newest first. Read-only.</p>
         </div>
