@@ -35,21 +35,26 @@ function headline(b: TodayBoard): { big: string; line: string; tail: string } {
   return { big, line, tail };
 }
 
-/** The one signal button: the first open item's action. */
-function firstOpen(b: TodayBoard): TodayItem | undefined {
-  return b.items.find((i) => !i.done);
+/** The one signal button: the first open item's action. Staff cannot open the booking sheet, so they get the first open item with a wizard link. */
+function firstOpen(b: TodayBoard, staff: boolean): TodayItem | undefined {
+  return b.items.find((i) => !i.done && (!staff || i.href));
 }
 
+type TodayView = TodayBoard & { viewerRole: "owner" | "staff" };
+
 export default function TodayPage() {
-  const [board, setBoard] = useState<TodayBoard | null>(null);
+  const [board, setBoard] = useState<TodayView | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const toast = useToast();
 
   const load = useCallback(async () => {
     try {
-      setBoard(await apiGet<TodayBoard>("/api/admin/today"));
+      setBoard(await apiGet<TodayView>("/api/admin/today"));
+      setFailed(false);
     } catch (e) {
+      setFailed(true);
       toast.show({ type: "error", message: (e as ApiError).message });
     }
     setLoading(false);
@@ -57,7 +62,7 @@ export default function TodayPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  if (loading || !board) {
+  if (loading) {
     return (
       <div className="td">
         <div className="td-hero td-hero--skel"><Skeleton height={56} width="40%" /><Skeleton height={18} width="60%" /></div>
@@ -66,8 +71,23 @@ export default function TodayPage() {
     );
   }
 
+  if (!board && failed) {
+    return (
+      <div className="td">
+        <EmptyState
+          title="Today did not load"
+          hint="Check the connection and try again."
+          action={<button type="button" className="btn btn--accent" onClick={() => { setLoading(true); void load(); }}>Try again</button>}
+        />
+      </div>
+    );
+  }
+
+  if (!board) return null;
+
+  const staff = board.viewerRole === "staff";
   const h = headline(board);
-  const next = firstOpen(board);
+  const next = firstOpen(board, staff);
   const pct = board.total === 0 ? 0 : Math.round((board.done / board.total) * 100);
 
   return (
@@ -105,15 +125,24 @@ export default function TodayPage() {
           {board.items.map((it) => (
             <li key={it.bookingId} className={`td-row td-row--${it.kind}${it.done ? " is-done" : ""}`}>
               <span className="td-row__time">{it.time}</span>
-              <button type="button" className="td-row__who" onClick={() => setSheetId(it.bookingId)}>
-                <b>{it.customer}</b>
-                <span>{it.vehicle}, {it.plate}{it.kind === "overdue" ? ", overdue" : ""}{it.unpaid && it.note ? `, ${it.note.replace(/^Unpaid: /, "")}` : ""}</span>
-              </button>
+              {(() => {
+                const sub = (
+                  <>
+                    <b>{it.customer}</b>
+                    <span>{it.vehicle}, {it.plate}{it.kind === "overdue" ? ", overdue" : ""}{it.unpaid && it.note ? `, ${it.note}` : ""}</span>
+                  </>
+                );
+                return staff
+                  ? <span className="td-row__who">{sub}</span>
+                  : <button type="button" className="td-row__who" onClick={() => setSheetId(it.bookingId)}>{sub}</button>;
+              })()}
               {it.done
                 ? <span className="td-row__done">{it.action}</span>
                 : it.href
                   ? <Link className="td-row__do" href={it.href}>{it.action}</Link>
-                  : <button type="button" className="td-row__do" onClick={() => setSheetId(it.bookingId)}>{it.action}</button>}
+                  : staff
+                    ? <span className="td-row__owner">{it.action}</span>
+                    : <button type="button" className="td-row__do" onClick={() => setSheetId(it.bookingId)}>{it.action}</button>}
             </li>
           ))}
         </ol>

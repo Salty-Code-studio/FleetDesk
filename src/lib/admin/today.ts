@@ -5,6 +5,7 @@
  * kind: overdue, then return (a booking that ends today), then handover (a booking
  * that starts today), then a standing unpaid balance. Unpaid is also carried as a flag
  * on every item, so a return that still owes money shows once, flagged.
+ * An item never closes while money is owed: a done item that is unpaid reopens as Take payment.
  *
  * Pure: no database, no React, no clock. The route passes the Aruba day and
  * "now" so the rule is unit-testable (see today-queue.test.ts).
@@ -94,8 +95,11 @@ function classify(b: TodayBookingInput, day: string, nowIso: string): Omit<Today
 export function buildToday(bookings: TodayBookingInput[], day: string, nowIso: string): TodayBoard {
   const items: TodayItem[] = [];
   for (const b of bookings) {
-    const c = classify(b, day, nowIso);
+    let c = classify(b, day, nowIso);
     if (!c) continue;
+    if (b.unpaid && OUT_OR_DONE.has(b.status) && c.done) {
+      c = { ...c, done: false, action: "Take payment", href: null };
+    }
     items.push({ ...c, bookingId: b.id, customer: customerLabel(b), vehicle: b.vehicleName, plate: b.plate, unpaid: b.unpaid, note: b.paidNote });
   }
   items.sort((a, b) => (KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) || (parseTs(a.at) - parseTs(b.at)));

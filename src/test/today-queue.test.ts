@@ -89,6 +89,19 @@ describe("buildToday", () => {
     expect(b.unpaid).toBe(1);
   });
 
+  it("a rental that came back today but is still unpaid stays open as Take payment", () => {
+    const b = buildToday([booking({ id: "cu", status: "completed", startAt: at("2028-03-07", "09:00"), endAt: at(day, "16:00"), unpaid: true, balanceDueCents: 5000, paidNote: "Unpaid: $50.00 still due" })], day, now);
+    expect(b.items).toHaveLength(1);
+    expect(b.items[0]).toMatchObject({ kind: "return", done: false, action: "Take payment", href: null, unpaid: true });
+    expect(b.done).toBe(0);
+  });
+
+  it("a rental handed over today with money outstanding stays open as Take payment", () => {
+    const b = buildToday([booking({ id: "hu", status: "picked_up", unpaid: true, balanceDueCents: 12000, paidNote: "Unpaid: $120.00 still due" })], day, now);
+    expect(b.items[0]).toMatchObject({ kind: "handover", done: false, action: "Take payment", href: null, unpaid: true });
+    expect(b.done).toBe(0);
+  });
+
   it("falls back to the email local part when the customer has no name", () => {
     const b = buildToday([booking({ id: "a", customerName: "" })], day, now);
     expect(b.items[0]!.customer).toBe("kim");

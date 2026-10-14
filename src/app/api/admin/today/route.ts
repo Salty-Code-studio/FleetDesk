@@ -10,5 +10,5 @@ export const dynamic = "force-dynamic";
 /** GET /api/admin/today: the operator's queue for the current Aruba day.
  *  Staff opt-in: Today is the staff home surface, like the board. */
 export const GET = withRoute(async (req) =>
-  json(await read(req, () => getToday(arubaToday(), arubaNowIso()), { roles: ["owner", "staff"] }), req),
+  json(await read(req, async (ctx) => ({ ...(await getToday(arubaToday(), arubaNowIso())), viewerRole: ctx.admin.role }), { roles: ["owner", "staff"] }), req),
 );

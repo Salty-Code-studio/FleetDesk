@@ -28,10 +28,12 @@
 .td-row__who { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
 .td-row__who b { font-family: var(--font-display); font-weight: 600; font-size: 1rem; color: var(--teal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .td-row__who span { font-size: var(--fs-small); color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+span.td-row__who { cursor: default; }
 .td-row__who:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; border-radius: 6px; }
 .td-row__do { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-small); color: var(--signal-ink); background: var(--signal); border: 0; border-radius: 9px; padding: .55rem .9rem; cursor: pointer; text-decoration: none; white-space: nowrap; transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
 .td-row__do:hover { background: var(--signal-600); transform: translateY(-1px); }
 .td-row__do:active { transform: translateY(0) scale(.98); }
+.td-row__owner { font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); white-space: nowrap; }
 .td-row__done { font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ok); white-space: nowrap; }
 
 @media (max-width: 640px) {
