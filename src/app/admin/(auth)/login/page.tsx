@@ -91,7 +91,7 @@ export default function AdminLoginPage() {
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
           />
         </div>
-        <button className="btn" disabled={busy || code.length !== 6}>
+        <button className="btn btn--accent" disabled={busy || code.length !== 6}>
           {busy ? "Signing in…" : "Sign in with code"}
         </button>
         <p className="msg err" role="alert">{error}</p>
@@ -128,7 +128,7 @@ export default function AdminLoginPage() {
         <input id="password" type="password" autoComplete="current-password" required
           value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
-      <button className="btn" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+      <button className={DEMO_MODE ? "btn" : "btn btn--accent"} disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
       <p className="msg err" role="alert">{error}</p>
       <button type="button" className="btn btn--quiet" onClick={() => switchMode("staff")}>
         Staff member? Sign in with your code

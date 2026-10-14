@@ -59,34 +59,35 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .field input { padding: .7rem .8rem; border: 1.5px solid var(--line); border-radius: 10px; font: inherit; background: var(--fill); transition: border-color .2s var(--ease), background .2s var(--ease), box-shadow .2s var(--ease); }
 .field input:focus { outline: none; border-color: var(--teal); background: var(--panel); box-shadow: 0 0 0 3px rgba(14,58,64,.12); }
 
-/* ---------- buttons ---------- */
+/* ---------- buttons ----------
+   Discipline: coral is the SIGNAL colour and means "tap this". Exactly one
+   .btn--accent per view. Everything else is ink and paper: the default .btn is
+   a quiet secondary. Confirm dialogs keep solid teal (.btn--confirm, pinned by
+   confirm-dialog.test.ts) because a dialog is its own view. */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .45rem; width: 100%;
-  padding: .72rem 1rem; border: 0; border-radius: 10px; background: var(--teal); color: var(--sand);
+  padding: .72rem 1rem; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); color: var(--teal);
   font-family: var(--font-display); font-weight: 600; font-size: .95rem; letter-spacing: -0.01em; cursor: pointer;
-  box-shadow: 0 8px 18px -10px rgba(14,58,64,.6);
-  transition: transform .18s var(--ease), background .2s var(--ease), box-shadow .2s var(--ease);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-base) var(--ease), background var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease);
 }
-.btn:hover { background: var(--teal-700); transform: translateY(-1px); box-shadow: 0 12px 22px -10px rgba(14,58,64,.55); }
+.btn:hover { background: var(--fill); border-color: var(--teal); transform: translateY(-1px); }
 .btn:active { transform: translateY(0) scale(.99); }
 .btn:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
-.btn--accent { background: var(--coral); color: var(--teal); box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
-.btn--accent:hover { background: var(--coral-600); }
-/* Dedicated affirmative-confirm style (ConfirmDialog, non-danger). Same
-   solid dark-teal family as the default .btn (Apply / Sign in / Check in) --
-   spelled out explicitly so a confirm button never drifts onto the coral
-   `--accent` used for one-per-view emphasis elsewhere (Schedule service /
-   Save move / Year PDF), which would blend the confirm action into the UI. */
-.btn--confirm { background: var(--teal); color: var(--sand); box-shadow: 0 8px 18px -10px rgba(14,58,64,.6); }
-.btn--confirm:hover { background: var(--teal-700); }
-.btn--quiet { background: transparent; color: var(--ink-soft); font-weight: 600; width: auto; padding: .45rem .65rem; box-shadow: none; }
-.btn--quiet:hover { background: var(--fill); color: var(--teal); transform: none; }
-.btn.danger { background: var(--danger); color: #fff; box-shadow: 0 8px 18px -10px rgba(192,71,58,.7); }
+/* THE signal. One per view. */
+.btn--accent { background: var(--signal); color: var(--signal-ink); border-color: transparent; box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
+.btn--accent:hover { background: var(--signal-600); border-color: transparent; }
+.btn--confirm { background: var(--teal); color: var(--sand); border-color: transparent; box-shadow: 0 8px 18px -10px rgba(14,58,64,.6); }
+.btn--confirm:hover { background: var(--teal-700); border-color: transparent; }
+.btn--quiet { background: transparent; color: var(--ink-soft); font-weight: 600; width: auto; padding: .45rem .65rem; box-shadow: none; border-color: transparent; }
+.btn--quiet:hover { background: var(--fill); color: var(--teal); transform: none; border-color: transparent; }
+.btn.danger { background: var(--danger); color: #fff; border-color: transparent; box-shadow: 0 8px 18px -10px rgba(192,71,58,.7); }
 
 /* ---------- demo entry (sign-in page, DEMO_MODE only) ---------- */
 .demo-panel { margin: .25rem 0 1.1rem; }
-.btn-demo { background: var(--coral); color: var(--teal); box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
-.btn-demo:hover { background: var(--coral-600); }
+.btn-demo { background: var(--signal); color: var(--signal-ink); border-color: transparent; box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
+.btn-demo:hover { background: var(--signal-600); }
 .demo-hint { margin: .55rem 0 0; font-size: .82rem; color: var(--ink-soft); text-align: center; }
 .demo-divider { display: flex; align-items: center; gap: .7rem; margin: 1.15rem 0 .2rem; color: var(--ink-soft); font-size: .78rem; }
 .demo-divider::before, .demo-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
@@ -123,7 +124,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; color: v
 .side a { color: #AFC2C0; text-decoration: none; padding: .55rem .65rem; border-radius: 9px; font-size: .92rem; font-weight: 500; position: relative; transition: background .18s var(--ease), color .18s var(--ease); }
 .side a:hover { background: rgba(242,235,221,.07); color: var(--sand); }
 .side a.active { background: rgba(242,235,221,.1); color: #fff; font-weight: 600; }
-.side a.active::before { content: ""; position: absolute; left: -1rem; top: 50%; transform: translateY(-50%); width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--coral); }
+.side a.active::before { content: ""; position: absolute; left: -1rem; top: 50%; transform: translateY(-50%); width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--sand); }
 .side .soon { opacity: .4; pointer-events: none; }
 .side .foot { margin-top: auto; padding: .85rem .65rem .2rem; line-height: 1.5; border-top: 1px solid rgba(242,235,221,.08); display: flex; flex-direction: column; gap: .25rem; }
 .foot-acct { font-size: .74rem; color: #8FA3A1; }

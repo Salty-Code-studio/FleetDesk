@@ -117,7 +117,7 @@ export default function ReportsPage() {
             title="Could not load reports"
             hint={err}
             action={
-              <button type="button" className="btn btn--accent" onClick={() => { setErr(""); setData(null); load(); loadPerCar(year); }}>
+              <button type="button" className="btn" onClick={() => { setErr(""); setData(null); load(); loadPerCar(year); }}>
                 Try again
               </button>
             }
@@ -228,7 +228,7 @@ export default function ReportsPage() {
             <Select ariaLabel="Report year" value={year} onChange={setYear} options={yearOptions} />
             <Select ariaLabel="Month for the monthly PDF" value={month} onChange={setMonth} options={monthOptions} />
             <a className="btn" href={`/api/admin/reports/pdf?year=${year}&month=${month}`}>Month PDF</a>
-            <a className="btn btn--accent" href={`/api/admin/reports/pdf?year=${year}`}>Year PDF</a>
+            <a className="btn" href={`/api/admin/reports/pdf?year=${year}`}>Year PDF</a>
           </div>
         </div>
         {perCarErr ? (
