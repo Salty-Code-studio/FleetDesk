@@ -39,7 +39,7 @@ span.td-row__who { cursor: default; }
 @media (max-width: 640px) {
   .td-hero { padding: 1.6rem 1.2rem 1.4rem; min-height: 180px; }
   .td-row { grid-template-columns: 44px 1fr; }
-  .td-row__do, .td-row__done { grid-column: 2; justify-self: start; }
+  .td-row__do, .td-row__done, .td-row__owner { grid-column: 2; justify-self: start; }
 }
 @media (prefers-reduced-motion: reduce) {
   .td-row, .td-row__do, .td-progress i { transition: none; }

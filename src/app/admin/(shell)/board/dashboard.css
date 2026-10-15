@@ -57,9 +57,9 @@
 .pl-toolbar input[type="date"]:focus-visible,
 .pl-service-form input:focus-visible,
 .pl-service-form select:focus-visible {
-  outline: 2px solid var(--coral);
+  outline: 2px solid var(--teal);
   outline-offset: 1px;
-  border-color: var(--coral);
+  border-color: var(--teal);
 }
 
 @media (max-width: 640px) {

@@ -208,8 +208,8 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-day .dow { font-size: .64rem; color: var(--ink-mute); text-transform: uppercase; font-family: var(--font-mono); }
 .pl-day .dnum { font-weight: 600; font-variant-numeric: tabular-nums; }
 .pl-day.weekend { background: var(--sand-2); }
-.pl-day.today { background: rgba(255,111,89,.12); }
-.pl-day.today .dnum { color: var(--coral-600); }
+.pl-day.today { background: rgba(14,58,64,.08); }
+.pl-day.today .dnum { color: var(--teal); }
 
 .pl-cat { grid-column: 1 / -1; background: var(--teal); color: var(--sand); font-family: var(--font-mono); font-weight: 600; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; padding: .4rem .75rem; position: sticky; left: 0; }
 .pl-row { border-bottom: 1px solid var(--line-soft); }
@@ -221,7 +221,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-cells { position: absolute; inset: 0; display: flex; }
 .pl-cells .c { flex: 1 0 0; min-width: 34px; border-right: 1px solid var(--line-soft); }
 .pl-cells .c.weekend { background: var(--sand-2); }
-.pl-cells .c.today { background: rgba(255,111,89,.08); }
+.pl-cells .c.today { background: rgba(14,58,64,.05); }
 .pl-bar { position: absolute; top: 8px; height: 30px; border-radius: 8px; display: flex; align-items: center; padding: 0 .55rem; font-size: .76rem; font-weight: 600; font-family: var(--font-mono); color: #fff; overflow: hidden; white-space: nowrap; box-shadow: 0 2px 8px -2px rgba(14,58,64,.4); cursor: grab; touch-action: none; user-select: none; transition: box-shadow .15s var(--ease), filter .15s var(--ease); }
 .pl-bar:hover { filter: brightness(1.06); box-shadow: 0 4px 12px -2px rgba(14,58,64,.5); }
 .pl-bar:active { cursor: grabbing; }
@@ -243,7 +243,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-select { position: absolute; top: 3px; bottom: 3px; border-radius: 8px; background: rgba(14,58,64,.12); border: 1.5px dashed var(--teal); pointer-events: none; }
 .pl-ghost { position: absolute; top: 8px; height: 30px; border-radius: 8px; background: rgba(14,58,64,.5); border: 1.5px solid var(--sand); box-shadow: 0 2px 8px rgba(14,58,64,.35); pointer-events: none; }
 .pl-empty { padding: 2rem; text-align: center; color: var(--ink-soft); }
-.pl-msg { color: var(--coral-600); font-size: .8rem; font-weight: 600; }
+.pl-msg { color: var(--danger); font-size: .8rem; font-weight: 600; }
 
 .pl-backdrop { position: fixed; inset: 0; z-index: 40; }
 .pl-pop { z-index: 41; width: 308px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 1rem; }
@@ -301,7 +301,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .nbell__mark { border: 0; background: none; color: var(--coral-600); font-weight: 600; font-size: .78rem; cursor: pointer; font-family: var(--font-mono); }
 .nbell__empty { padding: 1.6rem .9rem; color: var(--ink-soft); font-size: .88rem; text-align: center; }
 .nbell__item { padding: .7rem .95rem; border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent; transition: background .15s var(--ease); }
-.nbell__item.is-unread { background: rgba(255,111,89,.06); }
+.nbell__item.is-unread { background: rgba(79,168,201,.08); }
 .nbell__item--success { border-left-color: var(--ok); }
 .nbell__item--warning { border-left-color: var(--amber); }
 .nbell__item--critical { border-left-color: var(--danger); }
