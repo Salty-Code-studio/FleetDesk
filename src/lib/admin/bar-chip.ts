@@ -1,7 +1,7 @@
 /**
  * The tiny status chip on a planning bar. Pure: the board decides nothing
  * about colour, it only asks "what chip does this bar wear?". Tones map to
- * CSS classes .pl-bar--tone-<tone>; see board/dashboard.css.
+ * CSS classes .pl-bar--tone-<tone>; see admin.css.
  */
 import type { BarState } from "@/lib/admin/bar-span";
 

@@ -230,17 +230,37 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-cells .c { flex: 1 0 0; min-width: 34px; border-right: 1px solid var(--line-soft); }
 .pl-cells .c.weekend { background: var(--sand-2); }
 .pl-cells .c.today { background: rgba(14,58,64,.05); }
-.pl-bar { position: absolute; top: 8px; height: 30px; border-radius: 8px; display: flex; align-items: center; padding: 0 .55rem; font-size: .76rem; font-weight: 600; font-family: var(--font-mono); color: #fff; overflow: hidden; white-space: nowrap; box-shadow: 0 2px 8px -2px rgba(14,58,64,.4); cursor: grab; touch-action: none; user-select: none; transition: box-shadow .15s var(--ease), filter .15s var(--ease); }
-.pl-bar:hover { filter: brightness(1.06); box-shadow: 0 4px 12px -2px rgba(14,58,64,.5); }
+/* Planning bar: a small three-plane card. Rail = status colour (left edge),
+   tint = the same colour at low alpha, back plane = plate, front = customer,
+   chip = tiny status word. Tones come from chipFor() in bar-chip.ts. */
+.pl-bar {
+  --tone: var(--teal);
+  position: absolute; top: 6px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; gap: .4rem; padding: 0 .5rem 0 .6rem;
+  background: color-mix(in srgb, var(--tone) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--tone) 28%, var(--line));
+  box-shadow: inset 4px 0 0 var(--tone), var(--shadow-sm);
+  color: var(--teal); font-family: var(--font-body); font-size: .78rem; font-weight: 600;
+  overflow: hidden; white-space: nowrap; cursor: grab; touch-action: none; user-select: none;
+  container-type: inline-size;
+  transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.pl-bar:hover { transform: translateY(-1px); box-shadow: inset 4px 0 0 var(--tone), var(--shadow-md); }
 .pl-bar:active { cursor: grabbing; }
-.pl-bar--pending { background: var(--amber); color: #2f2100; }
-.pl-bar--confirmed { background: var(--teal); }
-.pl-bar--picked_up { background: var(--pickup); cursor: default; }
-.pl-bar--due_back_soon { background: var(--pickup); outline: 2px solid var(--amber); outline-offset: -2px; cursor: default; }
-.pl-bar--overdue { background: var(--overdue); cursor: default; }
-.pl-bar--completed { background: var(--ok); cursor: default; }
-.pl-bar--unpaid { background: repeating-linear-gradient(45deg, #C0473A 0 6px, #922C23 6px 12px); color: #fff; }
-.pl-bar.manual::after { content: "✦"; margin-left: .35rem; opacity: .85; font-size: .68rem; }
+.pl-bar__back { position: absolute; right: .3rem; bottom: -.35rem; font-family: var(--font-mono); font-weight: 700; font-size: 1.5rem; letter-spacing: -.04em; color: var(--tone); opacity: .10; pointer-events: none; }
+.pl-bar__name { position: relative; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pl-bar__chip { position: relative; flex: 0 0 auto; font-family: var(--font-mono); font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; padding: .1rem .38rem; border-radius: 999px; color: var(--panel); background: var(--tone); }
+/* narrow bars: drop the planes, keep the rail and the name */
+@container (max-width: 90px) { .pl-bar__chip, .pl-bar__back { display: none; } }
+@container (max-width: 40px) { .pl-bar__name { display: none; } }
+.pl-bar--tone-pending { --tone: var(--amber); }
+.pl-bar--tone-confirmed { --tone: var(--teal); }
+.pl-bar--tone-out { --tone: var(--pickup); cursor: default; }
+.pl-bar--tone-due { --tone: var(--pickup); cursor: default; }
+.pl-bar--tone-due .pl-bar__chip { background: var(--amber); color: var(--teal-700); }
+.pl-bar--tone-late { --tone: var(--overdue); cursor: default; }
+.pl-bar--tone-done { --tone: var(--ok); cursor: default; }
+.pl-bar--tone-unpaid { --tone: var(--danger); }
 .pl-bar.dragging { opacity: .35; }
 .pl-block { position: absolute; top: 8px; height: 30px; border-radius: 8px; color: #2b3252; display: flex; align-items: center; padding: 0 .5rem; font-size: .72rem; font-weight: 600; font-family: var(--font-mono); overflow: hidden; white-space: nowrap; cursor: pointer; user-select: none; background: repeating-linear-gradient(45deg, #d8ccb4, #d8ccb4 6px, #c8baa0 6px, #c8baa0 12px); }
 .pl-block--maintenance { background: repeating-linear-gradient(45deg, #f3dcb0, #f3dcb0 6px, #e6c07c 6px, #e6c07c 12px); color: #5a3a00; }
@@ -269,9 +289,6 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .btn--service { width: auto; padding: .48rem .85rem; background: var(--teal-600); color: var(--sand); }
 .btn--service:hover { filter: brightness(1.12); }
 .pl-modal { position: fixed; z-index: 41; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 350px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 1.1rem; }
-.stat-strip { display: flex; gap: 1.8rem; margin-bottom: 1.3rem; flex-wrap: wrap; }
-.stat-strip .s b { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--teal); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.stat-strip .s span { color: var(--ink-soft); font-size: .8rem; margin-left: .4rem; }
 
 /* ---------- reports ---------- */
 .rp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.6rem; }
@@ -543,7 +560,6 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   .main h1 { font-size: 1.35rem; }
   .form-grid { grid-template-columns: 1fr; }
   .actions { flex-wrap: wrap; }
-  .stat-strip { gap: 1.1rem; }
   /* Narrower sticky vehicle column so more days stay in view on the board. */
   .pl-head, .pl-row { grid-template-columns: 140px 1fr; }
   .pl-corner, .pl-label { padding-left: .55rem; padding-right: .55rem; }

@@ -15,6 +15,7 @@ import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, formatTime, parseTs } from "@/lib/time/format";
 import { barSpan, barState } from "@/lib/admin/bar-span";
 import { hourSpan } from "@/lib/admin/hour-grid";
+import { chipFor } from "@/lib/admin/bar-chip";
 import { createDragClickGuard, type DragClickGuard } from "@/lib/admin/drag-click-guard";
 import { BookingDrawer } from "../booking-drawer";
 import "./dashboard.css";
@@ -409,13 +410,19 @@ export default function AdminDashboard() {
                         {v.bookings.map((b) => {
                           const s = hourSpan(zoomDay!, b.startAt, b.endAt);
                           if (!s) return null;
-                          return (
-                            <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} pl-bar--zoom ${b.unpaid ? "pl-bar--unpaid" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
-                              title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.paidNote ? ` · ${b.paidNote}` : ""}`}
-                              onClick={() => setDrawerBookingId(b.id)}>
-                              {s.cutStart ? "‹ " : `${formatTime(b.startAt)} · `}{b.label}{s.cutEnd ? " ›" : ` · ${formatTime(b.endAt)}`}
-                            </div>
-                          );
+                          return (() => {
+                            const state = barState(b, nowIso);
+                            const chip = chipFor(state, Boolean(b.unpaid), b.source === "manual");
+                            return (
+                              <div key={b.id} className={`pl-bar pl-bar--zoom pl-bar--tone-${chip.tone}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
+                                title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.paidNote ? ` · ${b.paidNote}` : ""}`}
+                                onClick={() => setDrawerBookingId(b.id)}>
+                                <span className="pl-bar__back" aria-hidden="true">{v.plate}</span>
+                                <span className="pl-bar__name">{s.cutStart ? "‹ " : `${formatTime(b.startAt)} · `}{b.label}{s.cutEnd ? " ›" : ` · ${formatTime(b.endAt)}`}</span>
+                                <span className="pl-bar__chip">{chip.label}</span>
+                              </div>
+                            );
+                          })();
                         })}
                       </div>
                     </div>
@@ -474,14 +481,20 @@ export default function AdminDashboard() {
                       {v.bookings.map((b) => {
                         const dimmed = moveCand?.bookingId === b.id;
                         const s = barSpan(data.days, b.startAt, b.endAt);
-                        return s ? (
-                          <div key={b.id} className={`pl-bar pl-bar--${barState(b, nowIso)} ${b.unpaid ? "pl-bar--unpaid" : ""} ${dimmed ? "dragging" : ""} ${b.source === "manual" ? "manual" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
-                            title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.paidNote ? ` · ${b.paidNote}` : ""}${b.source === "manual" ? " · manual" : ""}`}
-                            onPointerDown={(e) => onBarPointerDown(e, v, b)}
-                            onClick={() => { if (dragClickGuard.consumeSuppressed()) return; setDrawerBookingId(b.id); }}>
-                            {b.label}
-                          </div>
-                        ) : null;
+                        return s ? (() => {
+                          const state = barState(b, nowIso);
+                          const chip = chipFor(state, Boolean(b.unpaid), b.source === "manual");
+                          return (
+                            <div key={b.id} className={`pl-bar pl-bar--tone-${chip.tone} ${dimmed ? "dragging" : ""}`} style={{ left: `${s.left}%`, width: `${s.width}%` }}
+                              title={`${b.label} · ${formatTime(b.startAt)} to ${formatTime(b.endAt)} · ${b.status}${b.paidNote ? ` · ${b.paidNote}` : ""}${b.source === "manual" ? " · manual" : ""}`}
+                              onPointerDown={(e) => onBarPointerDown(e, v, b)}
+                              onClick={() => { if (dragClickGuard.consumeSuppressed()) return; setDrawerBookingId(b.id); }}>
+                              <span className="pl-bar__back" aria-hidden="true">{v.plate}</span>
+                              <span className="pl-bar__name">{b.label}</span>
+                              <span className="pl-bar__chip">{chip.label}</span>
+                            </div>
+                          );
+                        })() : null;
                       })}
                       {/* live selection preview */}
                       {sel?.vehicleId === v.id && (() => { const s = span(sel.startDate, sel.endDate); return s ? <div className="pl-select" style={s} /> : null; })()}
