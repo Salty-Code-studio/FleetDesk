@@ -115,3 +115,12 @@
 .pl--hours .pl-day, .pl--hours .pl-cells .c { min-width: 28px; }
 .pl--hours .pl-day .dnum { font-size: .72rem; font-variant-numeric: tabular-nums; }
 .pl-bar--zoom { cursor: pointer; }
+
+/* First-use hint. Shown once per browser, then never again. */
+.pl-hint {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  margin: 0 0 1rem; padding: .7rem .9rem;
+  background: var(--fill); border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: var(--fs-small); color: var(--ink-soft);
+}
+.pl-hint .btn--quiet { width: auto; }

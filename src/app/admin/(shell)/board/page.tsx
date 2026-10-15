@@ -65,6 +65,16 @@ export default function AdminDashboard() {
   const [sel, setSel] = useState<{ vehicleId: string; startDate: string; endDate: string } | null>(null);
   const [moveCand, setMoveCand] = useState<{ bookingId: string; vehicleId: string; startDate: string; endDate: string } | null>(null);
   const [compliance, setCompliance] = useState<ComplianceItem[]>([]);
+  // First-use hint: read in an effect so the server render never depends on
+  // localStorage (no hydration mismatch). Dismissed once per browser.
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    try { if (!localStorage.getItem("yabi.board.hint.v1")) setShowHint(true); } catch { /* storage unavailable: no hint */ }
+  }, []);
+  function dismissHint() {
+    setShowHint(false);
+    try { localStorage.setItem("yabi.board.hint.v1", "1"); } catch { /* ignore */ }
+  }
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -278,32 +288,21 @@ export default function AdminDashboard() {
     });
   }
 
-  const stats = useMemo(() => {
-    if (!data) return { vehicles: 0, bookings: 0, confirmed: 0, pending: 0 };
-    let vehicles = 0, bookings = 0, confirmed = 0, pending = 0;
-    for (const c of data.categories) for (const v of c.vehicles) {
-      vehicles++;
-      for (const b of v.bookings) { bookings++; if (b.status === "confirmed") confirmed++; if (b.status === "pending") pending++; }
-    }
-    return { vehicles, bookings, confirmed, pending };
-  }, [data]);
-
   return (
     <>
       <header className="pl-page-head">
         <div className="pl-page-head__lead">
-          <h1>Planning board</h1>
-          <p className="sub">Drag an empty stretch to add a rental or block. Drag a booking to move its dates or drop it on another car. Click a booking to see details or cancel.</p>
+          <h1>Board</h1>
         </div>
         <button type="button" className="btn btn--accent pl-head-action" onClick={() => setShowService(true)}>Schedule service</button>
       </header>
 
-      <div className="stat-strip">
-        <div className="s"><b>{stats.vehicles}</b><span>active vehicles</span></div>
-        <div className="s"><b>{stats.bookings}</b><span>bookings in view</span></div>
-        <div className="s"><b>{stats.confirmed}</b><span>confirmed</span></div>
-        <div className="s"><b>{stats.pending}</b><span>awaiting payment</span></div>
-      </div>
+      {showHint && (
+        <div className="pl-hint" role="note">
+          <span>Drag an empty stretch to add a rental or block. Drag a booking to move it. Click a day to zoom into its hours.</span>
+          <button type="button" className="btn btn--quiet" onClick={dismissHint}>Got it</button>
+        </div>
+      )}
 
       {compliance.length > 0 && (
         <div className="panel pl-compliance" role="status">
