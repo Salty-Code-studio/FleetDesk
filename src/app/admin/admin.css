@@ -246,7 +246,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .pl-bar:hover { transform: translateY(-1px); box-shadow: inset 4px 0 0 var(--tone), var(--shadow-md); }
-.pl-bar:active { cursor: grabbing; }
+.pl-bar--tone-pending:active, .pl-bar--tone-confirmed:active, .pl-bar--tone-unpaid:active { cursor: grabbing; }
 .pl-bar__back { position: absolute; right: .3rem; bottom: -.35rem; font-family: var(--font-mono); font-weight: 700; font-size: 1.5rem; letter-spacing: -.04em; color: var(--tone); opacity: .10; pointer-events: none; }
 .pl-bar__name { position: relative; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pl-bar__chip { position: relative; flex: 0 0 auto; font-family: var(--font-mono); font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; padding: .1rem .38rem; border-radius: 999px; color: var(--panel); background: var(--tone); }
@@ -254,6 +254,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 @container (max-width: 90px) { .pl-bar__chip, .pl-bar__back { display: none; } }
 @container (max-width: 40px) { .pl-bar__name { display: none; } }
 .pl-bar--tone-pending { --tone: var(--amber); }
+.pl-bar--tone-pending .pl-bar__chip { color: var(--teal-700); }
 .pl-bar--tone-confirmed { --tone: var(--teal); }
 .pl-bar--tone-out { --tone: var(--pickup); cursor: default; }
 .pl-bar--tone-due { --tone: var(--pickup); cursor: default; }

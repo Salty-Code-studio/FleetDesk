@@ -114,7 +114,8 @@
 .pl-zoomhint { color: var(--ink-mute); font-size: .72rem; margin-left: auto; }
 .pl--hours .pl-day, .pl--hours .pl-cells .c { min-width: 28px; }
 .pl--hours .pl-day .dnum { font-size: .72rem; font-variant-numeric: tabular-nums; }
-.pl-bar--zoom { cursor: pointer; }
+.pl-bar.pl-bar--zoom { cursor: pointer; }
+.pl-bar.pl-bar--zoom:active { cursor: pointer; }
 
 /* First-use hint. Shown once per browser, then never again. */
 .pl-hint {
