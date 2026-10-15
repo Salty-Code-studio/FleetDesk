@@ -332,15 +332,15 @@ export default function AdminDashboard() {
         <button className="btn btn--quiet" onClick={() => load(today, addDays(today, 29))}>Next month</button>
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, -7), addDays(data.to, -7))}>◀ back</button>
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, 7), addDays(data.to, 7))}>forward ▶</button>
-        <div className="pl-legend">
-          <span><i className="pl-swatch" style={{ background: "#C98A33" }} /> pending</span>
-          <span><i className="pl-swatch" style={{ background: "#0E3A40" }} /> confirmed</span>
-          <span><i className="pl-swatch" style={{ background: "#2C5F8A" }} /> with customer</span>
-          <span><i className="pl-swatch" style={{ background: "#2C5F8A", outline: "2px solid #C98A33", outlineOffset: "-2px" }} /> due back soon</span>
-          <span><i className="pl-swatch" style={{ background: "repeating-linear-gradient(45deg, #C0473A 0 4px, #922C23 4px 8px)" }} /> unpaid</span>
-          <span><i className="pl-swatch" style={{ background: "#8A2C2C" }} /> overdue</span>
-          <span><i className="pl-swatch" style={{ background: "#2E7D5B" }} /> completed</span>
-          <span><i className="pl-swatch" style={{ background: "#c8baa0" }} /> blocked</span>
+        <div className="pl-legend" aria-label="Legend">
+          <span><i className="pl-swatch pl-swatch--pending" /> pending</span>
+          <span><i className="pl-swatch pl-swatch--confirmed" /> booked</span>
+          <span><i className="pl-swatch pl-swatch--out" /> out</span>
+          <span><i className="pl-swatch pl-swatch--due" /> due back</span>
+          <span><i className="pl-swatch pl-swatch--late" /> late</span>
+          <span><i className="pl-swatch pl-swatch--unpaid" /> unpaid</span>
+          <span><i className="pl-swatch pl-swatch--done" /> back</span>
+          <span><i className="pl-swatch pl-swatch--blocked" /> blocked</span>
         </div>
       </div>
 
