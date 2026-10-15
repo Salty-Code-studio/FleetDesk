@@ -333,7 +333,7 @@ export default function AdminDashboard() {
         <button className="btn btn--quiet" onClick={() => load(today, addDays(today, 29))}>Next month</button>
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, -7), addDays(data.to, -7))}>◀ back</button>
         <button className="btn btn--quiet" onClick={() => data && load(addDays(data.from, 7), addDays(data.to, 7))}>forward ▶</button>
-        <div className="pl-legend" aria-label="Legend">
+        <div className="pl-legend" role="group" aria-label="Legend">
           <span><i className="pl-swatch pl-swatch--pending" /> pending</span>
           <span><i className="pl-swatch pl-swatch--confirmed" /> booked</span>
           <span><i className="pl-swatch pl-swatch--out" /> out</span>
@@ -360,7 +360,7 @@ export default function AdminDashboard() {
               <div className="pl-row" key={r}>
                 <div className="pl-label"><Skeleton width="60%" height={12} /><Skeleton width="80%" height={9} style={{ marginTop: 5 }} /></div>
                 <div className="pl-track pl-skel-track">
-                  <Skeleton width={`${28 + (r % 3) * 14}%`} height={30} radius={8} style={{ position: "absolute", top: 8, left: `${(r * 11) % 40}%` }} />
+                  <Skeleton width={`${28 + (r % 3) * 14}%`} height={34} radius={8} style={{ position: "absolute", top: 6, left: `${(r * 11) % 40}%` }} />
                 </div>
               </div>
             ))}

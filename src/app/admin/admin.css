@@ -246,13 +246,13 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .pl-bar:hover { transform: translateY(-1px); box-shadow: inset 4px 0 0 var(--tone), var(--shadow-md); }
-.pl-bar--tone-pending:active, .pl-bar--tone-confirmed:active, .pl-bar--tone-unpaid:active { cursor: grabbing; }
+.pl-bar--tone-pending:active, .pl-bar--tone-confirmed:active { cursor: grabbing; }
 .pl-bar__back { position: absolute; right: .3rem; bottom: -.35rem; font-family: var(--font-mono); font-weight: 700; font-size: 1.5rem; letter-spacing: -.04em; color: var(--tone); opacity: .10; pointer-events: none; }
 .pl-bar__name { position: relative; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pl-bar__chip { position: relative; flex: 0 0 auto; font-family: var(--font-mono); font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; padding: .1rem .38rem; border-radius: 999px; color: var(--panel); background: var(--tone); }
 /* narrow bars: drop the planes, keep the rail and the name */
 @container (max-width: 90px) { .pl-bar__chip, .pl-bar__back { display: none; } }
-@container (max-width: 40px) { .pl-bar__name { display: none; } }
+@container (max-width: 20px) { .pl-bar__name { display: none; } }
 .pl-bar--tone-pending { --tone: var(--amber); }
 .pl-bar--tone-pending .pl-bar__chip { color: var(--teal-700); }
 .pl-bar--tone-confirmed { --tone: var(--teal); }
@@ -261,16 +261,16 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-bar--tone-due .pl-bar__chip { background: var(--amber); color: var(--teal-700); }
 .pl-bar--tone-late { --tone: var(--overdue); cursor: default; }
 .pl-bar--tone-done { --tone: var(--ok); cursor: default; }
-.pl-bar--tone-unpaid { --tone: var(--danger); }
+.pl-bar--tone-unpaid { --tone: var(--danger); cursor: default; }
 .pl-bar.dragging { opacity: .35; }
-.pl-block { position: absolute; top: 8px; height: 30px; border-radius: 8px; color: #2b3252; display: flex; align-items: center; padding: 0 .5rem; font-size: .72rem; font-weight: 600; font-family: var(--font-mono); overflow: hidden; white-space: nowrap; cursor: pointer; user-select: none; background: repeating-linear-gradient(45deg, #d8ccb4, #d8ccb4 6px, #c8baa0 6px, #c8baa0 12px); }
+.pl-block { position: absolute; top: 6px; height: 34px; border-radius: 9px; color: #2b3252; display: flex; align-items: center; padding: 0 .5rem; font-size: .72rem; font-weight: 600; font-family: var(--font-mono); overflow: hidden; white-space: nowrap; cursor: pointer; user-select: none; background: repeating-linear-gradient(45deg, #d8ccb4, #d8ccb4 6px, #c8baa0 6px, #c8baa0 12px); }
 .pl-block--maintenance { background: repeating-linear-gradient(45deg, #f3dcb0, #f3dcb0 6px, #e6c07c 6px, #e6c07c 12px); color: #5a3a00; }
 .pl-block--carwash { background: repeating-linear-gradient(45deg, #bfe3f0, #bfe3f0 6px, #93cfe0 6px, #93cfe0 12px); color: #073a52; }
 .pl-block--cleaning { background: repeating-linear-gradient(45deg, #c9ecd6, #c9ecd6 6px, #99d6b1 6px, #99d6b1 12px); color: #0c4a2c; }
 .pl-block--out_of_service { background: repeating-linear-gradient(45deg, #f3c9c2, #f3c9c2 6px, #e29a90 6px, #e29a90 12px); color: #5e1414; }
 .pl-blackout { position: absolute; top: 0; bottom: 0; background: rgba(192,71,58,.06); border-left: 1px dashed rgba(192,71,58,.4); border-right: 1px dashed rgba(192,71,58,.4); pointer-events: none; }
 .pl-select { position: absolute; top: 3px; bottom: 3px; border-radius: 8px; background: rgba(14,58,64,.12); border: 1.5px dashed var(--teal); pointer-events: none; }
-.pl-ghost { position: absolute; top: 8px; height: 30px; border-radius: 8px; background: rgba(14,58,64,.5); border: 1.5px solid var(--sand); box-shadow: 0 2px 8px rgba(14,58,64,.35); pointer-events: none; }
+.pl-ghost { position: absolute; top: 6px; height: 34px; border-radius: 8px; background: rgba(14,58,64,.5); border: 1.5px solid var(--sand); box-shadow: 0 2px 8px rgba(14,58,64,.35); pointer-events: none; }
 .pl-empty { padding: 2rem; text-align: center; color: var(--ink-soft); }
 .pl-msg { color: var(--danger); font-size: .8rem; font-weight: 600; }
 
