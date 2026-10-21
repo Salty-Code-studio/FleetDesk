@@ -11,55 +11,16 @@
   margin-bottom: 1.5rem;
 }
 .fleet-head__lead { min-width: 0; }
-.fleet-head__lead h1 { margin: 0 0 .3rem; }
-.fleet-head__lead .sub { margin: 0; }
-.fleet-head__action .btn {
-  width: auto;
-  padding: .58rem 1.1rem;
-  white-space: nowrap;
-}
-
-/* Panel header row inside the Vehicles panel: heading left, count + primary
-   action right (the Add vehicle button lives here, tied to the table, instead
-   of floating in the page header near the topbar). */
-.fleet-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .9rem;
-  margin-bottom: 1.1rem;
-  flex-wrap: wrap;
-}
-.fleet-panel-head h2 { margin: 0; }
-.fleet-panel-head__right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.fleet-panel-head .fleet-count {
+.fleet-head__lead h1 { margin: 0 0 .2rem; }
+.fleet-head .fleet-count {
+  margin: 0;
   font-size: .68rem;
   letter-spacing: .06em;
   text-transform: uppercase;
   font-family: var(--font-mono);
   color: var(--ink-mute);
 }
-.fleet-panel-head .btn {
-  width: auto;
-  padding: .55rem 1.05rem;
-  white-space: nowrap;
-}
-
-/* Tidy the action column so Edit / Blocks / Retire stay aligned. */
-.fleet-grid td.fleet-actions { white-space: nowrap; }
-.fleet-grid td.fleet-actions .row-actions { justify-content: flex-end; }
-
-/* Slug helper line under the vehicle name. */
-.fleet-grid .fleet-slug {
-  font-size: .72rem;
-  font-family: var(--font-mono);
-  color: var(--ink-mute);
-  margin-top: .15rem;
-}
+.fleet-head .fc-add { width: auto; padding: .58rem 1.1rem; white-space: nowrap; }
 
 /* Air-conditioning toggle uses teal so the modal's single coral accent stays on
    the submit button. (Overrides the shared .check coral accent for this field.) */
@@ -68,15 +29,6 @@
 /* Availability blocks drawer: the add-block form sits below the table with a
    little breathing room. */
 .fleet-block-form { margin-top: 1rem; }
-
-/* Compliance badges under the vehicle name (wave 03): amber = due soon within
-   the warning window, red = overdue. */
-.fleet-grid .fleet-compliance {
-  display: flex;
-  gap: .3rem;
-  margin-top: .25rem;
-  flex-wrap: wrap;
-}
 
 /* Search + class filter chips above the vehicles table. */
 .fleet-filters {
@@ -112,45 +64,7 @@
 .fleet-chip:hover { border-color: var(--teal); color: var(--ink); }
 .fleet-chip.is-on { background: var(--teal); border-color: var(--teal); color: var(--sand); }
 
-/* Class group header rows: sticky while their group scrolls under them. */
-.fleet-group-row td {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--sand-2);
-  font-family: var(--font-mono);
-  font-size: .72rem;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  padding: .45rem .75rem;
-}
-.fleet-group-row .fleet-group-count {
-  margin-left: .6rem;
-  color: var(--ink-mute);
-  font-weight: 400;
-  letter-spacing: .02em;
-  text-transform: none;
-}
-
-/* Open-note count badge on the plate cell. */
-.fleet-note-badge {
-  display: inline-block;
-  min-width: 1.15rem;
-  margin-left: .45rem;
-  padding: .05rem .3rem;
-  border-radius: 999px;
-  background: var(--amber-bg);
-  color: var(--amber);
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  font-weight: 600;
-  text-align: center;
-  vertical-align: middle;
-}
-
-/* Notes drawer: add form on top, note cards below. */
+/* Car sheet: add form on top, note cards below. */
 .fleet-note-form { margin-bottom: 1.1rem; }
 .fleet-note-form label { flex: 1 1 220px; }
 .fleet-note-form input { width: 100%; }
@@ -168,3 +82,112 @@
   margin-bottom: .45rem;
 }
 .fleet-note .row-actions { justify-content: flex-start; }
+
+/* Car sheet sections. */
+.fc-sec + .fc-sec { margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--line-soft); }
+.fc-sec__h {
+  margin: 0 0 .8rem;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Car cards: photo plane, plate, then name and rates. */
+.fc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+@media (max-width: 479px) { .fc-grid { grid-template-columns: 1fr; } }
+.fc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(28, 43, 46, .04), 0 8px 20px -14px rgba(28, 43, 46, .18);
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+.fc-card:hover { border-color: var(--teal); box-shadow: 0 1px 2px rgba(28, 43, 46, .05), 0 12px 24px -14px rgba(28, 43, 46, .28); }
+.fc-card__open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: inherit;
+}
+.fc-card__photo {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 110px;
+  padding: .7rem .9rem;
+  background-color: var(--sand-2);
+  background-image: linear-gradient(135deg, var(--sand-2), var(--line-soft));
+  background-size: cover;
+  background-position: center;
+}
+.fc-card__photo.has-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(28, 43, 46, .55), rgba(28, 43, 46, 0) 70%);
+}
+.fc-card__plate {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  line-height: 1;
+  color: var(--ink);
+}
+.fc-card__photo:not(.has-photo) .fc-card__plate { color: var(--ink-soft); opacity: .75; }
+.fc-card__photo.has-photo .fc-card__plate { color: #fff; }
+.fc-card__body { display: flex; flex-direction: column; gap: .25rem; padding: .8rem .9rem .9rem; min-width: 0; }
+.fc-card__name { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-card__class { font-size: .72rem; font-family: var(--font-mono); color: var(--ink-mute); letter-spacing: .04em; text-transform: uppercase; }
+.fc-card__rates { font-size: .8rem; color: var(--ink-soft); }
+.fc-card__chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; min-height: 1px; }
+.fc-chip {
+  display: inline-block;
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--sand-2);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: .66rem;
+  letter-spacing: .02em;
+}
+.fc-chip--amber { background: var(--amber-bg); border-color: transparent; color: var(--amber); }
+.fc-chip--danger { background: var(--danger-bg); border-color: transparent; color: var(--danger); }
+.fc-card__edit {
+  position: absolute;
+  top: .5rem;
+  right: .5rem;
+  z-index: 2;
+  padding: .25rem .6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fc-card__edit:hover { color: var(--teal); border-color: var(--teal); }
+.fc-card.is-retired { opacity: .6; }
+.fc-card.is-retired .fc-card__photo.has-photo { filter: grayscale(1); }
+.fc-card--skeleton { box-shadow: none; }
+.fc-card--skeleton .fc-card__body { gap: .55rem; }
+@media (prefers-reduced-motion: reduce) { .fc-card { transition: none; } }
