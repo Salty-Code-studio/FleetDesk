@@ -16,7 +16,8 @@ interface Props {
   today: string;
   alertDays: number;
   onOpen: () => void;
-  onEditRates: () => void;
+  /** Owner only; omitted for staff, which hides the Edit rates button. */
+  onEditRates?: () => void;
 }
 
 /** One car: photo plane, plate, name and rates, ink chips. The card opens the car sheet. */
@@ -49,7 +50,7 @@ export function CarCard({ v, today, alertDays, onOpen, onEditRates }: Props) {
           )}
         </div>
       </div>
-      <button type="button" className="fc-card__edit" onClick={onEditRates}>Edit rates</button>
+      {onEditRates && <button type="button" className="fc-card__edit" onClick={onEditRates}>Edit rates</button>}
     </article>
   );
 }

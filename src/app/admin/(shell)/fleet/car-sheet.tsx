@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { apiGet, api, apiPatch, apiDelete, type ApiError } from "../../client";
 import { Drawer, useToast, useConfirm, useUndo } from "@/app/admin/_ui";
 import { DatePicker, Select, TimeSelect } from "@/components/ui";
@@ -15,13 +15,15 @@ const EMPTY_BLOCK = { startDate: "", startTime: "00:00", endDate: "", endTime: "
 
 interface Props {
   vehicle: CardVehicle | null;
+  /** Staff may add, resolve and reopen notes; blocks, escalation, edit and retire are owner only. */
+  isOwner: boolean;
   onClose: () => void;
   onChanged: () => Promise<void> | void;
   onEditRates: (v: CardVehicle) => void;
 }
 
 /** One sheet per car: notes, availability blocks, and retire / reactivate. */
-export function CarSheet({ vehicle, onClose, onChanged, onEditRates }: Props) {
+export function CarSheet({ vehicle, isOwner, onClose, onChanged, onEditRates }: Props) {
   const toast = useToast();
   const undo = useUndo();
   const confirm = useConfirm();
@@ -40,19 +42,30 @@ export function CarSheet({ vehicle, onClose, onChanged, onEditRates }: Props) {
     [toast],
   );
 
+  // The car whose sheet is open right now. Notes and blocks responses for any
+  // other car are dropped, so a slow reply for the previous car can never
+  // paint into this sheet (and "Block car for this" never acts on its notes).
+  const openId = useRef<string | null>(vid);
+  openId.current = vid;
+
   const loadNotes = useCallback(async (id: string) => {
-    setNotes(await apiGet<Note[]>(`/api/admin/vehicles/${id}/notes`));
+    const list = await apiGet<Note[]>(`/api/admin/vehicles/${id}/notes`);
+    if (openId.current === id) setNotes(list);
   }, []);
   const loadBlocks = useCallback(async (id: string) => {
-    setBlocks(await apiGet<Block[]>(`/api/admin/vehicles/${id}/blocks`));
+    const list = await apiGet<Block[]>(`/api/admin/vehicles/${id}/blocks`);
+    if (openId.current === id) setBlocks(list);
   }, []);
 
   useEffect(() => {
     if (!vid) return;
+    let live = true;
+    const failIfLive = (err: unknown) => { if (live) fail(err); };
     setNotes([]); setBlocks([]); setNoteBody(""); setBo({ ...EMPTY_BLOCK });
-    void loadNotes(vid).catch(fail);
-    void loadBlocks(vid).catch(fail);
-  }, [vid, loadNotes, loadBlocks, fail]);
+    void loadNotes(vid).catch(failIfLive);
+    if (isOwner) void loadBlocks(vid).catch(failIfLive);
+    return () => { live = false; };
+  }, [vid, isOwner, loadNotes, loadBlocks, fail]);
 
   async function refreshNotes(id: string) {
     await loadNotes(id);
@@ -156,11 +169,15 @@ export function CarSheet({ vehicle, onClose, onChanged, onEditRates }: Props) {
         v ? (
           <>
             <button type="button" className="btn btn--quiet" onClick={onClose}>Close</button>
-            <button type="button" className="btn" onClick={() => { onClose(); onEditRates(v); }}>Edit car</button>
-            {retired ? (
-              <button type="button" className="btn" onClick={reactivate}>Reactivate</button>
-            ) : (
-              <button type="button" className="btn danger" onClick={retire}>Retire car</button>
+            {isOwner && (
+              <>
+                <button type="button" className="btn" onClick={() => { onClose(); onEditRates(v); }}>Edit car</button>
+                {retired ? (
+                  <button type="button" className="btn" onClick={reactivate}>Reactivate</button>
+                ) : (
+                  <button type="button" className="btn danger" onClick={retire}>Retire car</button>
+                )}
+              </>
             )}
           </>
         ) : undefined
@@ -189,7 +206,7 @@ export function CarSheet({ vehicle, onClose, onChanged, onEditRates }: Props) {
                   {n.resolvedAt === null ? (
                     <>
                       <button onClick={() => resolveNote(n, true)}>Resolve</button>
-                      <button onClick={() => escalateNote(n)}>Block car for this</button>
+                      {isOwner && <button onClick={() => escalateNote(n)}>Block car for this</button>}
                     </>
                   ) : (
                     <button onClick={() => resolveNote(n, false)}>Reopen</button>
@@ -201,29 +218,31 @@ export function CarSheet({ vehicle, onClose, onChanged, onEditRates }: Props) {
         )}
       </section>
 
-      <section className="fc-sec" aria-labelledby="fc-blocks-h">
-        <h3 id="fc-blocks-h" className="fc-sec__h">Availability blocks</h3>
-        <table className="grid fleet-blocks-grid">
-          <thead><tr><th>From</th><th>Until</th><th>Type</th><th>Reason</th><th></th></tr></thead>
-          <tbody>
-            {blocks.length === 0 && <tr><td colSpan={5} className="muted">No blocks.</td></tr>}
-            {blocks.map((b) => (
-              <tr key={b.id}><td>{b.startDate}</td><td>{b.endDate}</td><td>{b.type.replace(/_/g, " ")}</td><td>{b.reason || "None"}</td>
-                <td><div className="row-actions"><button className="danger" onClick={() => removeBlock(b.id)}>Delete</button></div></td></tr>
-            ))}
-          </tbody>
-        </table>
-        <form className="inline-form fleet-block-form" onSubmit={addBlock}>
-          <label>From<br /><DatePicker value={bo.startDate} onChange={(iso) => setBo({ ...bo, startDate: iso })} required /></label>
-          <label>Start time<br /><TimeSelect value={bo.startTime} onChange={(t) => setBo({ ...bo, startTime: t })} /></label>
-          <label>Until<br /><DatePicker value={bo.endDate} onChange={(iso) => setBo({ ...bo, endDate: iso })} required /></label>
-          <label>End time<br /><TimeSelect value={bo.endTime} onChange={(t) => setBo({ ...bo, endTime: t })} /></label>
-          <label>Type<br /><Select value={bo.type} onChange={(t) => setBo({ ...bo, type: t })} options={BLOCK_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))} /></label>
-          <label>Reason<br /><input value={bo.reason} onChange={(e) => setBo({ ...bo, reason: e.target.value })} /></label>
-          <button className="btn" style={{ width: "auto" }}>Add block</button>
-        </form>
-        <p className="muted fleet-block-hint">Leave 00:00 for full days.</p>
-      </section>
+      {isOwner && (
+        <section className="fc-sec" aria-labelledby="fc-blocks-h">
+          <h3 id="fc-blocks-h" className="fc-sec__h">Availability blocks</h3>
+          <table className="grid fleet-blocks-grid">
+            <thead><tr><th>From</th><th>Until</th><th>Type</th><th>Reason</th><th></th></tr></thead>
+            <tbody>
+              {blocks.length === 0 && <tr><td colSpan={5} className="muted">No blocks.</td></tr>}
+              {blocks.map((b) => (
+                <tr key={b.id}><td>{b.startDate}</td><td>{b.endDate}</td><td>{b.type.replace(/_/g, " ")}</td><td>{b.reason || "None"}</td>
+                  <td><div className="row-actions"><button className="danger" onClick={() => removeBlock(b.id)}>Delete</button></div></td></tr>
+              ))}
+            </tbody>
+          </table>
+          <form className="inline-form fleet-block-form" onSubmit={addBlock}>
+            <label>From<br /><DatePicker value={bo.startDate} onChange={(iso) => setBo({ ...bo, startDate: iso })} required /></label>
+            <label>Start time<br /><TimeSelect value={bo.startTime} onChange={(t) => setBo({ ...bo, startTime: t })} /></label>
+            <label>Until<br /><DatePicker value={bo.endDate} onChange={(iso) => setBo({ ...bo, endDate: iso })} required /></label>
+            <label>End time<br /><TimeSelect value={bo.endTime} onChange={(t) => setBo({ ...bo, endTime: t })} /></label>
+            <label>Type<br /><Select value={bo.type} onChange={(t) => setBo({ ...bo, type: t })} options={BLOCK_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))} /></label>
+            <label>Reason<br /><input value={bo.reason} onChange={(e) => setBo({ ...bo, reason: e.target.value })} /></label>
+            <button className="btn" style={{ width: "auto" }}>Add block</button>
+          </form>
+          <p className="muted fleet-block-hint">Leave 00:00 for full days.</p>
+        </section>
+      )}
     </Drawer>
   );
 }

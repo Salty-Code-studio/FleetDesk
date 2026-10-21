@@ -10,6 +10,7 @@ import { AdminChrome } from "../_ui";
 import { LogoutButton } from "./logout-button";
 import { NotificationBell } from "./notification-bell";
 import { SideNav } from "./side-nav";
+import { ViewerRoleProvider } from "./viewer-role";
 import { fontVars } from "@/app/fonts";
 import "../admin.css";
 
@@ -59,7 +60,7 @@ export default async function ShellLayout({ children }: { children: ReactNode })
             {admin.role === "owner" && <NotificationBell />}
             <LogoutButton />
           </div>
-          {children}
+          <ViewerRoleProvider role={admin.role}>{children}</ViewerRoleProvider>
         </main>
       </div>
     </AdminChrome>

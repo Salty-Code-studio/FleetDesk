@@ -13,6 +13,7 @@ import { DatePicker, MoneyInput, Select } from "@/components/ui";
 import { sortForCards } from "@/lib/admin/fleet-card";
 import { CarCard } from "./car-card";
 import { CarSheet } from "./car-sheet";
+import { useViewerRole } from "../viewer-role";
 import "./fleet.css";
 
 interface Vehicle {
@@ -26,6 +27,8 @@ interface Vehicle {
   openNotes: number;
 }
 
+/** Fallback when settings cannot be read (staff are not allowed GET /api/admin/settings). */
+const DEFAULT_ALERT_DAYS = 30;
 const CLASSES = ["Economy", "Compact", "SUV", "4x4", "Van"];
 const composeName = (make: string, model: string) => `${make} ${model}`.replace(/\s+/g, " ").trim();
 const empty = {
@@ -44,7 +47,8 @@ export default function FleetPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [alertDays, setAlertDays] = useState(30);
+  const [alertDays, setAlertDays] = useState(DEFAULT_ALERT_DAYS);
+  const isOwner = useViewerRole() === "owner";
 
   const [q, setQ] = useState("");
   const [classFilter, setClassFilter] = useState<string | null>(null);
@@ -65,12 +69,14 @@ export default function FleetPage() {
   const toast = useToast();
 
   async function load() {
-    const [vs, s] = await Promise.all([
+    const [vs, days] = await Promise.all([
       apiGet<Vehicle[]>("/api/admin/vehicles"),
-      apiGet<{ complianceAlertDays: number }>("/api/admin/settings"),
+      apiGet<{ complianceAlertDays: number }>("/api/admin/settings")
+        .then((s) => s.complianceAlertDays)
+        .catch(() => DEFAULT_ALERT_DAYS),
     ]);
     setVehicles(vs);
-    setAlertDays(s.complianceAlertDays);
+    setAlertDays(days);
   }
   useEffect(() => { void load().finally(() => setLoading(false)); }, []);
 
@@ -91,14 +97,16 @@ export default function FleetPage() {
   // Page-scoped command-palette action: "Add vehicle".
   useEffect(
     () =>
-      registerPaletteAction({
-        id: "fleet-add",
-        label: "Add car",
-        hint: "Fleet",
-        keywords: "vehicle car new add fleet",
-        run: () => openAdd(),
-      }),
-    [],
+      isOwner
+        ? registerPaletteAction({
+            id: "fleet-add",
+            label: "Add car",
+            hint: "Fleet",
+            keywords: "vehicle car new add fleet",
+            run: () => openAdd(),
+          })
+        : undefined,
+    [isOwner],
   );
 
   async function save(e: FormEvent) {
@@ -160,7 +168,7 @@ export default function FleetPage() {
           <h1>Fleet</h1>
           {!loading && <p className="fleet-count">{vehicles.length} {vehicles.length === 1 ? "car" : "cars"}</p>}
         </div>
-        <button type="button" className="btn btn--accent fc-add" onClick={openAdd}>Add car</button>
+        {isOwner && <button type="button" className="btn btn--accent fc-add" onClick={openAdd}>Add car</button>}
       </header>
 
       <div className="panel">
@@ -199,15 +207,15 @@ export default function FleetPage() {
         ) : vehicles.length === 0 ? (
           <EmptyState
             title="No cars yet"
-            hint="Add your first car to start taking bookings online."
-            action={<button type="button" className="btn" onClick={openAdd}>Add car</button>}
+            hint={isOwner ? "Add your first car to start taking bookings online." : "The owner adds cars here."}
+            action={isOwner ? <button type="button" className="btn" onClick={openAdd}>Add car</button> : undefined}
           />
         ) : cards.length === 0 ? (
           <p className="muted">No cars match. Try a different search or clear the class filter.</p>
         ) : (
           <div className="fc-grid">
             {cards.map((v) => (
-              <CarCard key={v.id} v={v} today={today} alertDays={alertDays} onOpen={() => setSheetId(v.id)} onEditRates={() => edit(v)} />
+              <CarCard key={v.id} v={v} today={today} alertDays={alertDays} onOpen={() => setSheetId(v.id)} onEditRates={isOwner ? () => edit(v) : undefined} />
             ))}
           </div>
         )}
@@ -222,7 +230,7 @@ export default function FleetPage() {
         footer={
           <>
             <button type="button" className="btn btn--quiet" onClick={() => { setFormOpen(false); setEditId(null); setF({ ...empty }); }}>Cancel</button>
-            <button type="submit" form="fleet-form" className="btn btn--accent">{editId ? "Update vehicle" : "Add vehicle"}</button>
+            <button type="submit" form="fleet-form" className="btn btn--accent">{editId ? "Save car" : "Add car"}</button>
           </>
         }
       >
@@ -251,7 +259,7 @@ export default function FleetPage() {
         </form>
       </Modal>
 
-      <CarSheet vehicle={sheetVehicle} onClose={() => setSheetId(null)} onChanged={load} onEditRates={(c) => { const full = vehicles.find((x) => x.id === c.id); if (full) edit(full); }} />
+      <CarSheet vehicle={sheetVehicle} isOwner={isOwner} onClose={() => setSheetId(null)} onChanged={load} onEditRates={(c) => { const full = vehicles.find((x) => x.id === c.id); if (full) edit(full); }} />
     </>
   );
 }
