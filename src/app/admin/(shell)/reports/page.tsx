@@ -9,6 +9,7 @@ import {
   registerPaletteAction,
 } from "@/app/admin/_ui";
 import { Select } from "@/components/ui";
+import { moneyHeadline } from "@/lib/admin/money-headline";
 import "./reports.css";
 
 interface Reports {
@@ -110,7 +111,7 @@ export default function ReportsPage() {
   if (err) {
     return (
       <>
-        <h1>Reports</h1>
+        <h1>Money</h1>
         <p className="sub">{SUB_COPY}</p>
         <div className="panel">
           <EmptyState
@@ -130,23 +131,34 @@ export default function ReportsPage() {
   if (!data) {
     return (
       <>
-        <h1>Reports</h1>
+        <h1>Money</h1>
         <p className="sub">{SUB_COPY}</p>
 
-        <div className="rp-kpis" aria-busy="true">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div className={`rp-kpi${i === 0 ? " rp-kpi--accent" : ""}`} key={i}>
-              <span><Skeleton width="70%" height={9} /></span>
-              <b><Skeleton width="55%" height={26} radius={8} /></b>
-            </div>
-          ))}
+        <div className="rp-hero rp-hero--skel" aria-busy="true">
+          <Skeleton width="45%" height={64} radius={10} />
+          <Skeleton width="30%" height={12} />
+          <div className="rp-hero__stats">
+            <Skeleton width={120} height={30} />
+            <Skeleton width={120} height={30} />
+          </div>
         </div>
 
         <div className="panel rp-percar" aria-busy="true">
           <h2>Revenue per car</h2>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} style={{ padding: ".45rem 0" }}><Skeleton width="100%" height={14} /></div>
-          ))}
+          <div className="rp-hbars">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div className="rp-hbar" key={i}>
+                <span className="rp-hbar__label"><Skeleton width="80%" height={11} /></span>
+                <span className="rp-hbar__track"><Skeleton width={`${85 - i * 13}%`} height={13} radius={7} style={{ display: "block" }} /></span>
+                <span className="rp-hbar__val"><Skeleton width={56} height={11} /></span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="panel" aria-busy="true">
+          <h2>Deposits held</h2>
+          <Skeleton width="100%" height={48} />
         </div>
 
         <div className="rp-grid">
@@ -177,19 +189,6 @@ export default function ReportsPage() {
             </div>
           </div>
         </div>
-
-        <div className="panel">
-          <h2>Top earning cars</h2>
-          <div className="rp-hbars" aria-busy="true">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div className="rp-hbar" key={i}>
-                <span className="rp-hbar__label"><Skeleton width="75%" height={11} /></span>
-                <span className="rp-hbar__track"><Skeleton width={`${85 - i * 13}%`} height={13} radius={7} style={{ display: "block" }} /></span>
-                <span className="rp-hbar__val"><Skeleton width={56} height={11} /></span>
-              </div>
-            ))}
-          </div>
-        </div>
       </>
     );
   }
@@ -199,7 +198,11 @@ export default function ReportsPage() {
   const monthLabel = (mk: string) => new Date(`${mk}-01T00:00:00Z`).toLocaleString("en-US", { month: "short", timeZone: "UTC" });
   const maxMonth = Math.max(1, ...data.revenueByMonth.map((m) => m.cents));
   const maxClass = Math.max(1, ...data.revenueByClass.map((c) => c.cents));
-  const maxVeh = Math.max(1, ...data.topVehicles.map((v) => v.cents));
+
+  const head = moneyHeadline(data.revenueByMonth, data.month);
+  const carRows = perCar ? [...perCar.rows].sort((x, y) => y.totalCents - x.totalCents) : [];
+  const maxCar = Math.max(1, ...carRows.map((r) => r.totalCents));
+  const heroMonth = monthLabel(data.month);
 
   const yearOptions = Array.from({ length: 6 }, (_, i) => {
     const y = String(nowYear - i);
@@ -209,27 +212,34 @@ export default function ReportsPage() {
 
   return (
     <>
-      <h1>Reports</h1>
+      <h1>Money</h1>
       <p className="sub">{SUB_COPY}</p>
 
-      <div className="rp-kpis">
-        <div className="rp-kpi rp-kpi--accent"><span>Revenue this month</span><b>{fmt(data.kpis.revenueMonthCents)}</b></div>
-        <div className="rp-kpi"><span>Revenue all time</span><b>{fmt(data.kpis.revenueAllCents)}</b></div>
-        <div className="rp-kpi"><span>Out on rental now</span><b>{data.kpis.activeRentals}</b></div>
-        <div className="rp-kpi"><span>Fleet booked, next 30 days</span><b>{data.kpis.utilizationPct}%</b></div>
-        <div className="rp-kpi"><span>Rentals starting this month</span><b>{data.kpis.rentalsThisMonth}</b></div>
-        <div className="rp-kpi"><span>Idle cars, next 30 days</span><b>{data.kpis.idleCars}</b></div>
-      </div>
+      <section className="rp-hero" aria-label="Revenue this month">
+        <span className="rp-hero__back" aria-hidden="true">{heroMonth}</span>
+        <div className="rp-hero__mid">
+          <p className="rp-hero__label">Revenue this month</p>
+          <p className="rp-hero__big">{fmt(head.thisMonthCents)}</p>
+          <p className="rp-hero__line">{head.line}</p>
+        </div>
+        <div className="rp-hero__top">
+          <div className="rp-stat"><b>{data.kpis.activeRentals}</b><span>Out on rental now</span></div>
+          <div className="rp-stat"><b>{data.kpis.utilizationPct}%</b><span>Fleet booked, next 30 days</span></div>
+          <details className="rp-export">
+            <summary>Export</summary>
+            <div className="rp-export__body">
+              <Select ariaLabel="Report year" value={year} onChange={setYear} options={yearOptions} />
+              <Select ariaLabel="Month for the monthly PDF" value={month} onChange={setMonth} options={monthOptions} />
+              <a className="btn" href={`/api/admin/reports/pdf?year=${year}&month=${month}`}>Month PDF</a>
+              <a className="btn" href={`/api/admin/reports/pdf?year=${year}`}>Year PDF</a>
+            </div>
+          </details>
+        </div>
+      </section>
 
       <div className="panel rp-percar">
         <div className="rp-percar__head">
           <h2>Revenue per car <span className="v">{year}</span></h2>
-          <div className="rp-percar__tools">
-            <Select ariaLabel="Report year" value={year} onChange={setYear} options={yearOptions} />
-            <Select ariaLabel="Month for the monthly PDF" value={month} onChange={setMonth} options={monthOptions} />
-            <a className="btn" href={`/api/admin/reports/pdf?year=${year}&month=${month}`}>Month PDF</a>
-            <a className="btn" href={`/api/admin/reports/pdf?year=${year}`}>Year PDF</a>
-          </div>
         </div>
         {perCarErr ? (
           <EmptyState
@@ -248,51 +258,65 @@ export default function ReportsPage() {
         ) : perCar.rows.length === 0 ? (
           <EmptyState title="No cars yet" hint="Add vehicles to the fleet and their monthly earnings will build up here." />
         ) : (
-          <div className="rp-matrix-wrap">
-            <table className="rp-matrix">
-              <thead>
-                <tr>
-                  <th className="rp-matrix__car" scope="col">Car</th>
-                  {perCar.months.map((mk) => <th key={mk} scope="col">{monthLabel(mk)}</th>)}
-                  <th scope="col">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {perCar.rows.map((r, idx) => {
-                  const prev = perCar.rows[idx - 1];
-                  const showGroup = !prev || prev.class !== r.class;
-                  return (
-                    <Fragment key={r.vehicleId}>
-                      {showGroup && (
-                        <tr className="rp-matrix__group"><th colSpan={14} scope="colgroup">{r.class}</th></tr>
-                      )}
-                      <tr>
-                        <th scope="row" className="rp-matrix__car"><b>{r.plate}</b> <small className="muted">{r.name}</small></th>
-                        {r.monthCents.map((c, i) => (
-                          <td key={i} className={c === 0 ? "rp-matrix__zero" : undefined}>{fmt(c)}</td>
-                        ))}
-                        <td className="rp-matrix__total">{fmt(r.totalCents)}</td>
-                      </tr>
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th scope="row" className="rp-matrix__car">Total</th>
-                  {perCar.months.map((mk, i) => (
-                    <td key={mk}>{fmt(perCar.rows.reduce((s, r) => s + (r.monthCents[i] ?? 0), 0))}</td>
-                  ))}
-                  <td className="rp-matrix__total">{fmt(perCar.grandTotalCents)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          <>
+            <div className="rp-hbars">
+              {carRows.map((r) => (
+                <div className="rp-hbar" key={r.vehicleId}>
+                  <span className="rp-hbar__label"><b>{r.plate}</b> <small className="muted">{r.name}</small></span>
+                  <span className="rp-hbar__track"><span className="rp-hbar__fill" style={{ width: `${(r.totalCents / maxCar) * 100}%` }} /></span>
+                  <span className="rp-hbar__val">{fmt(r.totalCents)}</span>
+                </div>
+              ))}
+            </div>
+            <details className="rp-months">
+              <summary>Month by month</summary>
+              <div className="rp-matrix-wrap">
+                <table className="rp-matrix">
+                  <thead>
+                    <tr>
+                      <th className="rp-matrix__car" scope="col">Car</th>
+                      {perCar.months.map((mk) => <th key={mk} scope="col">{monthLabel(mk)}</th>)}
+                      <th scope="col">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {perCar.rows.map((r, idx) => {
+                      const prev = perCar.rows[idx - 1];
+                      const showGroup = !prev || prev.class !== r.class;
+                      return (
+                        <Fragment key={r.vehicleId}>
+                          {showGroup && (
+                            <tr className="rp-matrix__group"><th colSpan={14} scope="colgroup">{r.class}</th></tr>
+                          )}
+                          <tr>
+                            <th scope="row" className="rp-matrix__car"><b>{r.plate}</b> <small className="muted">{r.name}</small></th>
+                            {r.monthCents.map((c, i) => (
+                              <td key={i} className={c === 0 ? "rp-matrix__zero" : undefined}>{fmt(c)}</td>
+                            ))}
+                            <td className="rp-matrix__total">{fmt(r.totalCents)}</td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <th scope="row" className="rp-matrix__car">Total</th>
+                      {perCar.months.map((mk, i) => (
+                        <td key={mk}>{fmt(perCar.rows.reduce((s, r) => s + (r.monthCents[i] ?? 0), 0))}</td>
+                      ))}
+                      <td className="rp-matrix__total">{fmt(perCar.grandTotalCents)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </details>
+          </>
         )}
       </div>
 
       <div className="panel">
-        <h2>Borg <span className="v">security deposits, {year}</span></h2>
+        <h2>Deposits held <span className="v">security deposits, {year}</span></h2>
         {!perCar ? (
           <div aria-busy="true"><Skeleton width="100%" height={48} /></div>
         ) : (
@@ -309,7 +333,7 @@ export default function ReportsPage() {
                 ))}
               </ul>
             )}
-            <p className="sub" style={{ margin: ".6rem 0 0" }}>Borg is money you hold for the customer, not income. It never counts toward revenue.</p>
+            <p className="sub" style={{ margin: ".6rem 0 0" }}>Deposit money is money you hold for the customer, not income. It never counts toward revenue.</p>
           </>
         )}
       </div>
@@ -348,23 +372,6 @@ export default function ReportsPage() {
             </div>
           )}
         </div>
-      </div>
-
-      <div className="panel">
-        <h2>Top earning cars</h2>
-        {data.topVehicles.length === 0 ? (
-          <EmptyState title="No revenue yet" hint="Your best earning cars will be ranked here as bookings come in." />
-        ) : (
-          <div className="rp-hbars">
-            {data.topVehicles.map((v) => (
-              <div className="rp-hbar" key={v.plate}>
-                <span className="rp-hbar__label"><b>{v.plate}</b> <small className="muted">{v.name}</small></span>
-                <span className="rp-hbar__track"><span className="rp-hbar__fill" style={{ width: `${(v.cents / maxVeh) * 100}%` }} /></span>
-                <span className="rp-hbar__val">{fmt(v.cents)} <small className="muted">· {v.rentals}</small></span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </>
   );

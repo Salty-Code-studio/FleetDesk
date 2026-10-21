@@ -2,8 +2,8 @@
    .rp-* chart styles live in admin.css. No external loads, no @import, no
    fonts here. Display-only section: KPI cards, bar charts, ranking lists. */
 
-/* Lift KPI cards a touch on hover so the board feels alive without stealing
-   the single coral accent (which stays on the "Revenue this month" tile). */
+/* Lift KPI cards a touch on hover. No coral on this page: Money has no tap
+   target that needs the signal colour. */
 .rp-kpi {
   transition: transform .18s var(--ease), box-shadow .2s var(--ease), border-color .2s var(--ease);
 }
@@ -74,8 +74,40 @@
 .rp-matrix__total { font-weight: 700; }
 .rp-matrix tfoot th, .rp-matrix tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; }
 
-/* Borg panel: reuse the KPI tile look; deposits stay visually separate from
+/* Deposits card: reuse the KPI tile look; deposits stay visually separate from
    the revenue charts above. */
 .rp-borg { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .8rem; margin-bottom: .4rem; }
 .rp-borg-items { margin: .6rem 0 0; padding: 0; list-style: none; }
 .rp-borg-items li { padding: .5rem 0; border-top: 1px solid var(--line-soft); font-size: .88rem; }
+
+/* --- Money hero (Phase 3): one huge number, three planes like Today ------- */
+.rp-hero { position: relative; overflow: hidden; padding: 2.2rem 2rem 1.6rem; margin-bottom: 1.3rem; border-radius: var(--radius-lg); background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 1.4rem; }
+.rp-hero--skel { gap: .8rem; }
+.rp-hero__back { position: absolute; right: -.06em; bottom: -.28em; font-family: var(--font-display); font-weight: 700; font-size: clamp(9rem, 26vw, 17rem); line-height: 1; letter-spacing: -.06em; color: var(--teal); opacity: .06; pointer-events: none; user-select: none; text-transform: uppercase; }
+.rp-hero__mid { position: relative; }
+.rp-hero__label { margin: 0 0 .4rem; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+.rp-hero__big { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-huge); line-height: .95; letter-spacing: -.03em; color: var(--teal); font-variant-numeric: tabular-nums; }
+.rp-hero__line { margin: .55rem 0 0; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+.rp-hero__top { position: relative; display: flex; align-items: center; gap: 1.6rem; flex-wrap: wrap; }
+.rp-hero__stats { display: flex; gap: 1.2rem; }
+.rp-stat { display: flex; flex-direction: column; gap: .15rem; }
+.rp-stat b { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.rp-stat span { font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+
+/* Export menu: quiet, one disclosure, pushed to the right edge. */
+.rp-export { margin-left: auto; }
+.rp-export > summary { list-style: none; cursor: pointer; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); padding: .45rem .8rem; border: 1px solid var(--line); border-radius: 999px; background: transparent; }
+.rp-export > summary::-webkit-details-marker { display: none; }
+.rp-export > summary:hover { color: var(--ink); border-color: var(--line-soft); }
+.rp-export[open] > summary { color: var(--ink); }
+.rp-export__body { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .7rem; }
+
+/* Month by month matrix lives behind a disclosure. */
+.rp-months { margin-top: 1rem; }
+.rp-months > summary { cursor: pointer; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); padding: .4rem 0; }
+.rp-months[open] > summary { margin-bottom: .6rem; }
+
+@media (max-width: 640px) {
+  .rp-hero { padding: 1.6rem 1.2rem 1.2rem; }
+  .rp-export { margin-left: 0; }
+}
