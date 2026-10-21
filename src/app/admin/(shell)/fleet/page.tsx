@@ -9,6 +9,7 @@ import {
   EmptyState,
   useToast,
   useConfirm,
+  useUndo,
   registerPaletteAction,
 } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
@@ -75,6 +76,7 @@ export default function FleetPage() {
   }, [visibleVehicles]);
 
   const toast = useToast();
+  const undo = useUndo();
   const confirm = useConfirm();
 
   async function load() {
@@ -165,17 +167,14 @@ export default function FleetPage() {
   }
 
   async function retire(v: Vehicle) {
-    const ok = await confirm({
-      title: "Retire this vehicle?",
-      message: `${v.name} (${v.plate}) will be hidden from booking. Its history stays intact and you can reactivate it later.`,
-      confirmLabel: "Retire vehicle",
-      danger: true,
-    });
-    if (!ok) return;
+    const previous = v.status;
     try {
       await apiDelete(`/api/admin/vehicles/${v.id}`);
       await load();
-      toast.show({ type: "success", message: "Vehicle retired." });
+      undo(`${v.plate} retired.`, async () => {
+        await apiPatch(`/api/admin/vehicles/${v.id}`, { status: previous });
+        await load();
+      });
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
   }
 

@@ -17,6 +17,8 @@ export interface ToastOptions {
   message: string;
   /** Auto-dismiss after this many ms. Pass 0 to keep until dismissed. */
   duration?: number;
+  /** Optional button (e.g. Undo). Clicking dismisses the toast, then calls onClick. */
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToastItem {
@@ -24,6 +26,7 @@ interface ToastItem {
   type: ToastType;
   message: string;
   leaving: boolean;
+  action?: { label: string; onClick: () => void };
 }
 
 export interface ToastApi {
@@ -82,7 +85,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (opts: ToastOptions) => {
       const id = (idRef.current += 1);
       const type = opts.type ?? "info";
-      setToasts((list) => [...list, { id, type, message: opts.message, leaving: false }]);
+      setToasts((list) => [...list, { id, type, message: opts.message, leaving: false, action: opts.action }]);
       const duration = opts.duration ?? DEFAULT_DURATION;
       if (duration > 0) {
         const t = setTimeout(() => dismiss(id), duration);
@@ -107,7 +110,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`ui-toast ui-toast--${t.type}${t.leaving ? " is-leaving" : ""}`}
+            className={`ui-toast ui-toast--${t.type}${t.action ? " ui-toast--has-action" : ""}${t.leaving ? " is-leaving" : ""}`}
             role={t.type === "error" ? "alert" : "status"}
             aria-live={t.type === "error" ? "assertive" : "polite"}
           >
@@ -116,6 +119,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <span className="ui-toast__label">{LABEL[t.type]}</span>
               <span className="ui-toast__msg">{t.message}</span>
             </div>
+            {t.action && (
+              <button
+                type="button"
+                className="ui-toast__action"
+                onClick={() => {
+                  dismiss(t.id);
+                  t.action?.onClick();
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               type="button"
               className="ui-toast__close"

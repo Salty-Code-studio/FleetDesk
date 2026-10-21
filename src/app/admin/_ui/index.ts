@@ -15,6 +15,8 @@ export type { DrawerProps, DrawerSize } from "./Drawer";
 export { ToastProvider, useToast } from "./Toast";
 export type { ToastApi, ToastOptions, ToastType } from "./Toast";
 
+export { useUndo, undoToast } from "./undo";
+
 export { ConfirmProvider, useConfirm } from "./ConfirmDialog";
 export type { ConfirmFn, ConfirmOptions } from "./ConfirmDialog";
 

@@ -7,7 +7,7 @@ import {
   Skeleton,
   EmptyState,
   useToast,
-  useConfirm,
+  useUndo,
   registerPaletteAction,
 } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, TimeSelect } from "@/components/ui";
@@ -55,7 +55,7 @@ export default function SettingsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const toast = useToast();
-  const confirm = useConfirm();
+  const undo = useUndo();
 
   async function load() {
     const [settings, bl] = await Promise.all([
@@ -164,18 +164,14 @@ export default function SettingsPage() {
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
   }
 
-  async function removeBlackout(id: string) {
-    const ok = await confirm({
-      title: "Delete this blackout date?",
-      message: "The dates open back up for booking across the whole fleet.",
-      confirmLabel: "Delete blackout",
-      danger: true,
-    });
-    if (!ok) return;
+  async function removeBlackout(b: Blackout) {
     try {
-      await apiDelete(`/api/admin/blackouts/${id}`);
+      await apiDelete(`/api/admin/blackouts/${b.id}`);
       await load();
-      toast.show({ type: "success", message: "Blackout date deleted." });
+      undo("Blackout removed.", async () => {
+        await api("/api/admin/blackouts", { startDate: b.startDate, endDate: b.endDate, reason: b.reason });
+        await load();
+      });
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
   }
 
@@ -441,7 +437,7 @@ export default function SettingsPage() {
                   {blackouts.map((b) => (
                     <tr key={b.id}>
                       <td>{b.startDate}</td><td>{b.endDate}</td><td>{b.reason || "None"}</td>
-                      <td className="set-actions"><div className="row-actions"><button className="danger" onClick={() => removeBlackout(b.id)}>Delete</button></div></td>
+                      <td className="set-actions"><div className="row-actions"><button className="danger" onClick={() => removeBlackout(b)}>Delete</button></div></td>
                     </tr>
                   ))}
                 </tbody>

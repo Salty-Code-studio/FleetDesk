@@ -7,7 +7,7 @@ import {
   Skeleton,
   EmptyState,
   useToast,
-  useConfirm,
+  useUndo,
   registerPaletteAction,
 } from "@/app/admin/_ui";
 import { MoneyInput, Select } from "@/components/ui";
@@ -32,7 +32,7 @@ export default function CatalogPage() {
   const [tierOpen, setTierOpen] = useState(false);
 
   const toast = useToast();
-  const confirm = useConfirm();
+  const undo = useUndo();
 
   async function load() {
     setAddons(await apiGet<AddOn[]>("/api/admin/addons"));
@@ -121,32 +121,30 @@ export default function CatalogPage() {
   const editTier = (x: Tier) => { setTId(x.id); setT({ name: x.name, priceCents: x.dailyPriceCents, coverage: x.coverage, isDefault: x.isDefault, active: x.active }); setTierOpen(true); };
 
   async function deleteAddOn(x: AddOn) {
-    const ok = await confirm({
-      title: "Delete this add-on?",
-      message: `${x.name} will no longer appear as an extra in the booking flow.`,
-      confirmLabel: "Delete add-on",
-      danger: true,
-    });
-    if (!ok) return;
     try {
       await apiDelete(`/api/admin/addons/${x.id}`);
       await load();
-      toast.show({ type: "success", message: "Add-on deleted." });
+      undo("Add-on deleted.", async () => {
+        await api("/api/admin/addons", {
+          name: x.name, description: x.description, priceCents: x.priceCents,
+          pricing: x.pricing, category: x.category, stock: x.stock, active: x.active,
+        });
+        await load();
+      });
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
   }
 
   async function deleteTier(x: Tier) {
-    const ok = await confirm({
-      title: "Delete this insurance tier?",
-      message: `${x.name} will no longer be offered at checkout.`,
-      confirmLabel: "Delete tier",
-      danger: true,
-    });
-    if (!ok) return;
     try {
       await apiDelete(`/api/admin/insurance/${x.id}`);
       await load();
-      toast.show({ type: "success", message: "Tier deleted." });
+      undo("Tier deleted.", async () => {
+        await api("/api/admin/insurance", {
+          name: x.name, dailyPriceCents: x.dailyPriceCents, coverage: x.coverage,
+          isDefault: x.isDefault, active: x.active,
+        });
+        await load();
+      });
     } catch (err) { toast.show({ type: "error", message: (err as ApiError).message }); }
   }
 

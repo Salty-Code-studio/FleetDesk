@@ -446,6 +446,13 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   font-size: 1.05rem; line-height: 1; cursor: pointer; padding: 0 .1rem; transition: color .15s var(--ease);
 }
 .ui-toast__close:hover { color: var(--ink); }
+.ui-toast--has-action { grid-template-columns: auto 1fr auto auto; }
+.ui-toast__action {
+  border: 0; background: none; padding: 0 .2rem; cursor: pointer;
+  font: inherit; font-size: .86rem; font-weight: 600; color: var(--teal-700);
+  transition: color .15s var(--ease);
+}
+.ui-toast__action:hover { text-decoration: underline; }
 @keyframes ui-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes ui-toast-out { to { opacity: 0; transform: translateY(8px); } }
 

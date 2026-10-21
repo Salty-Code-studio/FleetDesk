@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, apiGet, apiPatch, type ApiError } from "../../client";
-import { Modal, Skeleton, EmptyState, useConfirm, useToast } from "@/app/admin/_ui";
+import { Modal, Skeleton, EmptyState, useConfirm, useToast, useUndo } from "@/app/admin/_ui";
 import { SetupNav } from "../setup-nav";
 import "./staff.css";
 
@@ -12,6 +12,7 @@ interface CodeReveal { name: string; code: string }
 
 export default function StaffPage() {
   const toast = useToast();
+  const undo = useUndo();
   const confirm = useConfirm();
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [logins, setLogins] = useState<LoginRow[]>([]);
@@ -74,22 +75,17 @@ export default function StaffPage() {
   }
 
   async function onToggleActive(row: StaffRow) {
-    if (row.active) {
-      const ok = await confirm({
-        title: "Deactivate this staff member?",
-        message: `${row.name ?? "This staff member"} can no longer sign in and any open session is signed out. You can reactivate later.`,
-        confirmLabel: "Deactivate",
-        danger: true,
-      });
-      if (!ok) return;
-    }
     try {
       await apiPatch(`/api/admin/staff/${row.id}`, { active: !row.active });
-      toast.show({
-        type: "success",
-        message: row.active ? "Staff member deactivated." : "Staff member reactivated.",
-      });
       await load();
+      if (row.active) {
+        undo(`${row.name ?? "Staff member"} deactivated.`, async () => {
+          await apiPatch(`/api/admin/staff/${row.id}`, { active: true });
+          await load();
+        });
+      } else {
+        toast.show({ type: "success", message: "Staff member reactivated." });
+      }
     } catch (err) {
       toast.show({ type: "error", message: (err as ApiError).message });
     }
