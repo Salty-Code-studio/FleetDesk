@@ -5,7 +5,10 @@ import { apiGet, api, apiPatch, type ApiError } from "../client";
 import { Drawer, Modal, useToast, SkeletonRows } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, parseTs } from "@/lib/time/format";
+import Link from "next/link";
 import { InspectionPanel } from "./inspection-panel";
+import { StageTrack } from "./stage-track";
+import { stageFor } from "@/lib/admin/booking-stage";
 import type { BookingDetailResponse, BookingDetailPayment } from "@/lib/admin/booking-detail";
 import "./booking-drawer.css";
 
@@ -431,7 +434,10 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     | undefined;
   const currentSubtotalCents = Number(breakdown?.subtotalCents ?? 0);
   const priceOverride = breakdown?.priceOverride;
-  const canConfirm = paymentMode === "desk" && b?.status === "pending";
+  const stage = detail && b
+    ? stageFor({ id: b.id, status: b.status, balanceDueCents: detail.balanceDueCents, paymentMode })
+    : null;
+  const next = stage?.next ?? null;
   const canCancel = b?.status === "pending" || b?.status === "confirmed";
   // A car can be swapped for any live booking, including one already picked up
   // (the car can break down mid-rental). Only cancelled/completed are out.
@@ -455,6 +461,33 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
         {!loading && !detail && <p className="muted">Couldn&apos;t load this booking.</p>}
         {detail && b && (
           <div className="bd">
+            <header className="bd-head">
+              <span className="bd-head__plate" aria-hidden="true">{detail.vehicle.plate}</span>
+              <div className="bd-head__mid">
+                <p className="bd-head__name">{detail.customer.name || detail.customer.email}</p>
+                <p className="bd-head__period">{formatDateTime(b.startAt)} to {formatDateTime(b.endAt)}</p>
+              </div>
+              {next && (
+                <div className="bd-head__top">
+                  {next.kind === "confirm" && (
+                    <button type="button" className="btn btn--accent bd-next" disabled={confirmBusy} onClick={doConfirm}>
+                      {confirmBusy ? "Confirming…" : next.label}
+                    </button>
+                  )}
+                  {next.kind === "link" && (
+                    <Link href={next.href} className="btn btn--accent bd-next">{next.label}</Link>
+                  )}
+                  {next.kind === "pay" && (
+                    <button type="button" className="btn btn--accent bd-next" disabled={payBusy}
+                      onClick={() => recordPayment(next.amountCents)}>
+                      {payBusy ? "Saving…" : next.label}
+                    </button>
+                  )}
+                </div>
+              )}
+            </header>
+            {stage && <StageTrack view={stage} />}
+
             <section className="bd-section">
               <h3>Summary</h3>
               <dl className="bd-summary">
@@ -539,7 +572,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                       </label>
                       <p className="muted">The customer&apos;s confirmation email still shows the old price. Nothing is re-sent.</p>
                       <div className="pl-pop-actions">
-                        <button type="button" className="btn btn--accent"
+                        <button type="button" className="btn"
                           disabled={priceBusy || priceDraftCents === null || priceReason.trim().length < 3}
                           onClick={savePrice}>{priceBusy ? "Saving…" : "Save price"}</button>
                         <button type="button" className="btn btn--quiet" disabled={priceBusy}
@@ -554,10 +587,12 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 <div className="bd-moneygroup">
                   <h4 className="bd-moneygroup__title">Amount received</h4>
                   <div className="pl-pop-actions">
-                    <button type="button" className="btn btn--accent" disabled={payBusy}
-                      onClick={() => recordPayment(detail.balanceDueCents)}>
-                      {payBusy ? "Saving…" : `Mark as paid (${money(detail.balanceDueCents)})`}
-                    </button>
+                    {next?.kind !== "pay" && (
+                      <button type="button" className="btn" disabled={payBusy}
+                        onClick={() => recordPayment(detail.balanceDueCents)}>
+                        {payBusy ? "Saving…" : `Mark as paid (${money(detail.balanceDueCents)})`}
+                      </button>
+                    )}
                     <button type="button" className="btn btn--quiet" disabled={payBusy}
                       onClick={() => setShowOtherAmount((v) => !v)}>
                       {showOtherAmount ? "Cancel" : "Other amount…"}
@@ -569,7 +604,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                         <MoneyInput cents={otherAmountCents} ariaLabel="Amount received"
                           onChange={(cents) => setOtherAmountCents(cents)} autoFocus />
                       </label>
-                      <button type="button" className="btn btn--accent"
+                      <button type="button" className="btn"
                         disabled={payBusy || otherAmountCents === null || otherAmountCents <= 0}
                         onClick={() => recordPayment(otherAmountCents!)}>
                         {payBusy ? "Saving…" : "Record payment"}
@@ -596,7 +631,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                         onClick={() => savePaidUntil(null)}>Clear</button>
                     )}
                   </div>
-                  <p className="muted bd-paiduntil__hint">For rentals paid by the month. Set the last day the customer has covered. Once that date passes, the bar on the board turns red striped. Leave this empty for ordinary rentals — then the balance above decides.</p>
+                  <p className="muted bd-paiduntil__hint">For rentals paid by the month. Set the last day the customer has covered. Once that date passes, the bar on the board turns red. Leave this empty for ordinary rentals. Then the balance above decides.</p>
                 </div>
               )}
             </section>
@@ -606,12 +641,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
             <section className="bd-section">
               <h3>Actions</h3>
               {!showMove && !showSwap && (
-                <div className="pl-pop-actions">
-                  {canConfirm && (
-                    <button type="button" className="btn btn--accent" disabled={confirmBusy} onClick={doConfirm}>
-                      {confirmBusy ? "Confirming…" : "Confirm booking"}
-                    </button>
-                  )}
+                <div className="pl-pop-actions bd-pills">
                   <button type="button" className="btn btn--quiet" onClick={openMove}>Move…</button>
                   <button type="button" className="btn btn--quiet" onClick={openExtend}>Extend…</button>
                   {canSwap && (
@@ -634,7 +664,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                   </label>
                   <p className="muted">Same dates and same price. Only the car changes.</p>
                   <div className="pl-pop-actions">
-                    <button type="button" className="btn btn--accent" disabled={swapBusy || !swapVehicleId} onClick={() => submitSwap(false)}>{swapBusy ? "Swapping…" : "Swap car"}</button>
+                    <button type="button" className="btn" disabled={swapBusy || !swapVehicleId} onClick={() => submitSwap(false)}>{swapBusy ? "Swapping…" : "Swap car"}</button>
                     <button type="button" className="btn btn--quiet" onClick={() => setShowSwap(false)}>Back</button>
                   </div>
                 </div>
@@ -656,7 +686,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                     <label>Return time<TimeSelect value={mv.endTime} onChange={(t) => setMv({ ...mv, endTime: t })} /></label>
                   </div>
                   <div className="pl-pop-actions">
-                    <button className="btn btn--accent" disabled={moveBusy}>{moveBusy ? "Saving…" : "Save move"}</button>
+                    <button className="btn" disabled={moveBusy}>{moveBusy ? "Saving…" : "Save move"}</button>
                     <button type="button" className="btn btn--quiet" onClick={() => setShowMove(false)}>Back</button>
                   </div>
                 </form>

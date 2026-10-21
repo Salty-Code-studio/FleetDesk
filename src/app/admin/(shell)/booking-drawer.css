@@ -10,7 +10,7 @@
 }
 .bd-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 .bd-section h3 {
-  font-size: .78rem;
+  font-size: var(--fs-tiny);
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -97,3 +97,38 @@
 .bd-priceline { margin: 0 0 .5rem; font-weight: 600; }
 .bd-priceedit { display: flex; flex-direction: column; gap: .6rem; margin-top: .6rem; }
 .bd-priceedit input { width: 100%; }
+
+/* Sheet head: three planes. Plate huge and faint behind, name and period in
+   the middle, the one next-stage button on top. */
+.bd-head { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 1rem; min-height: 9rem; justify-content: flex-end; padding: 1.2rem 0 .4rem; }
+.bd-head__plate {
+  position: absolute; right: -.04em; bottom: -.2em; font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(4rem, 14vw, 6.5rem); line-height: 1; letter-spacing: -.04em; white-space: nowrap;
+  color: var(--ink); opacity: .06; pointer-events: none; user-select: none;
+}
+.bd-head__mid { position: relative; }
+.bd-head__name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-huge); line-height: .98; letter-spacing: -.03em; color: var(--ink); text-wrap: balance; }
+.bd-head__period { margin: .4rem 0 0; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+.bd-head__top { position: relative; display: flex; gap: .6rem; flex-wrap: wrap; }
+.bd-next { width: auto; text-decoration: none; }
+
+/* Stage track: hairline connector, done in --ok ink, current in --teal-700. */
+.bd-track { list-style: none; margin: 0 0 1.3rem; padding: 0; display: flex; gap: 0; }
+.bd-track__step {
+  position: relative; flex: 1 1 0; padding-top: .8rem; font-family: var(--font-mono); font-size: var(--fs-tiny);
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); border-top: 1px solid var(--line);
+}
+.bd-track__step.is-done { color: var(--ok); border-top-color: var(--ok); }
+.bd-track__step.is-current {
+  color: var(--teal-700); font-weight: 700; border-top: 2px solid var(--teal-700); margin-top: -1px;
+  animation: bd-track-in var(--dur-base, .25s) var(--ease, ease) both;
+}
+.bd-track--cancelled { display: block; padding-top: .8rem; border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+@keyframes bd-track-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bd-track__step.is-current { animation: none; } }
+
+/* Quiet pills for the Actions row. */
+.bd-pills { gap: .4rem; }
+.bd-pills .btn { border: 1px solid var(--line); border-radius: 999px; background: transparent; }
+.bd-pills .btn:hover { background: var(--fill); }
+.bd-pills .btn.danger { color: var(--danger); border-color: var(--line); }
