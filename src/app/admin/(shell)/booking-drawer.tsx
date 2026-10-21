@@ -8,7 +8,7 @@ import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, parseTs
 import Link from "next/link";
 import { InspectionPanel } from "./inspection-panel";
 import { StageTrack } from "./stage-track";
-import { stageFor } from "@/lib/admin/booking-stage";
+import { stageFor, sheetActions, showNextFor } from "@/lib/admin/booking-stage";
 import type { BookingDetailResponse, BookingDetailPayment } from "@/lib/admin/booking-detail";
 import "./booking-drawer.css";
 
@@ -438,10 +438,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     ? stageFor({ id: b.id, status: b.status, balanceDueCents: detail.balanceDueCents, paymentMode })
     : null;
   const next = stage?.next ?? null;
-  const canCancel = b?.status === "pending" || b?.status === "confirmed";
-  // A car can be swapped for any live booking, including one already picked up
-  // (the car can break down mid-rental). Only cancelled/completed are out.
-  const canSwap = b?.status === "pending" || b?.status === "confirmed" || b?.status === "picked_up";
+  const { move: canMove, extend: canExtend, swap: canSwap, cancel: canCancel } = sheetActions(b?.status ?? "");
   const swapCandidates = detail
     ? vehicles
         .filter((v) => v.id !== detail.vehicle.id && v.status !== "retired")
@@ -467,7 +464,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 <p className="bd-head__name">{detail.customer.name || detail.customer.email}</p>
                 <p className="bd-head__period">{formatDateTime(b.startAt)} to {formatDateTime(b.endAt)}</p>
               </div>
-              {next && (
+              {next && showNextFor(next, detail.viewerRole) && (
                 <div className="bd-head__top">
                   {next.kind === "confirm" && (
                     <button type="button" className="btn btn--accent bd-next" disabled={confirmBusy} onClick={doConfirm}>
@@ -480,7 +477,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                   {next.kind === "pay" && (
                     <button type="button" className="btn btn--accent bd-next" disabled={payBusy}
                       onClick={() => recordPayment(next.amountCents)}>
-                      {payBusy ? "Saving…" : next.label}
+                      {payBusy ? "Saving…" : `${next.label} (${money(next.amountCents)})`}
                     </button>
                   )}
                 </div>
@@ -498,10 +495,6 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 <div>
                   <dt>Vehicle</dt>
                   <dd>{detail.vehicle.plate} · {detail.vehicle.name}</dd>
-                </div>
-                <div className="bd-period">
-                  <dt>Period</dt>
-                  <dd>{formatDateTime(b.startAt)} to {formatDateTime(b.endAt)}</dd>
                 </div>
                 <div>
                   <dt>Status</dt>
@@ -638,60 +631,66 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
             {extraSections ?? <InspectionPanel bookingId={b.id} onChanged={onChanged} />}
 
-            <section className="bd-section">
-              <h3>Actions</h3>
-              {!showMove && !showSwap && (
-                <div className="pl-pop-actions bd-pills">
-                  <button type="button" className="btn btn--quiet" onClick={openMove}>Move…</button>
-                  <button type="button" className="btn btn--quiet" onClick={openExtend}>Extend…</button>
-                  {canSwap && (
-                    <button type="button" className="btn btn--quiet" onClick={openSwap}>Swap car…</button>
-                  )}
-                  {canCancel && (
-                    <button type="button" className="btn danger" onClick={() => setShowCancel(true)}>Cancel rental</button>
-                  )}
-                </div>
-              )}
-              {showSwap && (
-                <div className="pl-form">
-                  <label>Swap to
-                    <Select
-                      value={swapVehicleId}
-                      onChange={setSwapVehicleId}
-                      options={swapCandidates.map((v) => ({ value: v.id, label: `${v.class ? v.class + " · " : ""}${v.plate} · ${v.name}` }))}
-                      placeholder={vehicles.length === 0 ? "Loading cars…" : "Choose a replacement car"}
-                    />
-                  </label>
-                  <p className="muted">Same dates and same price. Only the car changes.</p>
-                  <div className="pl-pop-actions">
-                    <button type="button" className="btn" disabled={swapBusy || !swapVehicleId} onClick={() => submitSwap(false)}>{swapBusy ? "Swapping…" : "Swap car"}</button>
-                    <button type="button" className="btn btn--quiet" onClick={() => setShowSwap(false)}>Back</button>
+            {(canMove || canExtend || canSwap || canCancel || showMove || showSwap) && (
+              <section className="bd-section">
+                <h3>Actions</h3>
+                {!showMove && !showSwap && (
+                  <div className="pl-pop-actions bd-pills">
+                    {canMove && (
+                      <button type="button" className="btn btn--quiet" onClick={openMove}>Move…</button>
+                    )}
+                    {canExtend && (
+                      <button type="button" className="btn btn--quiet" onClick={openExtend}>Extend…</button>
+                    )}
+                    {canSwap && (
+                      <button type="button" className="btn btn--quiet" onClick={openSwap}>Swap car…</button>
+                    )}
+                    {canCancel && (
+                      <button type="button" className="btn danger" onClick={() => setShowCancel(true)}>Cancel rental</button>
+                    )}
                   </div>
-                </div>
-              )}
-              {showMove && (
-                <form className="pl-form" onSubmit={submitMove}>
-                  <label>Car
-                    <Select
-                      value={mv.vehicleId}
-                      onChange={(v) => setMv({ ...mv, vehicleId: v })}
-                      options={vehicles.map((v) => ({ value: v.id, label: `${v.plate} · ${v.name}` }))}
-                      placeholder="Loading cars…"
-                    />
-                  </label>
-                  <div className="bd-dates">
-                    <label>Pick-up<DatePicker required value={mv.startDate} onChange={(iso) => setMv({ ...mv, startDate: iso })} /></label>
-                    <label>Pick-up time<TimeSelect value={mv.startTime} onChange={(t) => setMv({ ...mv, startTime: t })} /></label>
-                    <label>Return<DatePicker required value={mv.endDate} onChange={(iso) => setMv({ ...mv, endDate: iso })} /></label>
-                    <label>Return time<TimeSelect value={mv.endTime} onChange={(t) => setMv({ ...mv, endTime: t })} /></label>
+                )}
+                {showSwap && (
+                  <div className="pl-form">
+                    <label>Swap to
+                      <Select
+                        value={swapVehicleId}
+                        onChange={setSwapVehicleId}
+                        options={swapCandidates.map((v) => ({ value: v.id, label: `${v.class ? v.class + " · " : ""}${v.plate} · ${v.name}` }))}
+                        placeholder={vehicles.length === 0 ? "Loading cars…" : "Choose a replacement car"}
+                      />
+                    </label>
+                    <p className="muted">Same dates and same price. Only the car changes.</p>
+                    <div className="pl-pop-actions">
+                      <button type="button" className="btn" disabled={swapBusy || !swapVehicleId} onClick={() => submitSwap(false)}>{swapBusy ? "Swapping…" : "Swap car"}</button>
+                      <button type="button" className="btn btn--quiet" onClick={() => setShowSwap(false)}>Back</button>
+                    </div>
                   </div>
-                  <div className="pl-pop-actions">
-                    <button className="btn" disabled={moveBusy}>{moveBusy ? "Saving…" : "Save move"}</button>
-                    <button type="button" className="btn btn--quiet" onClick={() => setShowMove(false)}>Back</button>
-                  </div>
-                </form>
-              )}
-            </section>
+                )}
+                {showMove && (
+                  <form className="pl-form" onSubmit={submitMove}>
+                    <label>Car
+                      <Select
+                        value={mv.vehicleId}
+                        onChange={(v) => setMv({ ...mv, vehicleId: v })}
+                        options={vehicles.map((v) => ({ value: v.id, label: `${v.plate} · ${v.name}` }))}
+                        placeholder="Loading cars…"
+                      />
+                    </label>
+                    <div className="bd-dates">
+                      <label>Pick-up<DatePicker required value={mv.startDate} onChange={(iso) => setMv({ ...mv, startDate: iso })} /></label>
+                      <label>Pick-up time<TimeSelect value={mv.startTime} onChange={(t) => setMv({ ...mv, startTime: t })} /></label>
+                      <label>Return<DatePicker required value={mv.endDate} onChange={(iso) => setMv({ ...mv, endDate: iso })} /></label>
+                      <label>Return time<TimeSelect value={mv.endTime} onChange={(t) => setMv({ ...mv, endTime: t })} /></label>
+                    </div>
+                    <div className="pl-pop-actions">
+                      <button className="btn" disabled={moveBusy}>{moveBusy ? "Saving…" : "Save move"}</button>
+                      <button type="button" className="btn btn--quiet" onClick={() => setShowMove(false)}>Back</button>
+                    </div>
+                  </form>
+                )}
+              </section>
+            )}
           </div>
         )}
       </Drawer>

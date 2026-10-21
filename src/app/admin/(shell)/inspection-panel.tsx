@@ -1,14 +1,13 @@
 "use client";
 
 /**
- * BookingDrawer section: check-in/out entry + the client-asked CHECKLIST
+ * BookingDrawer section: the client-asked CHECKLIST
  * ("did we get X?" at a glance) + inspection detail (photos, meters, damage,
  * contract). Self-contained: fetches its own handover payload so the drawer
  * integration is two lines. Every toggle is ONE audited PUT (spec: audit per
  * toggle). Media renders same-origin via /api/admin/files (strict CSP).
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { apiGet, apiPut, type ApiError } from "@/app/admin/client";
 import { useToast } from "@/app/admin/_ui";
 import { fileUrl, money, FUEL_LABELS, type Handover, type InspectionDto } from "./inspect/wizard-ui";
@@ -106,21 +105,8 @@ export function InspectionPanel({ bookingId, onChanged }: { bookingId: string; o
 
   return (
     <div>
-      {booking.status === "pending" || booking.status === "confirmed" ? (
-        <Link className="wiz-btn primary" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
-          href={`/admin/inspect/${bookingId}/checkin`}>
-          Check in
-        </Link>
-      ) : null}
-      {booking.status === "picked_up" ? (
-        <Link className="wiz-btn primary" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
-          href={`/admin/inspect/${bookingId}/checkout`}>
-          Check out
-        </Link>
-      ) : null}
-
       {booking.status !== "cancelled" ? (
-        <div className="wiz-card" style={{ marginTop: 8 }}>
+        <div className="wiz-card">
           <strong>Checklist</strong>
           <Toggle label="Agreement signed" value={!!pickup?.agreementSigned} disabled={busy}
             onTap={toggle("pickup", "agreementSigned", !pickup?.agreementSigned)} />

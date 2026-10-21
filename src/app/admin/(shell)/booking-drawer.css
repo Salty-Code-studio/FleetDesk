@@ -28,7 +28,6 @@
 }
 .bd-summary dd { margin: 0; font-size: .92rem; }
 .bd-summary dd small { display: block; color: var(--ink-soft); font-size: .78rem; margin-top: .1rem; }
-.bd-summary .bd-period { grid-column: 1 / -1; }
 
 /* Status chip: reuses the exact board bar palette so the color language is
    the same everywhere a booking's status shows up. */
@@ -98,16 +97,17 @@
 .bd-priceedit { display: flex; flex-direction: column; gap: .6rem; margin-top: .6rem; }
 .bd-priceedit input { width: 100%; }
 
-/* Sheet head: three planes. Plate huge and faint behind, name and period in
-   the middle, the one next-stage button on top. */
+/* Sheet head: three planes. Plate huge (--fs-huge) and faint behind, name at
+   a mid size and the period (shown only here, not again in Summary) in the
+   middle, the one next-stage button on top. */
 .bd-head { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 1rem; min-height: 9rem; justify-content: flex-end; padding: 1.2rem 0 .4rem; }
 .bd-head__plate {
   position: absolute; right: -.04em; bottom: -.2em; font-family: var(--font-display); font-weight: 700;
-  font-size: clamp(4rem, 14vw, 6.5rem); line-height: 1; letter-spacing: -.04em; white-space: nowrap;
+  font-size: var(--fs-huge); line-height: 1; letter-spacing: -.04em; white-space: nowrap;
   color: var(--ink); opacity: .06; pointer-events: none; user-select: none;
 }
 .bd-head__mid { position: relative; }
-.bd-head__name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-huge); line-height: .98; letter-spacing: -.03em; color: var(--ink); text-wrap: balance; }
+.bd-head__name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-big); line-height: 1.1; letter-spacing: -.02em; color: var(--ink); text-wrap: balance; }
 .bd-head__period { margin: .4rem 0 0; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
 .bd-head__top { position: relative; display: flex; gap: .6rem; flex-wrap: wrap; }
 .bd-next { width: auto; text-decoration: none; }

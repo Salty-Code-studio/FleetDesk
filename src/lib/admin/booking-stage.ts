@@ -65,3 +65,25 @@ export function stageFor(i: StageInput): StageView {
       return { cancelled: false, current: null, next: null };
   }
 }
+
+export interface SheetActions { move: boolean; extend: boolean; swap: boolean; cancel: boolean }
+
+/** Which Actions-row buttons the sheet offers. Mirrors the server guards:
+ *  move-booking.ts (pending/confirmed), extend-booking.ts (confirmed/picked_up),
+ *  swap (any live booking, a car can break down mid-rental), cancel
+ *  (pending/confirmed). Completed and cancelled offer nothing. */
+export function sheetActions(status: string): SheetActions {
+  return {
+    move: status === "pending" || status === "confirmed",
+    extend: status === "confirmed" || status === "picked_up",
+    swap: status === "pending" || status === "confirmed" || status === "picked_up",
+    cancel: status === "pending" || status === "confirmed",
+  };
+}
+
+/** Whether the head shows the next-stage button for this viewer. Take payment
+ *  posts to the owner-only desk-payment route, so staff see the track only. */
+export function showNextFor(next: NextAction | null, role: "owner" | "staff"): boolean {
+  if (!next) return false;
+  return next.kind !== "pay" || role === "owner";
+}
