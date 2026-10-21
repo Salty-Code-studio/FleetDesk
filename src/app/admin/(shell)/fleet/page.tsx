@@ -14,6 +14,7 @@ import {
 } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
 import { atAruba } from "@/lib/time/format";
+import { complianceBadges } from "@/lib/admin/fleet-card";
 import "./fleet.css";
 
 interface Vehicle {
@@ -253,17 +254,6 @@ export default function FleetPage() {
   const statusTag = (s: Vehicle["status"]) =>
     s === "active" ? "on" : s === "retired" ? "off" : "def";
   const today = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Aruba" }).format(new Date()), []);
-  const daysLeft = (dueOn: string) => Math.round((Date.parse(`${dueOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
-  function complianceBadges(v: Vehicle) {
-    const out: { key: string; label: string; overdue: boolean }[] = [];
-    for (const [name, dueOn] of [["Insurance", v.insuranceExpiresOn], ["Inspection", v.inspectionDueOn]] as const) {
-      if (!dueOn) continue;
-      const d = daysLeft(dueOn);
-      if (d > alertDays) continue;
-      out.push({ key: name, label: d < 0 ? `${name} overdue` : `${name} ${d}d`, overdue: d < 0 });
-    }
-    return out;
-  }
 
   return (
     <>
@@ -344,9 +334,9 @@ export default function FleetPage() {
                     <tr key={v.id}>
                       <td><b>{v.plate}</b>{v.openNotes > 0 && <span className="fleet-note-badge" title={`${v.openNotes} open ${v.openNotes === 1 ? "note" : "notes"}`}>{v.openNotes}</span>}</td>
                       <td>{v.name}<div className="fleet-slug">{v.slug}</div>
-                        {complianceBadges(v).length > 0 && (
+                        {complianceBadges(v, today, alertDays).length > 0 && (
                           <div className="fleet-compliance">
-                            {complianceBadges(v).map((b) => (
+                            {complianceBadges(v, today, alertDays).map((b) => (
                               <span key={b.key} className={`tag ${b.overdue ? "off" : "warn"}`}>{b.label}</span>
                             ))}
                           </div>
