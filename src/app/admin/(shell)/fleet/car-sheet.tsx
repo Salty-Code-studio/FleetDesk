@@ -35,6 +35,11 @@ export function CarSheet({ vehicle, onClose, onChanged, onEditRates }: Props) {
   const v = vehicle ?? shown;
   const vid = vehicle?.id ?? null;
 
+  const fail = useCallback(
+    (err: unknown) => toast.show({ type: "error", message: (err as ApiError).message }),
+    [toast],
+  );
+
   const loadNotes = useCallback(async (id: string) => {
     setNotes(await apiGet<Note[]>(`/api/admin/vehicles/${id}/notes`));
   }, []);
@@ -45,11 +50,9 @@ export function CarSheet({ vehicle, onClose, onChanged, onEditRates }: Props) {
   useEffect(() => {
     if (!vid) return;
     setNotes([]); setBlocks([]); setNoteBody(""); setBo({ ...EMPTY_BLOCK });
-    void loadNotes(vid).catch(() => {});
-    void loadBlocks(vid).catch(() => {});
-  }, [vid, loadNotes, loadBlocks]);
-
-  const fail = (err: unknown) => toast.show({ type: "error", message: (err as ApiError).message });
+    void loadNotes(vid).catch(fail);
+    void loadBlocks(vid).catch(fail);
+  }, [vid, loadNotes, loadBlocks, fail]);
 
   async function refreshNotes(id: string) {
     await loadNotes(id);

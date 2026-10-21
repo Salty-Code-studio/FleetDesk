@@ -123,6 +123,7 @@
   cursor: pointer;
   border-radius: inherit;
 }
+.fc-card__open:focus-visible { outline-offset: -2px; }
 .fc-card__photo {
   position: relative;
   display: flex;
@@ -143,6 +144,7 @@
 .fc-card__plate {
   position: relative;
   z-index: 1;
+  pointer-events: none;
   font-family: var(--font-mono);
   font-size: 1.7rem;
   font-weight: 700;
