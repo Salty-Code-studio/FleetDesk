@@ -122,7 +122,7 @@ export default function AuditPage() {
             action={
               <button
                 type="button"
-                className="btn btn--accent"
+                className="btn"
                 onClick={() => { setQuery(""); setActionFilter(""); }}
               >
                 Clear filters

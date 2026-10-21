@@ -13,7 +13,7 @@ const ALLOWED = [
   ".td-row__who",
   ".nbell__mark", // "mark all read" button text, a tap target
   ".brand-dot", ".side .logo b", // brand marks, not statuses
-  ".bd-next", ".fc-add", ".su-next", // tap targets created by Phase 3 tasks
+  ".bd-next", ".fc-add", // tap targets created by Phase 3 tasks
 ];
 /** Allowed only as the whole selector part. */
 const ALLOWED_EXACT = [

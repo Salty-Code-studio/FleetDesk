@@ -12,9 +12,6 @@
   box-shadow: var(--shadow-md);
   border-color: var(--line-soft);
 }
-.rp-kpi--accent:hover {
-  border-color: var(--teal);
-}
 
 /* Charts grow from the baseline on first paint, motion via CSS only and
    reduced-motion safe. The horizontal bars share the same calm reveal. */
@@ -63,7 +60,8 @@
 .rp-percar { max-width: none; }
 .rp-percar__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .rp-percar__head h2 { margin: 0; }
-.rp-percar__tools { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+/* Year picker sits beside the heading; the shared Select is full width by default. */
+.rp-percar__head .scds-sel { width: 7.5rem; }
 .rp-matrix-wrap { overflow-x: auto; }
 .rp-matrix { border-collapse: collapse; width: 100%; font-size: .82rem; font-variant-numeric: tabular-nums; }
 .rp-matrix th, .rp-matrix td { padding: .45rem .55rem; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }

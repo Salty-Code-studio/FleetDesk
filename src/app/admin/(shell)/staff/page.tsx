@@ -80,7 +80,7 @@ export default function StaffPage() {
       await apiPatch(`/api/admin/staff/${row.id}`, { active: !row.active });
       await load();
       if (row.active) {
-        undo(`${row.name ?? "Staff member"} deactivated.`, async () => {
+        undo(`${row.name ?? "Staff member"} deactivated and signed out.`, async () => {
           await apiPatch(`/api/admin/staff/${row.id}`, { active: true });
           await load();
         });

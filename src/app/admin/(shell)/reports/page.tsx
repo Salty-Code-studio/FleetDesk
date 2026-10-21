@@ -228,7 +228,6 @@ export default function ReportsPage() {
           <details className="rp-export">
             <summary>Export</summary>
             <div className="rp-export__body">
-              <Select ariaLabel="Report year" value={year} onChange={setYear} options={yearOptions} />
               <Select ariaLabel="Month for the monthly PDF" value={month} onChange={setMonth} options={monthOptions} />
               <a className="btn" href={`/api/admin/reports/pdf?year=${year}&month=${month}`}>Month PDF</a>
               <a className="btn" href={`/api/admin/reports/pdf?year=${year}`}>Year PDF</a>
@@ -239,7 +238,8 @@ export default function ReportsPage() {
 
       <div className="panel rp-percar">
         <div className="rp-percar__head">
-          <h2>Revenue per car <span className="v">{year}</span></h2>
+          <h2>Revenue per car</h2>
+          <Select ariaLabel="Report year" value={year} onChange={setYear} options={yearOptions} />
         </div>
         {perCarErr ? (
           <EmptyState
@@ -333,7 +333,7 @@ export default function ReportsPage() {
                 ))}
               </ul>
             )}
-            <p className="sub" style={{ margin: ".6rem 0 0" }}>Deposit money is money you hold for the customer, not income. It never counts toward revenue.</p>
+            <p className="sub" style={{ margin: ".6rem 0 0" }}>Deposits are money you hold for the customer, not income. They never count toward revenue.</p>
           </>
         )}
       </div>

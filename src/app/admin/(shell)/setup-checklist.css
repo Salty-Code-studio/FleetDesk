@@ -14,7 +14,7 @@
 .su-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .su-body { padding: .25rem 0 .2rem 1.6rem; display: flex; flex-direction: column; gap: .4rem; align-items: flex-start; }
 .su-hint { margin: 0; font-size: var(--fs-small); color: var(--ink-soft); }
-.su-next { font-size: var(--fs-small); font-weight: 600; color: var(--signal); text-decoration: none; border-bottom: 1px solid currentColor; }
+.su-next { font-size: var(--fs-small); font-weight: 600; color: var(--teal-700); text-decoration: underline; text-underline-offset: 3px; }
 .su-ready { margin: 0 0 1rem; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
 .su-hook { margin: .9rem 0 0; font-size: var(--fs-small); color: var(--ink-soft); }
 .su-hook a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }

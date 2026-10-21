@@ -292,13 +292,9 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-modal { position: fixed; z-index: 41; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 350px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 1.1rem; }
 
 /* ---------- reports ---------- */
-.rp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.6rem; }
 .rp-kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .35rem; box-shadow: var(--shadow-sm); }
 .rp-kpi span { color: var(--ink-soft); font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; font-family: var(--font-mono); }
 .rp-kpi b { font-family: var(--font-display); font-size: 1.85rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; letter-spacing: -0.02em; }
-.rp-kpi--accent { background: var(--teal); border-color: var(--teal); }
-.rp-kpi--accent span { color: rgba(242,235,221,.75); }
-.rp-kpi--accent b { color: var(--sand); }
 .rp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.3rem; margin-bottom: 1.3rem; }
 @media (max-width: 820px) { .rp-grid { grid-template-columns: 1fr; } }
 .rp-bars { display: flex; align-items: flex-end; gap: .6rem; height: 210px; padding-top: 1.6rem; }

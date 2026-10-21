@@ -133,7 +133,7 @@ export default function PoliciesPage() {
                     {p.versionCount > 0 ? ` · ${p.versionCount} version${p.versionCount > 1 ? "s" : ""}` : ""}
                   </span>
                 </div>
-                <button type="button" className="btn btn--accent pol-edit-btn" onClick={() => openEdit(p.type)}>
+                <button type="button" className="btn pol-edit-btn" onClick={() => openEdit(p.type)}>
                   {p.latest ? "Edit" : "Write"}
                 </button>
               </div>
