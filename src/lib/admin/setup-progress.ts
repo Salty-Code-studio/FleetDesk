@@ -41,3 +41,19 @@ export function setupProgress(i: SetupInput): SetupProgress {
     next: items.find((x) => !x.done) ?? null,
   };
 }
+
+/**
+ * Car counts for the checklist. Retired cars are ignored. A day rate counts
+ * when above 0. A deposit counts when it is not null: 0 means the operator
+ * chose no deposit, null means "to be confirmed".
+ */
+export function countCars(
+  vs: { status: string; priceDayCents: number; depositCents: number | null }[],
+): { activeCars: number; carsWithDayRate: number; carsWithDeposit: number } {
+  const cars = vs.filter((v) => v.status !== "retired");
+  return {
+    activeCars: cars.length,
+    carsWithDayRate: cars.filter((v) => v.priceDayCents > 0).length,
+    carsWithDeposit: cars.filter((v) => v.depositCents !== null).length,
+  };
+}

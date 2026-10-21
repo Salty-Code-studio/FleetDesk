@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { setupProgress, type SetupInput } from "@/lib/admin/setup-progress";
+import { setupProgress, countCars, type SetupInput } from "@/lib/admin/setup-progress";
 
 const zero: SetupInput = {
   alertRecipients: 0, activeCars: 0, carsWithDayRate: 0, carsWithDeposit: 0,
@@ -44,5 +44,25 @@ describe("setupProgress", () => {
   });
   it("payments item has no link", () => {
     expect(setupProgress(zero).items.find((i) => i.key === "payments")?.href).toBeNull();
+  });
+});
+
+describe("countCars", () => {
+  const car = (o: Partial<{ status: string; priceDayCents: number; depositCents: number | null }>) =>
+    ({ status: "active", priceDayCents: 5000, depositCents: 10000, ...o });
+  it("excludes retired cars", () => {
+    expect(countCars([car({}), car({ status: "retired" })]).activeCars).toBe(1);
+  });
+  it("keeps maintenance cars active", () => {
+    expect(countCars([car({ status: "maintenance" })]).activeCars).toBe(1);
+  });
+  it("does not count a 0 day rate", () => {
+    expect(countCars([car({ priceDayCents: 0 })]).carsWithDayRate).toBe(0);
+  });
+  it("counts a 0 deposit as set", () => {
+    expect(countCars([car({ depositCents: 0 })]).carsWithDeposit).toBe(1);
+  });
+  it("does not count a null deposit", () => {
+    expect(countCars([car({ depositCents: null })]).carsWithDeposit).toBe(0);
   });
 });
