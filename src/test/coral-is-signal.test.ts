@@ -44,7 +44,7 @@ describe("coral is the signal colour, never a status", () => {
   for (const file of [
     "admin/admin.css", "admin/(shell)/board/dashboard.css", "admin/(shell)/today.css",
     "admin/(shell)/booking-drawer.css", "admin/(shell)/fleet/fleet.css", "admin/(shell)/reports/reports.css",
-    "admin/(shell)/settings/settings.css", "admin/(shell)/catalog/catalog.css", "admin/(shell)/staff/staff.css",
+    "admin/(shell)/settings/settings.css", "admin/(shell)/catalog/catalog.css", "admin/(shell)/staff/staff.css", "admin/(shell)/setup-checklist.css",
   ]) {
     it(`${file} uses coral only on tap targets`, () => {
       const offenders = coralRules(read(file)).filter((sel) => !sel.split(",").map((x) => x.trim()).every(partAllowed));

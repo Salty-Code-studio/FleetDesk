@@ -12,6 +12,7 @@ import {
 } from "@/app/admin/_ui";
 import { MoneyInput, Select } from "@/components/ui";
 import { SetupNav } from "../setup-nav";
+import { SetupChecklist } from "../setup-checklist";
 import "./catalog.css";
 
 interface AddOn { id: string; name: string; description: string; priceCents: number; pricing: "per_day" | "per_rental"; category: string; stock: number | null; active: boolean }
@@ -153,6 +154,7 @@ export default function CatalogPage() {
   return (
     <>
       <SetupNav />
+      <SetupChecklist />
       <header className="cat-head">
         <div className="cat-head__lead">
           <h1>Add-ons &amp; insurance</h1>

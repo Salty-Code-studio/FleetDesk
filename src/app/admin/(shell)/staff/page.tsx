@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, apiGet, apiPatch, type ApiError } from "../../client";
 import { Modal, Skeleton, EmptyState, useConfirm, useToast, useUndo } from "@/app/admin/_ui";
 import { SetupNav } from "../setup-nav";
+import { SetupChecklist } from "../setup-checklist";
 import "./staff.css";
 
 interface StaffRow { id: string; name: string | null; active: boolean; createdAt: string }
@@ -103,6 +104,7 @@ export default function StaffPage() {
   return (
     <>
       <SetupNav />
+      <SetupChecklist />
       <header className="staff-head">
         <div>
           <h1>Staff logins</h1>

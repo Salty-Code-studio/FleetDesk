@@ -5,6 +5,7 @@ import { apiGet } from "../../client";
 import { Skeleton, EmptyState } from "@/app/admin/_ui";
 import { Select } from "@/components/ui";
 import { SetupNav } from "../setup-nav";
+import { SetupChecklist } from "../setup-checklist";
 import "./audit.css";
 
 interface AuditRow {
@@ -56,6 +57,7 @@ export default function AuditPage() {
   return (
     <>
       <SetupNav />
+      <SetupChecklist />
       <header className="audit-head">
         <div className="audit-head__lead">
           <h1>Audit log</h1>

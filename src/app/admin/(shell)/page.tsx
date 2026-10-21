@@ -7,6 +7,7 @@ import { apiGet, type ApiError } from "../client";
 import { Skeleton, EmptyState, useToast } from "@/app/admin/_ui";
 import type { TodayBoard, TodayItem } from "@/lib/admin/today";
 import { BookingDrawer } from "./booking-drawer";
+import { SetupHook } from "./setup-checklist";
 import "./today.css";
 
 const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -112,6 +113,8 @@ export default function TodayPage() {
           <span className="td-progress__label">{board.done} of {board.total} done</span>
         </div>
       )}
+
+      {!staff && <SetupHook />}
 
       {board.total === 0 ? (
         <EmptyState

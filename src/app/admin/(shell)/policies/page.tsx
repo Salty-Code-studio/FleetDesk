@@ -10,6 +10,7 @@ import {
   registerPaletteAction,
 } from "@/app/admin/_ui";
 import { SetupNav } from "../setup-nav";
+import { SetupChecklist } from "../setup-checklist";
 import "./policies.css";
 
 type PolicyType = "rental_terms" | "cancellation" | "privacy";
@@ -91,6 +92,7 @@ export default function PoliciesPage() {
   return (
     <>
       <SetupNav />
+      <SetupChecklist />
       <header className="pol-head">
         <div className="pol-head__lead">
           <h1>Policies</h1>

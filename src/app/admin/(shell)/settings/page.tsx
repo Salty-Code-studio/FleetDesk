@@ -12,6 +12,7 @@ import {
 } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, TimeSelect } from "@/components/ui";
 import { SetupNav } from "../setup-nav";
+import { SetupChecklist } from "../setup-checklist";
 import "./settings.css";
 
 // A back-office manager who may confirm/decline desk-mode bookings. The
@@ -178,6 +179,7 @@ export default function SettingsPage() {
   return (
     <>
       <SetupNav />
+      <SetupChecklist />
       <header className="set-head">
         <div className="set-head__lead">
           <h1>Settings</h1>
