@@ -26,6 +26,15 @@ export function undoToast(message: string, onUndo: () => void): ToastOptions {
   };
 }
 
+/** Read a message structurally (client.ts throws plain objects, not Errors). */
+export function undoErrorMessage(err: unknown): string {
+  if (typeof err === "object" && err !== null) {
+    const m = (err as { message?: unknown }).message;
+    if (typeof m === "string" && m.trim() !== "") return m;
+  }
+  return "Could not undo.";
+}
+
 /**
  * Show an Undo toast. On Undo, awaits `revert`, then confirms "Undone." or
  * shows the error message. The toast lives in the shell provider, so Undo
@@ -42,7 +51,7 @@ export function useUndo(): (message: string, revert: () => Promise<void>) => voi
             (err: unknown) =>
               toast.show({
                 type: "error",
-                message: err instanceof Error ? err.message : "Could not undo.",
+                message: undoErrorMessage(err),
               }),
           );
         }),
