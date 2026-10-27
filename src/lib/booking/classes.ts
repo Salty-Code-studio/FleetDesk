@@ -20,6 +20,7 @@ export interface ClassOption {
   cars: number;
   available: boolean | null;  // null when no dates were given
   carSlug: string | null;     // a resolved free car of this class for the window
+  photo: string | null;       // the class's hero: the first photo of its cheapest car that has one
 }
 
 export async function getClasses(pickup?: string, end?: string): Promise<ClassOption[]> {
@@ -52,6 +53,7 @@ export async function getClasses(pickup?: string, end?: string): Promise<ClassOp
       class: cls, fromDayCents, depositCents, cars: cars.length,
       available: datesGiven ? carSlug != null : null,
       carSlug,
+      photo: cars.find((c) => c.photos.length > 0)?.photos[0] ?? null,
     });
   }
 

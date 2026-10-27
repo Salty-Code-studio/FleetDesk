@@ -118,7 +118,7 @@
   gap: 1.5rem;
   align-items: start;
 }
-/* min-width: 0 keeps the stepper's intrinsic width (7 pills) from inflating
+/* min-width: 0 keeps the stepper's intrinsic width from inflating
    the column on phones; the stepper then scrolls inside its own row. */
 .book-grid > * {
   min-width: 0;
@@ -145,20 +145,6 @@
   align-items: center;
   gap: 0.65rem;
 }
-.step-n {
-  display: inline-grid;
-  place-items: center;
-  width: 1.7rem;
-  height: 1.7rem;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--teal);
-  color: var(--sand);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
 /* ---------- form fields ---------- */
 label.fld {
   display: grid;
@@ -214,60 +200,126 @@ label.fld select:focus:not(.time-select) {
   }
 }
 
-/* ---------- car-class rows ---------- */
-.veh-list {
+/* ---------- car-class heroes (three planes) ----------
+   Back: the class name huge and faint. Middle: the car. Top: name and price.
+   The selected card is teal; coral stays on the Continue button only. */
+.hero-list {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.75rem;
+  margin-top: 1.4rem;
 }
-.veh {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
   gap: 1rem;
-  padding: 0.9rem 1.1rem;
+  min-height: 9rem;
+  padding: 1rem 1.1rem;
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  background: var(--sand);
+  border-radius: var(--radius);
+  background: var(--panel);
   text-align: left;
   font: inherit;
   color: var(--ink);
-  transition: border-color 0.15s ease, background 0.15s ease,
-    transform 0.15s ease;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
-.veh:hover:not(:disabled) {
+.hero:hover:not(:disabled) {
   border-color: var(--teal);
   transform: translateY(-1px);
 }
-.veh:disabled {
+.hero:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.hero:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* selected row is the single coral accent on the booking view */
-.veh.sel {
-  border-color: var(--coral);
-  background: #fff;
-  box-shadow: inset 3px 0 0 var(--coral);
+.hero.sel {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(14, 58, 64, 0.12);
 }
-.veh .nm {
+.hero__back {
+  position: absolute;
+  top: -0.12em;
+  left: 0.5rem;
+  font-family: var(--font-display);
+  font-size: var(--fs-huge);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  color: var(--teal);
+  opacity: 0.07;
+  pointer-events: none;
+}
+.hero__car {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 55%;
+  background: center / cover no-repeat;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 45%);
+  mask-image: linear-gradient(to right, transparent, #000 45%);
+  pointer-events: none;
+}
+.hero__mid,
+.hero .price {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+}
+.hero .nm {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 1.02rem;
+  font-size: var(--fs-big);
+  line-height: 1.1;
   color: var(--teal);
 }
-.veh .meta {
+.hero .meta {
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
-.veh .price {
+.hero .price {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
 }
-.veh .price b {
+.hero .price b {
   font-family: var(--font-display);
   font-weight: 600;
+  font-size: 1.1rem;
   color: var(--teal);
+}
+.hero-total {
+  margin: 1rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+.hero-total b {
+  margin-right: 0.35rem;
+  font-family: var(--font-display);
+  font-size: var(--fs-big);
+  font-weight: 600;
+  color: var(--teal);
+  font-variant-numeric: tabular-nums;
+}
+.sub-h {
+  margin: 1.4rem 0 0.3rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.card h2 + .sub-h {
+  margin-top: 0;
 }
 
 /* ---------- insurance radios + extras checkboxes ---------- */
@@ -348,7 +400,6 @@ label.fld select:focus:not(.time-select) {
   display: flex;
   gap: 0.4rem;
   align-items: stretch;
-  /* horizontal scroll on narrow screens so all 7 steps stay reachable */
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -419,13 +470,24 @@ label.fld select:focus:not(.time-select) {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
-/* on small screens, only show the label for the active step to save room */
-@media (max-width: 720px) {
-  .stepper-item:not(.current) .stepper-label {
-    display: none;
+/* Three screens fit a phone: every label stays, the pills just tighten. */
+@media (max-width: 520px) {
+  .stepper-item {
+    flex: 1 1 0;
+    min-width: 0;
   }
-  .stepper-item:not(.current) {
-    flex: 0 0 auto;
+  .stepper-btn {
+    gap: 0.35rem;
+    padding: 0.45rem 0.5rem;
+  }
+  .stepper-dot {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+  .stepper-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.75rem;
   }
 }
 

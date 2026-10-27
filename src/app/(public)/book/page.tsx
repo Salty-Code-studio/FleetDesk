@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { DatePicker, TimeSelect } from "@/components/ui";
-import { licenceDateBounds } from "@/lib/booking/license-bounds";
 import { paymentAmounts, depositSettingsFromSnapshot } from "@/lib/payments/amounts";
+import { SCREENS, validateScreen, screenFromStored, type Screen } from "@/lib/booking/funnel";
 
-interface ClassOption { class: string; fromDayCents: number; depositCents: number | null; cars: number; available: boolean | null; carSlug: string | null }
+interface ClassOption { class: string; fromDayCents: number; depositCents: number | null; cars: number; available: boolean | null; carSlug: string | null; photo: string | null }
 interface Tier { id: string; name: string; dailyPriceCents: number; coverage: string; isDefault: boolean }
 interface AddOn { id: string; name: string; description: string; priceCents: number; pricing: "per_day" | "per_rental" }
 interface Breakdown {
@@ -30,11 +30,10 @@ interface BookingConfig {
 const money = (c: number, cur = "USD") => (cur === "USD" ? `$${(c / 100).toFixed(2)}` : `${cur} ${(c / 100).toFixed(2)}`);
 // Local "today" as ISO yyyy-mm-dd, used only as a min bound on the date pickers.
 const todayISO = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
-const blankLicense = { nameOnLicense: "", licenseNumber: "", issuingCountry: "Aruba", issueDate: "", expiryDate: "", dob: "" };
 
-// Wizard step labels. The index in this array is the step number (1-based + 1).
-const STEPS = ["Car type", "Dates", "Insurance", "Extras", "Driver's licence", "Your details", "Review and confirm"] as const;
-const TOTAL = STEPS.length;
+// Three screens (Flow Desk phase 4). The licence is no longer asked here: the
+// desk captures it at check-in, where the age gate runs.
+const TOTAL = SCREENS.length;
 
 // ---------------------------------------------------------------------------
 // Wizard state persistence: everything the customer has entered survives a
@@ -46,12 +45,14 @@ const TOTAL = STEPS.length;
 const WIZARD_STORAGE_KEY = "book-wizard-v1";
 
 interface WizardStorage {
+  // 2 = the three-screen funnel. Absent = a state saved by the old seven-step
+  // wizard; screenFromStored maps its step onto the new screens.
+  v?: number;
   step?: number;
   selectedClass?: string;
   pickup?: string; ret?: string; pickupTime?: string; retTime?: string;
   tierId?: string;
   qty?: Record<string, number>;
-  license?: typeof blankLicense;
   customer?: { name: string; email: string; phone: string };
   paymentOption?: "deposit" | "full";
   acceptTerms?: boolean;
@@ -98,16 +99,13 @@ export default function BookPage() {
   const [paymentMode, setPaymentMode] = useState<"online" | "desk">("online");
   const [tierId, setTierId] = useState<string>("");
   const [qty, setQty] = useState<Record<string, number>>({});
-  const [license, setLicense] = useState({ ...blankLicense });
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "" });
   const [paymentOption, setPaymentOption] = useState<"deposit" | "full">("deposit");
   const [acceptTerms, setAcceptTerms] = useState(false);
-  // wave-05: booking-config knobs (age band labels + fee) and the wizard's
-  // claimed age band — a PRICING HINT ONLY; the licence DOB decides at submit.
+  // wave-05: booking-config knobs (age band labels + fee) and the claimed age
+  // band. It prices the booking; the desk checks the licence at pick-up.
   const [cfg, setCfg] = useState({ minDriverAge: 18, youngDriverAge: 21, youngDriverFeeCentsPerDay: 0 });
   const [driverAge, setDriverAge] = useState<"" | "young" | "standard">("");
-  const [priceNotice, setPriceNotice] = useState("");
-  const priceAcknowledged = useRef(false);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -222,10 +220,6 @@ export default function BookPage() {
     [qty],
   );
 
-  // Computed once per mount: a wizard session never spans midnight in practice,
-  // and recomputing per render would churn the DatePicker's year list.
-  const licenceBounds = useMemo(() => licenceDateBounds(todayISO()), []);
-
   // Live USD quote whenever the (resolved) car, dates, times, insurance or extras change.
   useEffect(() => {
     if (!carSlug || !pickup || !ret || ret <= pickup) { setBreakdown(null); return; }
@@ -244,6 +238,11 @@ export default function BookPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    // Enter in a field on an earlier screen submits the form: treat it as
+    // Continue, never as a booking.
+    if (step < TOTAL) { goNext(); return; }
+    const problem = validateStep(step);
+    if (problem) { setStepError(problem); return; }
     setError(""); setBusy(true);
     try {
       if (!carSlug) { setError("Please pick a car type and dates."); setBusy(false); return; }
@@ -251,31 +250,19 @@ export default function BookPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vehicleSlug: carSlug, startAt, endAt, customer,
-          insuranceTierId: tierId || null, addOns: addOnsBody, license,
+          insuranceTierId: tierId || null, addOns: addOnsBody,
           acceptTerms,
           // Desk mode never charges online, so there is no deposit-vs-full
           // choice to make: always send "full", since the whole balance is
           // due at pickup either way.
           paymentOption: paymentMode === "desk" ? "full" : paymentOption,
           idempotencyKey: idemKey,
-          // The claimed age band, so the server's mismatch check compares the
-          // claim against the licence DOB truth instead of always assuming "no".
+          // The claimed age band prices the booking; check-in verifies it.
           youngDriver: driverAge === "young",
         }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data?.error?.message ?? "We could not create your booking."); setBusy(false); return; }
-      if (data.priceAdjusted && !priceAcknowledged.current) {
-        priceAcknowledged.current = true;
-        if (data.breakdown) setBreakdown(data.breakdown);
-        setPriceNotice(
-          data.breakdown?.youngDriverCents > 0
-            ? "We checked the driver's date of birth on the licence and added the young driver fee. Your updated total is shown in the summary. Tap the button again to confirm and pay."
-            : "We checked the driver's date of birth on the licence and the young driver fee does not apply. Your updated, lower total is shown in the summary. Tap the button again to confirm and pay.",
-        );
-        setBusy(false);
-        return;
-      }
       if (paymentMode === "desk") {
         // No checkout to start: the booking already landed pending, and the
         // desk (or a chat approval) confirms it later.
@@ -308,7 +295,7 @@ export default function BookPage() {
   // WIZARD: navigation, validation, direction-aware transitions, a11y focus.
   // None of the booking logic above changes; this only governs which step shows.
   // ---------------------------------------------------------------------------
-  const [step, setStep] = useState(1); // 1..TOTAL
+  const [step, setStep] = useState<Screen>(1);
   const [dir, setDir] = useState<"fwd" | "back">("fwd");
   const [stepError, setStepError] = useState(""); // per-step inline validation message
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -330,12 +317,11 @@ export default function BookPage() {
     if (stored.retTime !== undefined) setRetTime(stored.retTime);
     if (stored.tierId !== undefined) setTierId(stored.tierId);
     if (stored.qty !== undefined) setQty(stored.qty);
-    if (stored.license !== undefined) setLicense({ ...blankLicense, ...stored.license });
     if (stored.customer !== undefined) setCustomer(stored.customer);
     if (stored.paymentOption !== undefined) setPaymentOption(stored.paymentOption);
     if (stored.acceptTerms !== undefined) setAcceptTerms(stored.acceptTerms);
     if (stored.driverAge !== undefined) setDriverAge(stored.driverAge);
-    if (stored.step !== undefined) setStep(Math.min(TOTAL, Math.max(1, stored.step)));
+    setStep(screenFromStored(stored));
   }, []);
 
   // Persist the whole wizard so far (all step fields incl. licence + times) on
@@ -344,11 +330,11 @@ export default function BookPage() {
   useEffect(() => {
     try {
       const data: WizardStorage = {
-        step, selectedClass, pickup, ret, pickupTime, retTime, tierId, qty, license, customer, paymentOption, acceptTerms, driverAge,
+        v: 2, step, selectedClass, pickup, ret, pickupTime, retTime, tierId, qty, customer, paymentOption, acceptTerms, driverAge,
       };
       window.sessionStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(data));
     } catch { /* storage unavailable (private mode, quota) — degrade to no persistence */ }
-  }, [step, selectedClass, pickup, ret, pickupTime, retTime, tierId, qty, license, customer, paymentOption, acceptTerms, driverAge]);
+  }, [step, selectedClass, pickup, ret, pickupTime, retTime, tierId, qty, customer, paymentOption, acceptTerms, driverAge]);
 
   // On step change, move focus to the new step heading (skip the very first paint).
   useEffect(() => {
@@ -356,40 +342,17 @@ export default function BookPage() {
     headingRef.current?.focus();
   }, [step]);
 
-  // Validate the current step. Returns "" when valid, else a message. Side-effect:
-  // focuses the first offending field so keyboard users land in the right place.
-  function validateStep(n: number): string {
-    if (n === 1) {
-      if (!selectedClass) return "Please choose a car type to continue.";
-    }
-    if (n === 2) {
-      if (!pickup || !ret) { focusField("[name='pickup'],#pickup"); return "Please choose your pick-up and return dates."; }
-      if (ret <= pickup) { focusField("#ret"); return "The return date must be after the pick-up date."; }
-      if (!pickupTime) { focusField("#pickup-time"); return "Please choose a pick-up time."; }
-      if (!retTime) { focusField("#ret-time"); return "Please choose a return time."; }
-      if (!driverAge) return "Please tell us the main driver's age so we can show the right price.";
-      if (avail && !avail.available) return avail.reason;
-      if (selectedClass && !avail) return "Please choose your pick-up and return dates.";
-    }
-    if (n === 5) {
-      const L = license;
-      if (!L.nameOnLicense) { focusField("#lic-name"); return "Please enter the name on the licence."; }
-      if (!L.licenseNumber) { focusField("#lic-num"); return "Please enter the licence number."; }
-      if (!L.issuingCountry) { focusField("#lic-country"); return "Please enter the issuing country."; }
-      if (!L.dob) { focusField("#lic-dob"); return "Please enter the date of birth."; }
-      if (!L.issueDate) { focusField("#lic-issue"); return "Please enter the issue date."; }
-      if (!L.expiryDate) { focusField("#lic-expiry"); return "Please enter the expiry date."; }
-    }
-    if (n === 6) {
-      if (!customer.name) { focusField("#cust-name"); return "Please enter your full name."; }
-      if (!customer.email) { focusField("#cust-email"); return "Please enter your email."; }
-      if (!customer.phone) { focusField("#cust-phone"); return "Please enter your phone number."; }
-    }
-    if (n === 7) {
-      if (!acceptTerms) { focusField("#accept-terms"); return "Please accept the terms to reserve."; }
-      if (!avail?.available) return "Your dates are no longer available. Please go back and adjust them.";
-    }
-    return "";
+  // Validate the current screen (rules live in lib/booking/funnel.ts). Returns
+  // "" when valid, else a message, and focuses the offending field so keyboard
+  // users land in the right place.
+  function validateStep(n: Screen): string {
+    const problem = validateScreen(n, {
+      selectedClass, pickup, ret, pickupTime, retTime, driverAge, customer, acceptTerms,
+      available: avail ? avail.available : null,
+    });
+    if (!problem) return "";
+    if (problem.field) focusField(problem.field);
+    return problem.message;
   }
 
   function focusField(selector: string) {
@@ -404,15 +367,15 @@ export default function BookPage() {
     if (msg) { setStepError(msg); return; }
     setStepError("");
     setDir("fwd");
-    setStep((s) => Math.min(TOTAL, s + 1));
+    setStep((s) => Math.min(TOTAL, s + 1) as Screen);
   }
   function goBack() {
     setStepError("");
     setDir("back");
-    setStep((s) => Math.max(1, s - 1));
+    setStep((s) => Math.max(1, s - 1) as Screen);
   }
   // Stepper jump: only completed (earlier) steps are reachable.
-  function jumpTo(n: number) {
+  function jumpTo(n: Screen) {
     if (n >= step) return;
     setStepError("");
     setDir("back");
@@ -446,8 +409,8 @@ export default function BookPage() {
         {/* ---------- progress stepper ---------- */}
         <nav className="stepper" aria-label="Booking progress">
           <ol className="stepper-list">
-            {STEPS.map((label, i) => {
-              const n = i + 1;
+            {SCREENS.map((label, i) => {
+              const n = (i + 1) as Screen;
               const state = n < step ? "done" : n === step ? "current" : "todo";
               const clickable = n < step;
               return (
@@ -460,7 +423,7 @@ export default function BookPage() {
                     onClick={() => jumpTo(n)}
                   >
                     <span className="stepper-dot" aria-hidden="true">
-                      {state === "done" ? "✓" : n}
+                      {state === "done" ? "✓" : ""}
                     </span>
                     <span className="stepper-label">{label}</span>
                   </button>
@@ -471,7 +434,7 @@ export default function BookPage() {
         </nav>
 
         {/* announce the active step to screen readers */}
-        <p className="sr-only" aria-live="polite">{`Step ${step} of ${TOTAL}, ${STEPS[step - 1]}`}</p>
+        <p className="sr-only" aria-live="polite">{SCREENS[step - 1]}</p>
 
         <form onSubmit={submit}>
           <div
@@ -479,34 +442,10 @@ export default function BookPage() {
             className={`wiz-panel ${dir === "fwd" ? "from-right" : "from-left"}`}
             key={step}
           >
-            {/* ---- Step 1 · Car type ---- */}
+            {/* ---- When and what: dates, times, age band, class, live price ---- */}
             {step === 1 && (
               <div className="card">
-                <h2 ref={headingRef} tabIndex={-1}><span className="step-n">1</span>Pick your car type</h2>
-                <div className="veh-list">
-                  {classes.length === 0 && <p className="note">Loading the fleet…</p>}
-                  {classes.map((c) => (
-                    <button type="button" key={c.class} className={`veh ${c.class === selectedClass ? "sel" : ""}`}
-                      disabled={c.available === false}
-                      onClick={() => { setSelectedClass(c.class); setStepError(""); }}>
-                      <span>
-                        <span className="nm">{c.class}</span><br />
-                        <span className="meta">
-                          {c.cars} car{c.cars !== 1 ? "s" : ""} in this class
-                          {c.available === false ? " · none free on those dates" : ""}
-                        </span>
-                      </span>
-                      <span className="price"><b>{money(c.fromDayCents, "USD")}</b><br /><span className="meta">/ day</span></span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ---- Step 2 · Dates ---- */}
-            {step === 2 && (
-              <div className="card">
-                <h2 ref={headingRef} tabIndex={-1}><span className="step-n">2</span>Dates</h2>
+                <h2 ref={headingRef} tabIndex={-1}>When and what</h2>
                 <div className="two">
                   <label className="fld">Pick-up date<DatePicker id="pickup" name="pickup" required min={todayISO()} value={pickup} onChange={(iso) => { setPickup(iso); setStepError(""); }} ariaLabel="Pick-up date" /></label>
                   <label className="fld">Pick-up time<TimeSelect id="pickup-time" ariaLabel="Pick-up time" min={hours.openingTime} max={hours.closingTime} value={pickupTime} onChange={(t) => { setPickupTime(t); setStepError(""); }} /></label>
@@ -531,16 +470,43 @@ export default function BookPage() {
                     <span className="grow">Age {cfg.youngDriverAge} or older</span>
                   </label>
                 </div>
-                {selectedClass && avail && (avail.available
-                  ? <p className="avail ok">✓ A {selectedClass} car is available then</p>
-                  : <p className="avail no">✕ {avail.reason}</p>)}
+
+                <div className="hero-list" role="radiogroup" aria-label="Car type">
+                  {classes.length === 0 && <p className="note">Loading the fleet…</p>}
+                  {classes.map((c) => (
+                    <button type="button" key={c.class} role="radio" aria-checked={c.class === selectedClass}
+                      className={`hero${c.class === selectedClass ? " sel" : ""}`}
+                      disabled={c.available === false}
+                      onClick={() => { setSelectedClass(c.class); setStepError(""); }}>
+                      <span className="hero__back" aria-hidden="true">{c.class}</span>
+                      {c.photo && (
+                        <span className="hero__car" aria-hidden="true"
+                          style={{ backgroundImage: `url("${c.photo.replace(/"/g, "%22")}")` }} />
+                      )}
+                      <span className="hero__mid">
+                        <span className="nm">{c.class}</span>
+                        <span className="meta">
+                          {c.available === false ? "None free on those dates" : `${c.cars} car${c.cars !== 1 ? "s" : ""} in this class`}
+                        </span>
+                      </span>
+                      <span className="price"><b>{money(c.fromDayCents, "USD")}</b><span className="meta">a day</span></span>
+                    </button>
+                  ))}
+                </div>
+                {selectedClass && breakdown && (
+                  <p className="hero-total" aria-live="polite">
+                    <b>{money(breakdown.subtotalCents, cur)}</b> for {breakdown.days} day{breakdown.days !== 1 ? "s" : ""}
+                  </p>
+                )}
+                {selectedClass && avail && !avail.available && <p className="avail no">✕ {avail.reason}</p>}
               </div>
             )}
 
-            {/* ---- Step 3 · Insurance ---- */}
-            {step === 3 && (
+            {/* ---- Protect and add: insurance tier and extras ---- */}
+            {step === 2 && (
               <div className="card">
-                <h2 ref={headingRef} tabIndex={-1}><span className="step-n">3</span>Insurance</h2>
+                <h2 ref={headingRef} tabIndex={-1}>Protect and add</h2>
+                <h3 className="sub-h">Insurance</h3>
                 {tiers.map((t) => (
                   <label className="opt" key={t.id}>
                     <input type="radio" name="tier" checked={tierId === t.id} onChange={() => setTierId(t.id)} />
@@ -548,13 +514,7 @@ export default function BookPage() {
                     <span className="price">{t.dailyPriceCents === 0 ? "included" : `${money(t.dailyPriceCents, cur)}/day`}</span>
                   </label>
                 ))}
-              </div>
-            )}
-
-            {/* ---- Step 4 · Extras ---- */}
-            {step === 4 && (
-              <div className="card">
-                <h2 ref={headingRef} tabIndex={-1}><span className="step-n">4</span>Extras</h2>
+                <h3 className="sub-h">Extras</h3>
                 {addons.length === 0 && <p className="note">No extras available for this booking.</p>}
                 {addons.map((a) => (
                   <label className="opt" key={a.id}>
@@ -570,47 +530,23 @@ export default function BookPage() {
               </div>
             )}
 
-            {/* ---- Step 5 · Driver's licence ---- */}
-            {step === 5 && (
+            {/* ---- You and pay: details, payment choice, terms ---- */}
+            {step === 3 && (
               <div className="card">
-                <h2 ref={headingRef} tabIndex={-1}><span className="step-n">5</span>Driver&apos;s licence</h2>
-                <p className="note">We encrypt these details. They are required to rent and verified at pick-up.</p>
-                <div className="two">
-                  <label className="fld">Name on licence<input id="lic-name" required value={license.nameOnLicense} onChange={(e) => { setLicense({ ...license, nameOnLicense: e.target.value }); setStepError(""); }} /></label>
-                  <label className="fld">Licence number<input id="lic-num" required value={license.licenseNumber} onChange={(e) => { setLicense({ ...license, licenseNumber: e.target.value }); setStepError(""); }} /></label>
-                  <label className="fld">Issuing country<input id="lic-country" required value={license.issuingCountry} onChange={(e) => { setLicense({ ...license, issuingCountry: e.target.value }); setStepError(""); }} /></label>
-                  <label className="fld">Date of birth<DatePicker id="lic-dob" required min={licenceBounds.dob.min} max={licenceBounds.dob.max} value={license.dob} onChange={(iso) => { setLicense({ ...license, dob: iso }); setStepError(""); }} ariaLabel="Date of birth" /></label>
-                  <label className="fld">Issue date<DatePicker id="lic-issue" required min={licenceBounds.issueDate.min} max={licenceBounds.issueDate.max} value={license.issueDate} onChange={(iso) => { setLicense({ ...license, issueDate: iso }); setStepError(""); }} ariaLabel="Licence issue date" /></label>
-                  <label className="fld">Expiry date<DatePicker id="lic-expiry" required min={licenceBounds.expiryDate.min} max={licenceBounds.expiryDate.max} value={license.expiryDate} onChange={(iso) => { setLicense({ ...license, expiryDate: iso }); setStepError(""); }} ariaLabel="Licence expiry date" /></label>
-                </div>
-              </div>
-            )}
-
-            {/* ---- Step 6 · Your details ---- */}
-            {step === 6 && (
-              <div className="card">
-                <h2 ref={headingRef} tabIndex={-1}><span className="step-n">6</span>Your details</h2>
+                <h2 ref={headingRef} tabIndex={-1}>You and pay</h2>
                 <div className="two">
                   <label className="fld">Full name<input id="cust-name" required value={customer.name} onChange={(e) => { setCustomer({ ...customer, name: e.target.value }); setStepError(""); }} /></label>
                   <label className="fld">Email<input id="cust-email" type="email" required value={customer.email} onChange={(e) => { setCustomer({ ...customer, email: e.target.value }); setStepError(""); }} /></label>
-                  <label className="fld">Phone<input id="cust-phone" value={customer.phone} onChange={(e) => { setCustomer({ ...customer, phone: e.target.value }); setStepError(""); }} /></label>
+                  <label className="fld">Phone<input id="cust-phone" required value={customer.phone} onChange={(e) => { setCustomer({ ...customer, phone: e.target.value }); setStepError(""); }} /></label>
                 </div>
-              </div>
-            )}
-
-            {/* ---- Step 7 · Review and confirm ---- */}
-            {step === 7 && (
-              <div className="card">
-                <h2 ref={headingRef} tabIndex={-1}><span className="step-n">7</span>Review and confirm</h2>
+                <p className="note">Bring your driver&apos;s licence when you pick up the car. We check it at the desk.</p>
 
                 <dl className="recap">
                   <div className="recap-row"><dt>Car type</dt><dd>{selectedClass || "Not chosen yet"}</dd></div>
                   <div className="recap-row"><dt>Dates</dt><dd>{pickup && ret ? `Pick-up ${pickup} at ${pickupTime} to Return ${ret} at ${retTime}` : "Not set"}{breakdown ? ` · ${breakdown.days} day${breakdown.days !== 1 ? "s" : ""}` : ""}</dd></div>
                   <div className="recap-row"><dt>Insurance</dt><dd>{tiers.find((t) => t.id === tierId)?.name ?? "Basic"}</dd></div>
                   <div className="recap-row"><dt>Extras</dt><dd>{addOnsBody.length === 0 ? "None" : addons.filter((a) => (qty[a.id] ?? 0) > 0).map((a) => `${a.name}${(qty[a.id] ?? 0) > 1 ? ` ×${qty[a.id]}` : ""}`).join(", ")}</dd></div>
-                  <div className="recap-row"><dt>Driver</dt><dd>{license.nameOnLicense || "Not entered"}</dd></div>
                   <div className="recap-row"><dt>Driver age</dt><dd>{driverAge === "young" ? `${cfg.minDriverAge} to ${cfg.youngDriverAge - 1}` : driverAge === "standard" ? `${cfg.youngDriverAge} or older` : "Not set"}</dd></div>
-                  <div className="recap-row"><dt>Contact</dt><dd>{customer.name || "Not entered"}{customer.email ? ` · ${customer.email}` : ""}</dd></div>
                   {breakdown && <div className="recap-row total"><dt>Rental total</dt><dd>{money(breakdown.subtotalCents, cur)}</dd></div>}
                 </dl>
 
@@ -701,7 +637,6 @@ export default function BookPage() {
                   ? "No payment needed now. You pay at pickup at the desk."
                   : "You'll be taken to our secure Stripe checkout."}
               </p>
-              {priceNotice && <p className="msg price-notice" role="status" aria-live="polite">{priceNotice}</p>}
             </>
           )}
         </form>
