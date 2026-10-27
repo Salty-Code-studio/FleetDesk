@@ -128,6 +128,30 @@ describe("createBooking", () => {
     ).rejects.toThrow(/left for those dates/i);
   });
 
+  it("books without a licence and prices by the claimed age band", async () => {
+    await db.update(settings).set({ youngDriverFeeCentsPerDay: 1000 }).where(eq(settings.id, 1));
+    try {
+      const young = await createBooking(input({
+        license: undefined, youngDriver: true,
+        startAt: at("2027-06-01"), endAt: at("2027-06-04"), idempotencyKey: "nolic-young",
+      }), TODAY);
+      expect(young.breakdown.youngDriver).toBe(true);
+      expect(young.breakdown.youngDriverCents).toBe(3000);
+      expect(young.priceAdjusted).toBe(false);
+      const lic = await db.select().from(driverLicenses).where(eq(driverLicenses.bookingId, young.booking.id));
+      expect(lic).toHaveLength(0);
+
+      const standard = await createBooking(input({
+        license: undefined, youngDriver: false,
+        startAt: at("2027-06-10"), endAt: at("2027-06-13"), idempotencyKey: "nolic-std",
+      }), TODAY);
+      expect(standard.breakdown.youngDriverCents).toBe(0);
+      expect(standard.priceAdjusted).toBe(false);
+    } finally {
+      await db.update(settings).set({ youngDriverFeeCentsPerDay: 1000 }).where(eq(settings.id, 1));
+    }
+  });
+
   it("never returns licence plaintext on the booking", async () => {
     const { booking } = await createBooking(input({ startAt: at("2027-03-01"), endAt: at("2027-03-05"), idempotencyKey: "leak-1" }), TODAY);
     expect(JSON.stringify(booking)).not.toContain("AUA-7654321");

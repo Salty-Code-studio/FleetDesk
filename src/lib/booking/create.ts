@@ -2,7 +2,9 @@
  * Booking creation (spec §6, §7, §8). One transaction: upsert the customer,
  * insert the booking (the Postgres exclusion constraint is the HARD guarantee
  * that two bookings can never hold the same vehicle on overlapping dates),
- * insert the add-on snapshots, and insert the encrypted driver's licence.
+ * insert the add-on snapshots, and insert the encrypted driver's licence when
+ * one was sent. The public funnel no longer asks for it (Flow Desk phase 4):
+ * the desk captures it at check-in, where the age gate then runs.
  *
  * Money is ALWAYS recomputed server-side and snapshotted; the client's numbers
  * are ignored. The idempotency key makes a double-submit return the SAME
@@ -37,11 +39,13 @@ export const BookingCreateSchema = z.object({
   }).strict(),
   insuranceTierId: z.string().uuid().nullable().optional(),
   addOns: z.array(z.object({ addOnId: z.string().uuid(), qty: z.number().int().min(1).max(10) })).max(20).default([]),
-  license: LicenseSchema,
+  // Optional: the public funnel leaves it to check-in. Older clients still send it.
+  license: LicenseSchema.optional(),
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the rental terms" }) }),
   paymentOption: z.enum(["deposit", "full"]),
-  // Claimed age band from the wizard selector. A hint only: the licence DOB is
-  // the truth and createBooking reprices on mismatch (priceAdjusted).
+  // Claimed age band from the wizard selector. With a licence, the DOB is the
+  // truth and createBooking reprices on mismatch (priceAdjusted). Without one,
+  // the claim prices the booking and check-in verifies it.
   youngDriver: z.boolean().optional().default(false),
   idempotencyKey: z.string().trim().min(8).max(200),
 }).strict();
@@ -80,17 +84,19 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
   // Guardrails (throw 4xx on violation).
   validateDates(input.startAt, input.endAt, settings, nowIso);
   const pickupDateStr = arubaDateOf(input.startAt);
-  validateLicense(input.license, {
-    minDriverAge: settings.minDriverAge,
-    rentalStart: pickupDateStr,
-    rentalEnd: arubaDateOf(input.endAt),
-    today: arubaDateOf(nowIso),
-  });
-
-  // Young-driver truth check (workstream 5): the licence DOB decides the
-  // surcharge, never the claimed band. under_min never reaches here.
-  const band = driverAgeBand(input.license.dob, pickupDateStr, settings);
-  const youngDriver = band === "young";
+  // Young-driver truth check (workstream 5): with a licence, the DOB decides
+  // the surcharge, never the claimed band. under_min never reaches the band.
+  // Without a licence the claim stands until check-in.
+  let youngDriver = input.youngDriver;
+  if (input.license) {
+    validateLicense(input.license, {
+      minDriverAge: settings.minDriverAge,
+      rentalStart: pickupDateStr,
+      rentalEnd: arubaDateOf(input.endAt),
+      today: arubaDateOf(nowIso),
+    });
+    youngDriver = driverAgeBand(input.license.dob, pickupDateStr, settings) === "young";
+  }
   const priceAdjusted = youngDriver !== input.youngDriver;
 
   const availability = await checkAvailability(vehicle.id, input.startAt, input.endAt, settings);
@@ -220,8 +226,10 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
       }
 
       // Encrypt the licence bound to THIS booking id, then store it.
-      const enc = encryptLicense(booking!.id, input.license);
-      await tx.insert(driverLicenses).values({ bookingId: booking!.id, ...enc, retainUntil });
+      if (input.license) {
+        const enc = encryptLicense(booking!.id, input.license);
+        await tx.insert(driverLicenses).values({ bookingId: booking!.id, ...enc, retainUntil });
+      }
 
       return { booking: booking!, breakdown, replayed: false, priceAdjusted };
     });
