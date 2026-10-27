@@ -18,6 +18,8 @@ import { renderContractPdf } from "@/lib/pdf/contract";
 import { putObject, getObject, deleteObject } from "@/lib/storage";
 import { bookingPickedUpEmail, bookingReturnSummaryEmail } from "@/lib/email/templates";
 import { sendAndLog } from "@/lib/email/send";
+import { decryptField } from "@/lib/crypto/fields";
+import { licenceCheckFor, type LicenceCheck } from "@/lib/admin/booking-license";
 import { notifyAdmin } from "@/lib/notify";
 import { formatDateTime } from "@/lib/time/format";
 import { siteConfig } from "@/lib/site-config";
@@ -144,6 +146,9 @@ export interface HandoverPayload {
   vehicle: { id: string; name: string; plate: string; class: string; depositCents: number | null };
   customer: { name: string | null; email: string; phone: string | null };
   license: { nameOnLicense: string; issuingCountry: string; expiryDate: string } | null;
+  /** The licence DOB against the band the booking was priced with. Null when
+   *  no licence is on file. Never carries the DOB itself. */
+  licenceCheck: LicenceCheck | null;
   policy: { version: number; body: string } | null;
   inspections: { pickup: Inspection | null; return: Inspection | null };
 }
@@ -163,6 +168,7 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
     nameOnLicense: driverLicenses.nameOnLicense,
     issuingCountry: driverLicenses.issuingCountry,
     expiryDate: driverLicenses.expiryDate,
+    dobEnc: driverLicenses.dobEnc,
   }).from(driverLicenses).where(eq(driverLicenses.bookingId, bookingId));
 
   const policy = await getLatestPolicy("rental_terms");
@@ -208,7 +214,12 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
       class: row.vehicle.class, depositCents: row.vehicle.depositCents,
     },
     customer: { name: row.customer.name, email: row.customer.email, phone: row.customer.phone },
-    license: license ?? null,
+    license: license
+      ? { nameOnLicense: license.nameOnLicense, issuingCountry: license.issuingCountry, expiryDate: license.expiryDate }
+      : null,
+    licenceCheck: license
+      ? licenceCheckFor(decryptField(license.dobEnc, `driver_licenses:${b.id}:dob`), b.startAt, breakdown.youngDriver ?? false, settings)
+      : null,
     policy: policy ? { version: policy.version, body: policy.body } : null,
     inspections: {
       pickup: insp.find((i) => i.kind === "pickup") ?? null,
@@ -241,6 +252,11 @@ export async function completePickup(
       throw Errors.badRequest("This booking is not paid yet. Add a desk override note to check it out anyway.");
     }
     assertBookingTransition(booking.status, "picked_up");
+
+    // The public funnel no longer collects the licence, so this is the gate:
+    // no keys without a licence on file (and with it, the age check).
+    const [lic] = await tx.select({ id: driverLicenses.id }).from(driverLicenses).where(eq(driverLicenses.bookingId, bookingId));
+    if (!lic) throw Errors.badRequest("Save the driver's licence first");
 
     const [insp] = await tx.select().from(inspections)
       .where(and(eq(inspections.bookingId, bookingId), eq(inspections.kind, "pickup")));

@@ -76,6 +76,7 @@ export interface Handover {
   vehicle: { id: string; name: string; plate: string; class: string; depositCents: number | null };
   customer: { name: string | null; email: string; phone: string | null };
   license: { nameOnLicense: string; issuingCountry: string; expiryDate: string } | null;
+  licenceCheck: { band: "young" | "standard"; bookedYoung: boolean; mismatch: boolean } | null;
   policy: { version: number; body: string } | null;
   inspections: { pickup: InspectionDto | null; return: InspectionDto | null };
 }

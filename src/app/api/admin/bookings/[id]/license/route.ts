@@ -18,11 +18,16 @@ const ParamsSchema = z.object({ id: z.string().uuid() });
 export const PUT = withRoute(async (req, { params }) => {
   const { id } = parseParams(await params, ParamsSchema);
   const license = await parseJsonBody(req, LicenseSchema);
-  const result = await mutate(req, "admin.license_saved", async () => ({
-    result: await saveBookingLicense(id, license, arubaNowIso()),
-    entity: "booking",
-    entityId: id,
-    after: { issuingCountry: license.issuingCountry, expiryDate: license.expiryDate },
-  }), { roles: ["owner", "staff"] });
+  const result = await mutate(req, "admin.license_saved", async () => {
+    const check = await saveBookingLicense(id, license, arubaNowIso());
+    // The band comparison is recorded so a fee mismatch is never lost; the
+    // licence number and date of birth never enter the audit log.
+    return {
+      result: check,
+      entity: "booking",
+      entityId: id,
+      after: { issuingCountry: license.issuingCountry, expiryDate: license.expiryDate, ...check },
+    };
+  }, { roles: ["owner", "staff"] });
   return json(result, req);
 });

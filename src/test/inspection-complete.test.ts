@@ -4,7 +4,8 @@ import path from "node:path";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
-import { vehicles, customers, bookings, adminUsers, inspections, notifications, policies } from "@/lib/db/schema";
+import { vehicles, customers, bookings, adminUsers, inspections, notifications, policies, driverLicenses } from "@/lib/db/schema";
+import { encryptLicense } from "@/lib/booking/license";
 import { upsertInspection, completePickup, completeReturn, REQUIRED_ANGLES } from "@/lib/admin/inspections";
 import { putObject, getObject } from "@/lib/storage";
 
@@ -34,8 +35,19 @@ async function mkBooking(key: string, status: "pending" | "confirmed" | "picked_
   return b!;
 }
 
-/** Fill a pickup inspection to completeness (photos, meters, borg, signature). */
+async function addLicence(bookingId: string) {
+  await db.insert(driverLicenses).values({
+    bookingId,
+    ...encryptLicense(bookingId, {
+      nameOnLicense: "Test Driver", licenseNumber: "T-1", issuingCountry: "Aruba",
+      issueDate: "2020-01-01", expiryDate: "2035-01-01", dob: "1990-01-01",
+    }),
+  }).onConflictDoNothing();
+}
+
+/** Fill a pickup inspection to completeness (licence, photos, meters, borg, signature). */
 async function readyPickup(bookingId: string) {
+  await addLicence(bookingId);
   const sigKey = `signatures/${bookingId}.png`;
   await putObject(sigKey, new Uint8Array(PNG_1PX), "image/png");
   await upsertInspection(bookingId, "pickup", {
@@ -94,8 +106,16 @@ describe("completePickup", () => {
     expect(bells.some((n) => n.type === "booking.picked_up")).toBe(true);
   });
 
+  it("refuses to hand over keys without a licence on file", async () => {
+    const b = await mkBooking("cp-nolicence", "confirmed");
+    await readyPickup(b.id);
+    await db.delete(driverLicenses).where(eq(driverLicenses.bookingId, b.id));
+    await expect(completePickup(b.id, { actorId: adminId })).rejects.toThrow(/licence first/i);
+  });
+
   it("refuses an incomplete inspection (missing angles)", async () => {
     const b = await mkBooking("done-pickup-2", "confirmed");
+    await addLicence(b.id);
     await upsertInspection(b.id, "pickup", { odometer: 1, fuelLevel: 4 }, adminId);
     await expect(completePickup(b.id, { actorId: adminId })).rejects.toThrow(/walk-around photos/i);
   });

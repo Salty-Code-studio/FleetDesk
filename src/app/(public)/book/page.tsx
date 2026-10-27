@@ -241,8 +241,16 @@ export default function BookPage() {
     // Enter in a field on an earlier screen submits the form: treat it as
     // Continue, never as a booking.
     if (step < TOTAL) { goNext(); return; }
-    const problem = validateStep(step);
-    if (problem) { setStepError(problem); return; }
+    // A restored session can land here with an earlier screen incomplete:
+    // check every screen and send the customer to the first gap.
+    for (const n of [1, 2, 3] as Screen[]) {
+      const problem = validateStep(n);
+      if (problem) {
+        if (n !== step) { setDir("back"); setStep(n); }
+        setStepError(problem);
+        return;
+      }
+    }
     setError(""); setBusy(true);
     try {
       if (!carSlug) { setError("Please pick a car type and dates."); setBusy(false); return; }
@@ -469,6 +477,7 @@ export default function BookPage() {
                       onChange={() => { setDriverAge("standard"); setStepError(""); }} />
                     <span className="grow">Age {cfg.youngDriverAge} or older</span>
                   </label>
+                  <p className="note">The main driver must be {cfg.minDriverAge} or older. We check the licence at pick-up.</p>
                 </div>
 
                 <div className="hero-list" role="radiogroup" aria-label="Car type">

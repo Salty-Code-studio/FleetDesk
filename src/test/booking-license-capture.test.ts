@@ -17,7 +17,7 @@ const lic = (over: Record<string, string> = {}) => ({
   issueDate: "2020-01-01", expiryDate: "2035-01-01", dob: "1990-03-03", ...over,
 });
 
-async function mkBooking(status: "confirmed" | "cancelled", youngDriver: boolean) {
+async function mkBooking(status: "confirmed" | "cancelled" | "completed", youngDriver: boolean) {
   const m = String(seq++).padStart(2, "0");
   const [b] = await db.insert(bookings).values({
     vehicleId, customerId,
@@ -65,9 +65,14 @@ describe("saveBookingLicense", () => {
     expect(decryptField(rows[0]!.licenseNumberEnc, `driver_licenses:${b.id}:license_number`)).toBe("NL-999");
   });
 
-  it("refuses an under-age driver", async () => {
+  it("refuses an under-age driver and tells the desk not to hand over", async () => {
     const b = await mkBooking("confirmed", false);
-    await expect(saveBookingLicense(b.id, lic({ dob: "2012-01-01" }), NOW)).rejects.toThrow(/at least/i);
+    await expect(saveBookingLicense(b.id, lic({ dob: "2012-01-01" }), NOW)).rejects.toThrow(/at least 18.*Do not hand over the car/);
+  });
+
+  it("refuses a completed rental", async () => {
+    const b = await mkBooking("completed", false);
+    await expect(saveBookingLicense(b.id, lic(), NOW)).rejects.toThrow(/already closed/i);
   });
 
   it("refuses a licence that expires before the return", async () => {
@@ -96,5 +101,15 @@ describe("getHandover young driver fields", () => {
     const h = await getHandover(b.id);
     expect(h.booking.youngDriver).toBe(false);
     expect(h.booking.youngDriverFeeCents).toBe(s!.youngDriverFeeCentsPerDay * 4);
+    expect(h.licenceCheck).toBeNull();
+  });
+
+  it("recomputes the licence check on every read, without the date of birth", async () => {
+    const b = await mkBooking("confirmed", false);
+    await saveBookingLicense(b.id, lic({ dob: "2009-01-01" }), NOW);
+    const h = await getHandover(b.id);
+    expect(h.licenceCheck).toEqual({ band: "young", bookedYoung: false, mismatch: true });
+    expect(JSON.stringify(h)).not.toContain("2009-01-01");
+    expect(JSON.stringify(h)).not.toContain("dobEnc");
   });
 });

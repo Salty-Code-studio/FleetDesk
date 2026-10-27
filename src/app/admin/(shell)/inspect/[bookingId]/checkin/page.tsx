@@ -23,8 +23,6 @@ const TOTAL = 7;
 const blankLicence = { nameOnLicense: "", licenseNumber: "", issuingCountry: "", issueDate: "", expiryDate: "", dob: "" };
 const todayISO = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 
-interface LicenceSaveResult { band: "young" | "standard"; bookedYoung: boolean; mismatch: boolean }
-
 export default function CheckinWizard() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const router = useRouter();
@@ -38,7 +36,6 @@ export default function CheckinWizard() {
   // The public funnel no longer asks for the licence, so most bookings arrive
   // without one; the desk types it in here and the age gate runs server-side.
   const [licence, setLicence] = useState({ ...blankLicence });
-  const [licenceCheck, setLicenceCheck] = useState<LicenceSaveResult | null>(null);
   const licenceBounds = useMemo(() => licenceDateBounds(todayISO()), []);
   const [odometer, setOdometer] = useState("");
   const [borgAmount, setBorgAmount] = useState("");
@@ -147,8 +144,7 @@ export default function CheckinWizard() {
                 <label className="wiz-label">Expiry date<DatePicker id="lic-expiry" min={licenceBounds.expiryDate.min} max={licenceBounds.expiryDate.max} value={licence.expiryDate} onChange={(iso) => setLicence({ ...licence, expiryDate: iso })} ariaLabel="Licence expiry date" /></label>
               </div>
               <button type="button" className="wiz-btn" disabled={busy || Object.values(licence).some((v) => !v.trim())} onClick={guarded(async () => {
-                const res = await apiPut<LicenceSaveResult>(`/api/admin/bookings/${bookingId}/license`, licence);
-                setLicenceCheck(res);
+                await apiPut(`/api/admin/bookings/${bookingId}/license`, licence);
                 setLicence({ ...blankLicence });
                 await reload();
                 toast.show({ type: "success", message: "Licence saved" });
@@ -157,9 +153,11 @@ export default function CheckinWizard() {
               </button>
             </div>
           )}
-          {licenceCheck?.mismatch ? (
+          {/* Recomputed by the handover on every load, so it survives a reload.
+              Hidden when the operator charges no young driver fee at all. */}
+          {data.licenceCheck?.mismatch && b.youngDriverFeeCents > 0 ? (
             <p className="wiz-warn" role="status">
-              {licenceCheck.band === "young"
+              {data.licenceCheck.band === "young"
                 ? `The licence says young driver. This booking was priced without the fee (${money(b.youngDriverFeeCents, b.currency)}). Collect it at the desk or change the price in the booking.`
                 : `The driver is not a young driver, but the booking includes the young driver fee (${money(b.youngDriverFeeCents, b.currency)}). Refund it or change the price in the booking.`}
             </p>
