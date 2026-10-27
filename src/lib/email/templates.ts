@@ -265,7 +265,7 @@ export function bookingConfirmedEmail(args: {
       after: `
       <p style="margin:0 0 12px;font-size:14px;color:${MUTED}">${payNoteLine}</p>
       <p style="margin:0 0 12px">We will reach out on WhatsApp to arrange delivery. See you soon.</p>
-      <p style="margin:0;font-size:13px;color:${MUTED}">Bring the driver's license you booked with when you pick up the car.</p>`,
+      <p style="margin:0;font-size:13px;color:${MUTED}">Bring your driver's licence. We check it when you pick up the car.</p>`,
       contact: true,
     }),
   };
