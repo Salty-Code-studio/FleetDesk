@@ -37,3 +37,7 @@ textarea.wiz-input { min-height: 72px; padding: 10px 12px; }
 .wiz-check .state { font-weight: 700; }
 .wiz-check .state.ok { color: #1d7a4f; }
 .wiz-check .state.todo { color: #c0392b; }
+/* Licence capture at check-in (Flow Desk phase 4). */
+.wiz-fields { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.wiz-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-soft, #586a6d); }
+.wiz-warn { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 14px; color: var(--ink, #1c2b2e); background: var(--amber-bg, #f6e9cf); border-left: 3px solid var(--amber, #c98a33); }

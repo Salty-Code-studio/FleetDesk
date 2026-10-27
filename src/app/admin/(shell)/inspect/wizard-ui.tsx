@@ -70,6 +70,8 @@ export interface Handover {
     startAt: string; endAt: string; currency: string;
     subtotalCents: number; amountPaidCents: number; balanceDueCents: number;
     priceLines: { label: string; cents: number }[];
+    youngDriver: boolean;
+    youngDriverFeeCents: number;
   };
   vehicle: { id: string; name: string; plate: string; class: string; depositCents: number | null };
   customer: { name: string | null; email: string; phone: string | null };

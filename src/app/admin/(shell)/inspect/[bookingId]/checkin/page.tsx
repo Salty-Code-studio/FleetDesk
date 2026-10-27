@@ -10,6 +10,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, api, apiPut, type ApiError } from "@/app/admin/client";
 import { useToast } from "@/app/admin/_ui";
+import { DatePicker } from "@/components/ui";
+import { licenceDateBounds } from "@/lib/booking/license-bounds";
 import {
   ANGLES, PhotoCapture, FuelSelector, SignatureCanvas, StepShell,
   capturePhoto, uploadBlob, money, fileUrl,
@@ -17,6 +19,11 @@ import {
 } from "../../wizard-ui";
 
 const TOTAL = 7;
+
+const blankLicence = { nameOnLicense: "", licenseNumber: "", issuingCountry: "", issueDate: "", expiryDate: "", dob: "" };
+const todayISO = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+
+interface LicenceSaveResult { band: "young" | "standard"; bookedYoung: boolean; mismatch: boolean }
 
 export default function CheckinWizard() {
   const { bookingId } = useParams<{ bookingId: string }>();
@@ -28,8 +35,11 @@ export default function CheckinWizard() {
   const [busy, setBusy] = useState(false);
 
   // step-local state
-  const [driverName, setDriverName] = useState("");
-  const [driverLicense, setDriverLicense] = useState("");
+  // The public funnel no longer asks for the licence, so most bookings arrive
+  // without one; the desk types it in here and the age gate runs server-side.
+  const [licence, setLicence] = useState({ ...blankLicence });
+  const [licenceCheck, setLicenceCheck] = useState<LicenceSaveResult | null>(null);
+  const licenceBounds = useMemo(() => licenceDateBounds(todayISO()), []);
   const [odometer, setOdometer] = useState("");
   const [borgAmount, setBorgAmount] = useState("");
   const [borgMethod, setBorgMethod] = useState<"cash" | "card">("cash");
@@ -99,7 +109,7 @@ export default function CheckinWizard() {
       ) : null}
 
       {!finished && step === 1 ? (
-        <StepShell step={1} total={TOTAL} title="Verify booking and balance" onNext={() => setStep(2)}>
+        <StepShell step={1} total={TOTAL} title="Verify booking, balance and licence" onNext={() => setStep(2)} nextDisabled={!data.license}>
           <div className="wiz-card">
             {b.priceLines.map((l) => (
               <div className="wiz-row" key={l.label}><span className="muted">{l.label}</span><span>{money(l.cents, b.currency)}</span></div>
@@ -123,22 +133,38 @@ export default function CheckinWizard() {
               <div className="wiz-row"><span className="muted">Driver on licence</span><span>{data.license.nameOnLicense}</span></div>
               <div className="wiz-row"><span className="muted">Country</span><span>{data.license.issuingCountry}</span></div>
               <div className="wiz-row"><span className="muted">Valid until</span><span>{data.license.expiryDate}</span></div>
+              <div className="wiz-row"><span className="muted">Priced as</span><span>{b.youngDriver ? "Young driver, fee charged" : "No young driver fee"}</span></div>
             </div>
           ) : (
             <div className="wiz-card">
-              <p className="wiz-sub">Desk booking, no licence on file. Note the driver details (the photo in the next step is the licence copy).</p>
-              <input className="wiz-input" placeholder="Driver name" value={driverName} onChange={(e) => setDriverName(e.target.value)} />
-              <div style={{ height: 8 }} />
-              <input className="wiz-input" placeholder="Licence number" value={driverLicense} onChange={(e) => setDriverLicense(e.target.value)} />
-              <div style={{ height: 8 }} />
-              <button type="button" className="wiz-btn" disabled={busy || !driverName.trim()} onClick={guarded(async () => {
-                await put({ notes: `Driver: ${driverName.trim()}${driverLicense.trim() ? `, licence ${driverLicense.trim()}` : ""}` });
-                toast.show({ type: "success", message: "Driver details saved" });
+              <p className="wiz-sub">No licence on file yet. Type it in from the card. The number and date of birth are stored encrypted.</p>
+              <div className="wiz-fields">
+                <input className="wiz-input" placeholder="Name on licence" value={licence.nameOnLicense} onChange={(e) => setLicence({ ...licence, nameOnLicense: e.target.value })} />
+                <input className="wiz-input" placeholder="Licence number" value={licence.licenseNumber} onChange={(e) => setLicence({ ...licence, licenseNumber: e.target.value })} />
+                <input className="wiz-input" placeholder="Issuing country" value={licence.issuingCountry} onChange={(e) => setLicence({ ...licence, issuingCountry: e.target.value })} />
+                <label className="wiz-label">Date of birth<DatePicker id="lic-dob" min={licenceBounds.dob.min} max={licenceBounds.dob.max} value={licence.dob} onChange={(iso) => setLicence({ ...licence, dob: iso })} ariaLabel="Date of birth" /></label>
+                <label className="wiz-label">Issue date<DatePicker id="lic-issue" min={licenceBounds.issueDate.min} max={licenceBounds.issueDate.max} value={licence.issueDate} onChange={(iso) => setLicence({ ...licence, issueDate: iso })} ariaLabel="Licence issue date" /></label>
+                <label className="wiz-label">Expiry date<DatePicker id="lic-expiry" min={licenceBounds.expiryDate.min} max={licenceBounds.expiryDate.max} value={licence.expiryDate} onChange={(iso) => setLicence({ ...licence, expiryDate: iso })} ariaLabel="Licence expiry date" /></label>
+              </div>
+              <button type="button" className="wiz-btn" disabled={busy || Object.values(licence).some((v) => !v.trim())} onClick={guarded(async () => {
+                const res = await apiPut<LicenceSaveResult>(`/api/admin/bookings/${bookingId}/license`, licence);
+                setLicenceCheck(res);
+                setLicence({ ...blankLicence });
+                await reload();
+                toast.show({ type: "success", message: "Licence saved" });
               })}>
-                Save driver details
+                Save licence
               </button>
             </div>
           )}
+          {licenceCheck?.mismatch ? (
+            <p className="wiz-warn" role="status">
+              {licenceCheck.band === "young"
+                ? `The licence says young driver. This booking was priced without the fee (${money(b.youngDriverFeeCents, b.currency)}). Collect it at the desk or change the price in the booking.`
+                : `The driver is not a young driver, but the booking includes the young driver fee (${money(b.youngDriverFeeCents, b.currency)}). Refund it or change the price in the booking.`}
+            </p>
+          ) : null}
+          {!data.license ? <p className="wiz-sub">Save the licence to continue.</p> : null}
         </StepShell>
       ) : null}
 
