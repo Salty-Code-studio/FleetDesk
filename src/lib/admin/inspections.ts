@@ -134,6 +134,12 @@ export interface HandoverPayload {
     startAt: string; endAt: string; currency: string;
     subtotalCents: number; amountPaidCents: number; balanceDueCents: number;
     priceLines: HandoverPriceLine[];
+    /** Whether the booking was priced with the young driver fee (the claimed
+     *  band when no licence came with the booking). */
+    youngDriver: boolean;
+    /** What the young driver fee comes to for this stay at today's rate, so
+     *  check-in can name the amount when the licence disagrees with the claim. */
+    youngDriverFeeCents: number;
   };
   vehicle: { id: string; name: string; plate: string; class: string; depositCents: number | null };
   customer: { name: string | null; email: string; phone: string | null };
@@ -161,6 +167,7 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
 
   const policy = await getLatestPolicy("rental_terms");
   const insp = await db.select().from(inspections).where(eq(inspections.bookingId, bookingId));
+  const settings = await getSettings();
 
   const breakdown = b.priceBreakdown as Partial<QuoteBreakdown> & { youngDriverCents?: number; adjustmentCents?: number };
   const subtotal = breakdown.subtotalCents ?? 0;
@@ -193,6 +200,8 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
       amountPaidCents: b.amountPaidCents,
       balanceDueCents: Math.max(0, subtotal - b.amountPaidCents),
       priceLines,
+      youngDriver: breakdown.youngDriver ?? false,
+      youngDriverFeeCents: breakdown.youngDriverCents || settings.youngDriverFeeCentsPerDay * (breakdown.days ?? 0),
     },
     vehicle: {
       id: row.vehicle.id, name: row.vehicle.name, plate: row.vehicle.plate,
