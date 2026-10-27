@@ -153,6 +153,20 @@ export interface HandoverPayload {
   inspections: { pickup: Inspection | null; return: Inspection | null };
 }
 
+/** The licence check for the handover. A row that will not decrypt (rotated
+ *  key, corrupt bytes) yields null instead of failing the whole handover,
+ *  which would lock the check-in, return and drawer views for that booking. */
+function safeLicenceCheck(
+  dobEnc: Buffer, bookingId: string, startAt: string, bookedYoung: boolean,
+  s: { minDriverAge: number; youngDriverAge: number },
+): LicenceCheck | null {
+  try {
+    return licenceCheckFor(decryptField(dobEnc, `driver_licenses:${bookingId}:dob`), startAt, bookedYoung, s);
+  } catch {
+    return null;
+  }
+}
+
 /** Everything both wizards and the drawer panel need, in ONE read (less clicking). */
 export async function getHandover(bookingId: string): Promise<HandoverPayload> {
   const db = await getDb();
@@ -217,9 +231,7 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
     license: license
       ? { nameOnLicense: license.nameOnLicense, issuingCountry: license.issuingCountry, expiryDate: license.expiryDate }
       : null,
-    licenceCheck: license
-      ? licenceCheckFor(decryptField(license.dobEnc, `driver_licenses:${b.id}:dob`), b.startAt, breakdown.youngDriver ?? false, settings)
-      : null,
+    licenceCheck: license ? safeLicenceCheck(license.dobEnc, b.id, b.startAt, breakdown.youngDriver ?? false, settings) : null,
     policy: policy ? { version: policy.version, body: policy.body } : null,
     inspections: {
       pickup: insp.find((i) => i.kind === "pickup") ?? null,
