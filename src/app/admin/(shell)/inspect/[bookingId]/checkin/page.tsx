@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * Check-in wizard (spec W4, 7 steps). Runs on the STAFF device (admin auth);
- * the device is handed to the customer only at step 6 (rules + signature).
- * Every write is a small PUT to the pickup inspection, so an interrupted
- * check-in resumes exactly where it stopped (state lives server-side).
+ * Check-in wizard (spec W4). Runs on the STAFF device (admin auth); the
+ * device is handed to the customer only for the rules and signature, behind a
+ * full-screen handover moment both ways (Flow Desk phase 5). Every write is a
+ * small PUT to the pickup inspection, so an interrupted check-in reopens on the
+ * first open step (state lives server-side, see wizard-progress.ts).
  */
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -12,13 +13,32 @@ import { apiGet, api, apiPut, type ApiError } from "@/app/admin/client";
 import { useToast } from "@/app/admin/_ui";
 import { DatePicker } from "@/components/ui";
 import { licenceDateBounds } from "@/lib/booking/license-bounds";
+import { siteConfig } from "@/lib/site-config";
+import { formatDateTime } from "@/lib/time/format";
 import {
-  ANGLES, PhotoCapture, FuelSelector, SignatureCanvas, StepShell,
+  checkinProgress, checkinResumeStep, checkinFinishLines, firstName, type CheckinFacts,
+} from "@/lib/admin/wizard-progress";
+import {
+  ANGLES, PhotoCapture, FuelSelector, SignatureCanvas, StepShell, HandScreen, FinishScreen, CheckList,
   capturePhoto, uploadBlob, money, fileUrl,
   type Handover, type InspectionDto,
 } from "../../wizard-ui";
 
-const TOTAL = 7;
+const KICKER = "Check-in";
+
+const factsOf = (h: Handover): CheckinFacts => {
+  const p = h.inspections.pickup;
+  return {
+    hasLicence: !!h.license,
+    licensePhotoKey: p?.licensePhotoKey ?? null,
+    photoLabels: (p?.photos ?? []).map((x) => x.label),
+    odometer: p?.odometer ?? null,
+    fuelLevel: p?.fuelLevel ?? null,
+    borgReceivedCents: p?.borgReceivedCents ?? null,
+    rulesSigned: !!p?.rulesSigned,
+    signatureKey: p?.signatureKey ?? null,
+  };
+};
 
 const blankLicence = { nameOnLicense: "", licenseNumber: "", issuingCountry: "", issueDate: "", expiryDate: "", dob: "" };
 const todayISO = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
@@ -43,6 +63,9 @@ export default function CheckinWizard() {
   const [signatureBlob, setSignatureBlob] = useState<Blob | null>(null);
   const [overrideNote, setOverrideNote] = useState("");
   const [damageNote, setDamageNote] = useState("");
+  // The rules step is three screens: give the phone, customer signs, give it back.
+  const [hand, setHand] = useState<"give" | "sign" | "return">("give");
+  const [doneLines, setDoneLines] = useState<string[] | null>(null);
 
   const insp: InspectionDto | null = data?.inspections.pickup ?? null;
 
@@ -57,6 +80,7 @@ export default function CheckinWizard() {
       .then((h) => {
         setOdometer(h.inspections.pickup?.odometer?.toString() ?? "");
         setBorgAmount((((h.inspections.pickup?.borgReceivedCents ?? h.vehicle.depositCents) ?? 0) / 100).toFixed(0));
+        setStep(checkinResumeStep(factsOf(h)));
       })
       .catch((e: ApiError) => toast.show({ type: "error", message: e.message }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,6 +115,19 @@ export default function CheckinWizard() {
   if (!data) return <main className="wiz-page"><p className="wiz-sub">Loading booking...</p></main>;
 
   const b = data.booking;
+  const progress = checkinProgress(factsOf(data));
+  const ring = { done: progress.done, total: progress.items.length };
+  const who = firstName(data.customer.name, data.customer.email);
+  const goToSign = () => { setHand(insp?.signatureKey && insp.rulesSigned ? "return" : "give"); setStep(6); };
+
+  if (doneLines) {
+    return (
+      <main className="wiz-page">
+        <FinishScreen word="Out." title="The car is on the road" lines={doneLines} doneLabel="Back to Today" onDone={() => router.push("/admin")} />
+      </main>
+    );
+  }
+
   const finished = b.status === "picked_up" || b.status === "completed";
 
   return (
@@ -106,7 +143,7 @@ export default function CheckinWizard() {
       ) : null}
 
       {!finished && step === 1 ? (
-        <StepShell step={1} total={TOTAL} title="Verify booking, balance and licence" onNext={() => setStep(2)} nextDisabled={!data.license}>
+        <StepShell kicker={KICKER} ring={ring} title="Verify booking, balance and licence" onNext={() => setStep(2)} nextDisabled={!data.license}>
           <div className="wiz-card">
             {b.priceLines.map((l) => (
               <div className="wiz-row" key={l.label}><span className="muted">{l.label}</span><span>{money(l.cents, b.currency)}</span></div>
@@ -115,7 +152,7 @@ export default function CheckinWizard() {
             <div className="wiz-row"><strong>Balance due at pickup</strong><strong>{money(b.balanceDueCents, b.currency)}</strong></div>
           </div>
           {b.balanceDueCents > 0 ? (
-            <button type="button" className="wiz-btn primary" disabled={busy} onClick={guarded(async () => {
+            <button type="button" className="wiz-btn" disabled={busy} onClick={guarded(async () => {
               await api(`/api/admin/bookings/${bookingId}/desk-payment`, { amountCents: b.balanceDueCents });
               await reload();
               toast.show({ type: "success", message: "Balance recorded as collected at the desk" });
@@ -167,7 +204,7 @@ export default function CheckinWizard() {
       ) : null}
 
       {!finished && step === 2 ? (
-        <StepShell step={2} total={TOTAL} title="Licence photo" onBack={() => setStep(1)} onNext={() => setStep(3)} nextDisabled={!insp?.licensePhotoKey}>
+        <StepShell kicker={KICKER} ring={ring} title="Licence photo" onBack={() => setStep(1)} onNext={() => setStep(3)} nextDisabled={!insp?.licensePhotoKey}>
           <p className="wiz-sub">Photograph the driver&apos;s licence. It lands in private storage, admin eyes only.</p>
           <PhotoCapture label="Licence" photoKey={insp?.licensePhotoKey ?? null} onFile={async (file) => {
             const key = await capturePhoto(file, { category: "license", bookingId });
@@ -177,7 +214,7 @@ export default function CheckinWizard() {
       ) : null}
 
       {!finished && step === 3 ? (
-        <StepShell step={3} total={TOTAL} title="Walk-around photos" onBack={() => setStep(2)} onNext={() => setStep(4)} nextDisabled={!anglesDone}>
+        <StepShell kicker={KICKER} ring={ring} title="Walk-around photos" onBack={() => setStep(2)} onNext={() => setStep(4)} nextDisabled={!anglesDone}>
           <p className="wiz-sub">Six angles, every car, every time. Add close-ups for existing damage.</p>
           {ANGLES.map((a) => (
             <div className="wiz-card" key={a.id}>
@@ -204,7 +241,7 @@ export default function CheckinWizard() {
 
       {!finished && step === 4 ? (
         <StepShell
-          step={4} total={TOTAL} title="Odometer and fuel"
+          kicker={KICKER} ring={ring} title="Odometer and fuel"
           onBack={() => setStep(3)}
           onNext={guarded(async () => {
             if (!odometer.trim()) throw new Error("Enter the odometer reading in whole kilometers");
@@ -222,14 +259,14 @@ export default function CheckinWizard() {
       ) : null}
 
       {!finished && step === 5 ? (
-        <StepShell step={5} total={TOTAL} title="Borg (security deposit)" onBack={() => setStep(4)} onNext={() => setStep(6)}>
+        <StepShell kicker={KICKER} ring={ring} title="Borg (security deposit)" onBack={() => setStep(4)} onNext={goToSign}>
           <p className="wiz-sub">Refundable, handed back at return. Record what you received.</p>
           <input className="wiz-input" inputMode="numeric" placeholder={`Amount in ${b.currency}`} value={borgAmount} onChange={(e) => setBorgAmount(e.target.value.replace(/\D/g, ""))} />
           <div className="wiz-choice">
             <button type="button" className={borgMethod === "cash" ? "on" : ""} onClick={() => setBorgMethod("cash")}>Cash</button>
             <button type="button" className={borgMethod === "card" ? "on" : ""} onClick={() => setBorgMethod("card")}>Card</button>
           </div>
-          <button type="button" className="wiz-btn primary" disabled={busy || !borgAmount} onClick={guarded(async () => {
+          <button type="button" className="wiz-btn" disabled={busy || !borgAmount} onClick={guarded(async () => {
             await put({ borgReceivedCents: Number(borgAmount) * 100, borgMethod });
             toast.show({ type: "success", message: "Borg recorded" });
           })}>
@@ -237,7 +274,7 @@ export default function CheckinWizard() {
           </button>
           <button type="button" className="wiz-btn ghost" disabled={busy} onClick={guarded(async () => {
             await put({ borgReceivedCents: null, borgMethod: null });
-            setStep(6);
+            goToSign();
           })}>
             No borg for this rental
           </button>
@@ -245,55 +282,66 @@ export default function CheckinWizard() {
         </StepShell>
       ) : null}
 
-      {!finished && step === 6 ? (
-        <StepShell step={6} total={TOTAL} title="Rules and signature" onBack={() => setStep(5)} onNext={() => setStep(7)} nextDisabled={!insp?.signatureKey || !insp?.rulesSigned}>
-          <p className="wiz-sub">Hand the device to the customer to read and sign.</p>
+      {!finished && step === 6 && hand === "give" ? (
+        <HandScreen
+          backWord={siteConfig.siteName}
+          title={`Hand the phone to ${who}`}
+          body={`${who} reads the rental rules and signs with a finger. The phone comes back to you after.`}
+          goLabel="Show me the rules"
+          onGo={() => setHand("sign")}
+          onBack={() => setStep(5)}
+        />
+      ) : null}
+
+      {!finished && step === 6 && hand === "sign" ? (
+        <StepShell kicker={KICKER} ring={ring} title="Read the rules, then sign" onBack={() => setHand("give")} onNext={() => setHand("return")} nextLabel="I'm done" nextDisabled={!insp?.signatureKey || !insp?.rulesSigned}>
           <div className="wiz-policy">{data.policy?.body ?? "No rental terms published yet."}</div>
           <button type="button" className="wiz-btn" disabled={busy || insp?.rulesSigned} onClick={guarded(async () => {
             await put({ rulesSigned: true, acceptedPolicyVersion: data.policy?.version ?? 0 });
           })}>
-            {insp?.rulesSigned ? "Rules accepted" : "Customer accepts the rules"}
+            {insp?.rulesSigned ? "Rules accepted" : "I accept the rules"}
           </button>
           <SignatureCanvas onBlob={setSignatureBlob} />
-          <button type="button" className="wiz-btn primary" disabled={busy || !signatureBlob} onClick={guarded(async () => {
+          <button type="button" className="wiz-btn" disabled={busy || !signatureBlob} onClick={guarded(async () => {
             const key = await uploadBlob(signatureBlob!, { category: "signature", bookingId });
             await put({ signatureKey: key, agreementSigned: true });
             toast.show({ type: "success", message: "Signature saved" });
           })}>
             Save signature
           </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           {insp?.signatureKey ? <img src={fileUrl(insp.signatureKey)} alt="Saved signature" style={{ maxHeight: 80 }} /> : null}
         </StepShell>
       ) : null}
 
+      {!finished && step === 6 && hand === "return" ? (
+        <HandScreen
+          backWord={siteConfig.siteName}
+          title={`Thanks, ${who}`}
+          body="All signed. Please hand the phone back to the desk."
+          goLabel="Back at the desk"
+          onGo={() => setStep(7)}
+        />
+      ) : null}
+
       {!finished && step === 7 ? (
         <StepShell
-          step={7} total={TOTAL} title="Finish check-in"
-          onBack={() => setStep(6)}
+          kicker={KICKER} ring={ring} title="Finish check-in"
+          onBack={goToSign}
           onNext={guarded(async () => {
             await api(`/api/admin/bookings/${bookingId}/inspection/pickup/complete`,
               b.status === "pending" ? { overrideNote: overrideNote.trim() } : {});
-            toast.show({ type: "success", message: "Checked in. Contract is on its way to the customer." });
-            router.push("/admin");
+            setDoneLines(checkinFinishLines({
+              vehicle: data.vehicle.name, plate: data.vehicle.plate, customer: who, email: data.customer.email,
+              returnAt: formatDateTime(b.endAt), currency: b.currency,
+              balanceDueCents: b.balanceDueCents, wentOutUnpaid: b.status === "pending",
+              borgReceivedCents: insp?.borgReceivedCents ?? null, borgMethod: insp?.borgMethod ?? null,
+            }));
           })}
           nextLabel="Complete check-in"
           nextDisabled={busy || (b.status === "pending" && overrideNote.trim().length < 3)}
         >
-          <div className="wiz-card">
-            {[
-              { label: "Balance settled", ok: b.balanceDueCents === 0 },
-              { label: "Licence photo", ok: !!insp?.licensePhotoKey },
-              { label: "Six walk-around angles", ok: anglesDone },
-              { label: "Odometer and fuel", ok: insp?.odometer !== null && insp?.fuelLevel !== null },
-              { label: "Borg recorded", ok: insp?.borgReceivedCents !== null },
-              { label: "Rules accepted and signed", ok: !!insp?.rulesSigned && !!insp?.signatureKey },
-            ].map((c) => (
-              <div className="wiz-check" key={c.label}>
-                <span>{c.label}</span>
-                <span className={`state ${c.ok ? "ok" : "todo"}`}>{c.ok ? "done" : "open"}</span>
-              </div>
-            ))}
-          </div>
+          <CheckList items={[{ label: "Balance settled", ok: b.balanceDueCents === 0 }, ...progress.items]} />
           {b.status === "pending" ? (
             <div className="wiz-card">
               <p className="wiz-sub">This booking is not paid online yet. A desk override note is required to hand the car over anyway.</p>

@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Check-out wizard (spec W4, 4 steps). Return photos render SIDE-BY-SIDE with
+ * Check-out wizard (spec W4). Reopens on the first open step and ends on a
+ * finish screen that says what got done (Flow Desk phase 5). Return photos render SIDE-BY-SIDE with
  * the pickup photo of the same angle so new damage is obvious at a glance.
  * A return photo is only REQUIRED where the operator flags new damage: every
  * angle defaults to "same as pickup" (no photo needed); choosing "new damage"
@@ -14,13 +15,30 @@ import { useParams, useRouter } from "next/navigation";
 import { apiGet, api, apiPut, type ApiError } from "@/app/admin/client";
 import { useToast } from "@/app/admin/_ui";
 import {
-  ANGLES, PhotoCapture, FuelSelector, StepShell,
+  checkoutProgress, checkoutResumeStep, checkoutFinishLines, type CheckoutFacts,
+} from "@/lib/admin/wizard-progress";
+import {
+  ANGLES, PhotoCapture, FuelSelector, StepShell, FinishScreen, CheckList,
   capturePhoto, money, fileUrl, FUEL_LABELS,
   pendingReturnPhotoAngles,
   type Handover, type InspectionDto, type ReturnDamageChoice,
 } from "../../wizard-ui";
 
-const TOTAL = 4;
+const KICKER = "Check-out";
+
+const factsOf = (h: Handover): CheckoutFacts => {
+  const r = h.inspections.return;
+  return {
+    // A damage photo can be uploaded before step one saves its flags; photos
+    // without flags mean the review was never saved, so resume on it.
+    reviewSaved: r !== null && (r.damageFlags.length > 0 || r.photos.length === 0),
+    odometer: r?.odometer ?? null,
+    fuelLevel: r?.fuelLevel ?? null,
+    borgReceivedCents: h.inspections.pickup?.borgReceivedCents ?? null,
+    borgReturnedCents: r?.borgReturnedCents ?? null,
+    keysReturned: !!r?.keysReturned,
+  };
+};
 
 type DamageChoice = ReturnDamageChoice;
 
@@ -42,6 +60,7 @@ export default function CheckoutWizard() {
   const [borgChoice, setBorgChoice] = useState<"full" | "partial" | "withheld" | null>(null);
   const [partialReturned, setPartialReturned] = useState("");
   const [withheldReason, setWithheldReason] = useState("");
+  const [doneLines, setDoneLines] = useState<string[] | null>(null);
 
   const pickup: InspectionDto | null = data?.inspections.pickup ?? null;
   const ret: InspectionDto | null = data?.inspections.return ?? null;
@@ -54,7 +73,24 @@ export default function CheckoutWizard() {
 
   useEffect(() => {
     reload()
-      .then((h) => setOdometer(h.inspections.return?.odometer?.toString() ?? ""))
+      .then((h) => {
+        setOdometer(h.inspections.return?.odometer?.toString() ?? "");
+        // Flags saved on an earlier visit come back as "new damage" choices,
+        // so resuming past step one cannot silently drop them.
+        const flagged = h.inspections.return?.damageFlags ?? [];
+        if (flagged.length) {
+          setChoices((cur) => {
+            const next = { ...cur };
+            for (const a of ANGLES) if (flagged.some((f) => f.note.startsWith(`${a.label}: `))) next[a.id] = "new";
+            return next;
+          });
+          setNotes(Object.fromEntries(ANGLES.flatMap((a) => {
+            const f = flagged.find((x) => x.note.startsWith(`${a.label}: `));
+            return f ? [[a.id, f.note.slice(a.label.length + 2)]] : [];
+          })));
+        }
+        setStep(checkoutResumeStep(factsOf(h)));
+      })
       .catch((e: ApiError) => toast.show({ type: "error", message: e.message }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId]);
@@ -97,6 +133,16 @@ export default function CheckoutWizard() {
   const received = pickup?.borgReceivedCents ?? null;
   const finished = b.status === "completed";
   const newDamageAngles = ANGLES.filter((a) => choices[a.id] === "new");
+  const progress = checkoutProgress(factsOf(data));
+  const ring = { done: progress.done, total: progress.items.length };
+
+  if (doneLines) {
+    return (
+      <main className="wiz-page">
+        <FinishScreen word="Back." title="The car is home" lines={doneLines} doneLabel="Back to Today" onDone={() => router.push("/admin")} />
+      </main>
+    );
+  }
 
   return (
     <main className="wiz-page">
@@ -112,7 +158,7 @@ export default function CheckoutWizard() {
 
       {!finished && step === 1 ? (
         <StepShell
-          step={1} total={TOTAL} title="Return photos"
+          kicker={KICKER} ring={ring} title="Return photos"
           onNext={guarded(async () => {
             for (const a of newDamageAngles) {
               if (!notes[a.id]?.trim()) throw new Error(`Add a note for the new damage on: ${a.label}`);
@@ -163,7 +209,7 @@ export default function CheckoutWizard() {
 
       {!finished && step === 2 ? (
         <StepShell
-          step={2} total={TOTAL} title="Odometer and fuel"
+          kicker={KICKER} ring={ring} title="Odometer and fuel"
           onBack={() => setStep(1)}
           onNext={guarded(async () => {
             if (!odometer.trim()) throw new Error("Enter the odometer reading in whole kilometers");
@@ -188,7 +234,7 @@ export default function CheckoutWizard() {
 
       {!finished && step === 3 ? (
         <StepShell
-          step={3} total={TOTAL} title="Borg return and keys"
+          kicker={KICKER} ring={ring} title="Borg return and keys"
           onBack={() => setStep(2)}
           onNext={guarded(async () => {
             if (received !== null) {
@@ -236,30 +282,21 @@ export default function CheckoutWizard() {
 
       {!finished && step === 4 ? (
         <StepShell
-          step={4} total={TOTAL} title="Finish check-out"
+          kicker={KICKER} ring={ring} title="Finish check-out"
           onBack={() => setStep(3)}
           onNext={guarded(async () => {
             await api(`/api/admin/bookings/${bookingId}/inspection/return/complete`, {});
-            toast.show({ type: "success", message: "Checked out. Booking completed." });
-            router.push("/admin");
+            const km = ret?.odometer != null && pickup?.odometer != null ? Math.max(0, ret.odometer - pickup.odometer) : null;
+            setDoneLines(checkoutFinishLines({
+              vehicle: data.vehicle.name, plate: data.vehicle.plate, currency: b.currency, kmDriven: km,
+              borgReceivedCents: received, borgReturnedCents: ret?.borgReturnedCents ?? null,
+              damageCount: ret?.damageFlags.length ?? 0,
+            }));
           })}
           nextLabel="Complete check-out"
           nextDisabled={busy}
         >
-          <div className="wiz-card">
-            {[
-              { label: "Return photos", ok: returnPhotosReady },
-              { label: "Damage review saved", ok: step > 1 },
-              { label: "Odometer and fuel", ok: ret?.odometer !== null && ret?.fuelLevel !== null },
-              { label: "Keys returned", ok: !!ret?.keysReturned },
-              { label: "Borg settled", ok: received === null || ret?.borgReturnedCents !== null },
-            ].map((c) => (
-              <div className="wiz-check" key={c.label}>
-                <span>{c.label}</span>
-                <span className={`state ${c.ok ? "ok" : "todo"}`}>{c.ok ? "done" : "open"}</span>
-              </div>
-            ))}
-          </div>
+          <CheckList items={progress.items} />
           {(ret?.damageFlags.length ?? 0) > 0 ? (
             <p className="wiz-sub">New damage flagged: the owner gets a warning bell and the summary email mentions it.</p>
           ) : null}

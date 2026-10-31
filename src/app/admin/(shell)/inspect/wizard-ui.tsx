@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { getCsrfToken } from "@/app/admin/client";
+import { ringFraction } from "@/lib/admin/wizard-progress";
 import "./inspect.css";
 
 export const ANGLES = [
@@ -215,7 +216,7 @@ export function SignatureCanvas({ onBlob }: { onBlob: (blob: Blob | null) => voi
       g.lineWidth = 2.5;
       g.lineCap = "round";
       g.lineJoin = "round";
-      g.strokeStyle = "#15192f";
+      g.strokeStyle = "#1C2B2E"; // --ink: canvas strokes cannot read CSS vars
     }
   }, []);
 
@@ -274,9 +275,27 @@ export function SignatureCanvas({ onBlob }: { onBlob: (blob: Blob | null) => voi
   );
 }
 
-export function StepShell({ step, total, title, children, onBack, onNext, nextLabel, nextDisabled }: {
-  step: number;
-  total: number;
+/** Progress ring: fills with the share of the checklist that is done. Teal,
+ *  not coral, because progress is a status and coral only means "tap this". */
+export function ProgressRing({ done, total, label }: { done: number; total: number; label: string }) {
+  const f = ringFraction(done, total);
+  const r = 15.5;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className={`wiz-ring${f === 1 ? " is-full" : ""}`} role="img" aria-label={`${label} ${Math.round(f * 100)}% done`}>
+      <svg viewBox="0 0 36 36" aria-hidden="true">
+        <circle className="wiz-ring__track" cx="18" cy="18" r={r} />
+        <circle className="wiz-ring__fill" cx="18" cy="18" r={r} strokeDasharray={c} strokeDashoffset={c * (1 - f)} />
+        {f === 1 ? <path className="wiz-ring__tick" d="M12 18.5l4 4 8-9" /> : null}
+      </svg>
+    </span>
+  );
+}
+
+export function StepShell({ kicker, ring, title, children, onBack, onNext, nextLabel, nextDisabled }: {
+  /** "Check-in" or "Check-out": names the ring for screen readers too. */
+  kicker: string;
+  ring: { done: number; total: number };
   title: string;
   children: ReactNode;
   onBack?: () => void;
@@ -287,8 +306,11 @@ export function StepShell({ step, total, title, children, onBack, onNext, nextLa
   return (
     <section className="wiz-step">
       <header className="wiz-head">
-        <p className="wiz-count">Step {step} of {total}</p>
-        <h2>{title}</h2>
+        <ProgressRing done={ring.done} total={ring.total} label={kicker} />
+        <div>
+          <p className="wiz-count">{kicker}</p>
+          <h2>{title}</h2>
+        </div>
       </header>
       <div className="wiz-body">{children}</div>
       <footer className="wiz-footer">
@@ -298,5 +320,67 @@ export function StepShell({ step, total, title, children, onBack, onNext, nextLa
           : null}
       </footer>
     </section>
+  );
+}
+
+/**
+ * Full-screen handover moment (three planes): the operator's name huge and
+ * faint at the back, one sentence in the middle, one coral button on top.
+ * Used when the phone goes to the customer and when it comes back.
+ */
+export function HandScreen({ backWord, title, body, goLabel, onGo, onBack }: {
+  backWord: string;
+  title: string;
+  body: string;
+  goLabel: string;
+  onGo: () => void;
+  onBack?: () => void;
+}) {
+  return (
+    <section className="wiz-hand" aria-labelledby="wiz-hand-title">
+      <p className="wiz-hand__back" aria-hidden="true">{backWord}</p>
+      <div className="wiz-hand__mid">
+        <h2 id="wiz-hand-title">{title}</h2>
+        <p>{body}</p>
+      </div>
+      <div className="wiz-hand__top">
+        <button type="button" className="wiz-btn primary wiz-hand__go" onClick={onGo} autoFocus>{goLabel}</button>
+        {onBack ? <button type="button" className="wiz-btn ghost" onClick={onBack}>Back</button> : null}
+      </div>
+    </section>
+  );
+}
+
+/** The last screen: one huge word, what got done, one way out. */
+export function FinishScreen({ word, title, lines, doneLabel, onDone }: {
+  word: string;
+  title: string;
+  lines: string[];
+  doneLabel: string;
+  onDone: () => void;
+}) {
+  return (
+    <section className="wiz-finish" aria-labelledby="wiz-finish-title">
+      <p className="wiz-finish__word" aria-hidden="true">{word}</p>
+      <h2 id="wiz-finish-title">{title}</h2>
+      <ul className="wiz-finish__list">
+        {lines.map((l) => <li key={l}>{l}</li>)}
+      </ul>
+      <button type="button" className="wiz-btn primary" onClick={onDone} autoFocus>{doneLabel}</button>
+    </section>
+  );
+}
+
+/** Finish-screen checklist row, shared by both wizards' last step. */
+export function CheckList({ items }: { items: { label: string; ok: boolean }[] }) {
+  return (
+    <div className="wiz-card">
+      {items.map((c) => (
+        <div className="wiz-check" key={c.label}>
+          <span>{c.label}</span>
+          <span className={`state ${c.ok ? "ok" : "todo"}`}>{c.ok ? "done" : "open"}</span>
+        </div>
+      ))}
+    </div>
   );
 }

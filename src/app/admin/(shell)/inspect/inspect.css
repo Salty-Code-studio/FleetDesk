@@ -1,43 +1,85 @@
-/* Check-in / check-out wizard (mobile-first, Sand & Surf admin kit accents). */
+/* Check-in / check-out wizard (mobile-first). Flow Desk tokens: teal marks
+   what is chosen or done, coral only ever means "tap this" (.wiz-btn.primary). */
 .wiz-page { max-width: 640px; margin: 0 auto; padding: 12px 12px 96px; }
-.wiz-page h1 { font-size: 20px; margin: 8px 0 2px; }
-.wiz-sub { color: var(--muted, #828aa6); font-size: 13px; margin: 0 0 12px; }
+.wiz-page h1 { font-family: var(--font-display); font-size: var(--fs-big); letter-spacing: -.01em; margin: 8px 0 2px; }
+.wiz-sub { color: var(--ink-soft); font-size: var(--fs-small); margin: 0 0 12px; }
 .wiz-step { display: flex; flex-direction: column; gap: 12px; }
-.wiz-head h2 { font-size: 17px; margin: 2px 0 0; }
-.wiz-count { color: var(--muted, #828aa6); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+.wiz-head { display: flex; align-items: center; gap: 12px; }
+.wiz-head h2 { font-family: var(--font-display); font-size: 1.15rem; margin: 2px 0 0; }
+.wiz-count { color: var(--ink-mute); font-size: var(--fs-tiny); text-transform: uppercase; letter-spacing: .08em; margin: 0; }
 .wiz-body { display: flex; flex-direction: column; gap: 12px; }
 .wiz-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; }
-.wiz-btn { min-height: 48px; padding: 0 18px; border-radius: 10px; border: 1px solid #d7dbe8; background: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
-.wiz-btn.primary { background: #2348c7; border-color: #2348c7; color: #fff; }
-.wiz-btn.primary:disabled { opacity: .45; cursor: not-allowed; }
-.wiz-btn.ghost { background: transparent; }
-.wiz-btn.danger { border-color: #c0392b; color: #c0392b; }
-.wiz-card { border: 1px solid #e3e6f0; border-radius: 12px; padding: 12px; background: #fff; }
+
+/* progress ring */
+.wiz-ring { flex: none; width: 44px; height: 44px; }
+.wiz-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.wiz-ring__track { fill: none; stroke: var(--line); stroke-width: 3; }
+.wiz-ring__fill { fill: none; stroke: var(--teal); stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset .5s var(--ease); }
+.wiz-ring__tick { fill: none; stroke: var(--teal); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transform: rotate(90deg); transform-origin: 18px 18px; }
+.wiz-ring.is-full .wiz-ring__fill { stroke: var(--ok); }
+.wiz-ring.is-full .wiz-ring__tick { stroke: var(--ok); }
+
+/* buttons */
+.wiz-btn { min-height: 48px; padding: 0 18px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-size: 15px; font-weight: 600; cursor: pointer; transition: background var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease); }
+.wiz-btn:hover { border-color: var(--teal); }
+.wiz-btn:disabled { opacity: .5; cursor: not-allowed; }
+.wiz-btn.primary { background: var(--signal); border-color: transparent; color: var(--signal-ink); box-shadow: 0 8px 18px -10px rgba(255,111,89,.8); }
+.wiz-btn.primary:hover { background: var(--signal-600); }
+.wiz-btn.primary:disabled { opacity: .45; box-shadow: none; }
+.wiz-btn.ghost { background: transparent; border-color: transparent; color: var(--ink-soft); }
+.wiz-btn.danger { border-color: var(--danger); color: var(--danger); }
+
+.wiz-card { border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 12px; background: var(--panel); box-shadow: var(--shadow-sm); }
 .wiz-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 14px; }
-.wiz-row .muted { color: var(--muted, #828aa6); }
+.wiz-row .muted { color: var(--ink-soft); }
 .wiz-photo { display: flex; flex-direction: column; gap: 8px; }
-.wiz-photo img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; border: 1px solid #e3e6f0; }
-.wiz-photo-empty { display: flex; align-items: center; justify-content: center; height: 120px; border: 1px dashed #c9cede; border-radius: 10px; color: var(--muted, #828aa6); font-size: 13px; }
-.wiz-error { color: #c0392b; font-size: 13px; margin: 0; }
+.wiz-photo img { width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--line-soft); }
+.wiz-photo-empty { display: flex; align-items: center; justify-content: center; height: 120px; border: 1px dashed var(--line); border-radius: var(--radius-sm); color: var(--ink-mute); font-size: 13px; background: var(--fill); }
+.wiz-error { color: var(--danger); font-size: 13px; margin: 0; }
 .wiz-fuel { display: flex; gap: 4px; flex-wrap: wrap; }
-.wiz-fuel button { min-width: 44px; min-height: 44px; border-radius: 8px; border: 1px solid #d7dbe8; background: #fff; font-weight: 600; cursor: pointer; }
-.wiz-fuel button.on { background: #2348c7; border-color: #2348c7; color: #fff; }
-.wiz-sig { width: 100%; height: 180px; border: 1px solid #d7dbe8; border-radius: 10px; background: #fff; touch-action: none; display: block; }
-.wiz-policy { max-height: 260px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; line-height: 1.6; border: 1px solid #e3e6f0; border-radius: 10px; padding: 12px; background: #fafbfe; }
+.wiz-fuel button { min-width: 44px; min-height: 44px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-weight: 600; cursor: pointer; }
+.wiz-fuel button.on { background: var(--teal); border-color: var(--teal); color: var(--sand); }
+.wiz-sig { width: 100%; height: 180px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; touch-action: none; display: block; }
+.wiz-policy { max-height: 260px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; line-height: 1.6; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 12px; background: var(--fill); }
 .wiz-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .wiz-compare figure { margin: 0; }
-.wiz-compare figcaption { font-size: 12px; color: var(--muted, #828aa6); margin-bottom: 4px; }
-.wiz-compare img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid #e3e6f0; }
-.wiz-input { min-height: 48px; border: 1px solid #d7dbe8; border-radius: 10px; padding: 0 12px; font-size: 16px; width: 100%; }
+.wiz-compare figcaption { font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+.wiz-compare img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line-soft); }
+.wiz-input { min-height: 48px; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 12px; font-size: 16px; width: 100%; background: #fff; color: var(--ink); }
 textarea.wiz-input { min-height: 72px; padding: 10px 12px; }
 .wiz-choice { display: flex; gap: 8px; flex-wrap: wrap; }
-.wiz-choice button { flex: 1 1 30%; min-height: 48px; border-radius: 10px; border: 1px solid #d7dbe8; background: #fff; font-weight: 600; cursor: pointer; }
-.wiz-choice button.on { background: #2348c7; border-color: #2348c7; color: #fff; }
-.wiz-check { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 4px; }
-.wiz-check .state { font-weight: 700; }
-.wiz-check .state.ok { color: #1d7a4f; }
-.wiz-check .state.todo { color: #c0392b; }
+.wiz-choice button { flex: 1 1 30%; min-height: 48px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-weight: 600; cursor: pointer; }
+.wiz-choice button.on { background: var(--teal); border-color: var(--teal); color: var(--sand); }
+.wiz-check { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 4px; border-bottom: 1px solid var(--line-soft); }
+.wiz-check:last-child { border-bottom: 0; }
+.wiz-check .state { font-size: var(--fs-tiny); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.wiz-check .state.ok { color: var(--ok); }
+.wiz-check .state.todo { color: var(--ink-mute); }
 /* Licence capture at check-in (Flow Desk phase 4). */
 .wiz-fields { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.wiz-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-soft, #586a6d); }
-.wiz-warn { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 14px; color: var(--ink, #1c2b2e); background: var(--amber-bg, #f6e9cf); border-left: 3px solid var(--amber, #c98a33); }
+.wiz-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-soft); }
+.wiz-warn { margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; color: var(--ink); background: var(--amber-bg); border-left: 3px solid var(--amber); }
+
+/* Handover moment (Flow Desk phase 5): three planes. The operator's name is
+   huge and faint at the back, one sentence in the middle, one button on top. */
+.wiz-hand { position: relative; isolation: isolate; overflow: hidden; min-height: min(78vh, 640px); display: flex; flex-direction: column; justify-content: center; gap: 28px; padding: 32px 20px; border-radius: var(--radius-lg); background: var(--teal); color: var(--sand); box-shadow: var(--shadow-lg); animation: wiz-rise .35s var(--ease) both; }
+.wiz-hand__back { position: absolute; inset: auto -4% 6% -4%; z-index: -1; margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(5rem, 26vw, 11rem); line-height: .85; letter-spacing: -.04em; color: var(--sand); opacity: .07; white-space: nowrap; overflow: hidden; text-overflow: clip; pointer-events: none; }
+.wiz-hand__mid h2 { font-family: var(--font-display); font-size: var(--fs-huge); line-height: 1; letter-spacing: -.03em; margin: 0 0 12px; }
+.wiz-hand__mid p { margin: 0; max-width: 32ch; font-size: var(--fs-body); color: color-mix(in srgb, var(--sand) 78%, transparent); }
+.wiz-hand__top { display: flex; flex-direction: column; gap: 6px; }
+.wiz-hand__top .wiz-btn.ghost { color: color-mix(in srgb, var(--sand) 70%, transparent); }
+.wiz-hand__go { min-height: 56px; font-size: 16px; }
+
+/* Finish screen: one huge word, what got done, one way out. */
+.wiz-finish { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 28px 4px 0; animation: wiz-rise .35s var(--ease) both; }
+.wiz-finish__word { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(4.5rem, 22vw, 9rem); line-height: .85; letter-spacing: -.05em; color: var(--teal); }
+.wiz-finish h2 { font-family: var(--font-display); font-size: var(--fs-big); margin: 0; }
+.wiz-finish__list { list-style: none; margin: 0 0 8px; padding: 0; border-top: 1px solid var(--line); }
+.wiz-finish__list li { padding: 12px 0 12px 26px; border-bottom: 1px solid var(--line-soft); font-size: 15px; position: relative; }
+.wiz-finish__list li::before { content: ""; position: absolute; left: 4px; top: 18px; width: 10px; height: 6px; border-left: 2px solid var(--ok); border-bottom: 2px solid var(--ok); transform: rotate(-45deg); }
+
+@keyframes wiz-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .wiz-hand, .wiz-finish { animation: none; }
+  .wiz-ring__fill { transition: none; }
+}

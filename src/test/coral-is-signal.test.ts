@@ -14,6 +14,7 @@ const ALLOWED = [
   ".nbell__mark", // "mark all read" button text, a tap target
   ".brand-dot", ".side .logo b", // brand marks, not statuses
   ".bd-next", ".fc-add", // tap targets created by Phase 3 tasks
+  ".wiz-btn.primary", // the one Continue per wizard screen (Phase 5)
 ];
 /** Allowed only as the whole selector part. */
 const ALLOWED_EXACT = [
@@ -45,6 +46,7 @@ describe("coral is the signal colour, never a status", () => {
     "admin/admin.css", "admin/(shell)/board/dashboard.css", "admin/(shell)/today.css",
     "admin/(shell)/booking-drawer.css", "admin/(shell)/fleet/fleet.css", "admin/(shell)/reports/reports.css",
     "admin/(shell)/settings/settings.css", "admin/(shell)/catalog/catalog.css", "admin/(shell)/staff/staff.css", "admin/(shell)/setup-checklist.css",
+    "admin/(shell)/inspect/inspect.css",
   ]) {
     it(`${file} uses coral only on tap targets`, () => {
       const offenders = coralRules(read(file)).filter((sel) => !sel.split(",").map((x) => x.trim()).every(partAllowed));
