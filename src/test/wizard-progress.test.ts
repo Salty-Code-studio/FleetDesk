@@ -8,11 +8,11 @@ import {
 const ANGLES = ["front", "back", "left", "right", "interior", "dash"];
 
 const blankIn: CheckinFacts = {
-  hasLicence: false, licensePhotoKey: null, photoLabels: [], odometer: null, fuelLevel: null,
+  fresh: false, deskAttention: false, hasLicence: false, licensePhotoKey: null, photoLabels: [], odometer: null, fuelLevel: null,
   borgReceivedCents: null, rulesSigned: false, signatureKey: null,
 };
 const fullIn: CheckinFacts = {
-  hasLicence: true, licensePhotoKey: "l", photoLabels: [...ANGLES, "damage: dent"], odometer: 1200, fuelLevel: 8,
+  fresh: false, deskAttention: false, hasLicence: true, licensePhotoKey: "l", photoLabels: [...ANGLES, "damage: dent"], odometer: 1200, fuelLevel: 8,
   borgReceivedCents: 50000, rulesSigned: true, signatureKey: "s",
 };
 
@@ -61,6 +61,10 @@ describe("checkin resume step", () => {
   it("skips borg when it is already recorded", () =>
     expect(checkinResumeStep({ ...fullIn, rulesSigned: false, signatureKey: null })).toBe(6));
   it("lands on finish when everything is in", () => expect(checkinResumeStep(fullIn)).toBe(7));
+  it("a fresh check-in opens on step one even with a licence on file", () =>
+    expect(checkinResumeStep({ ...blankIn, fresh: true, hasLicence: true })).toBe(1));
+  it("a balance due or licence mismatch opens on step one", () =>
+    expect(checkinResumeStep({ ...fullIn, deskAttention: true })).toBe(1));
 });
 
 const blankOut: CheckoutFacts = {

@@ -29,9 +29,12 @@ const KICKER = "Check-out";
 const factsOf = (h: Handover): CheckoutFacts => {
   const r = h.inspections.return;
   return {
-    // A damage photo can be uploaded before step one saves its flags; photos
-    // without flags mean the review was never saved, so resume on it.
-    reviewSaved: r !== null && (r.damageFlags.length > 0 || r.photos.length === 0),
+    // A damage photo can be uploaded before step one saves its flags, so a
+    // photo without flags is unsaved, unless a later step already happened.
+    reviewSaved: r !== null && (
+      r.damageFlags.length > 0 || r.photos.length === 0
+      || r.odometer !== null || r.fuelLevel !== null || r.keysReturned || r.borgReturnedCents !== null
+    ),
     odometer: r?.odometer ?? null,
     fuelLevel: r?.fuelLevel ?? null,
     borgReceivedCents: h.inspections.pickup?.borgReceivedCents ?? null,
@@ -88,6 +91,15 @@ export default function CheckoutWizard() {
             const f = flagged.find((x) => x.note.startsWith(`${a.label}: `));
             return f ? [[a.id, f.note.slice(a.label.length + 2)]] : [];
           })));
+        }
+        // A settled borg comes back as the choice it was, so resuming on step
+        // three neither blocks Next nor invites overwriting a withhold.
+        const r = h.inspections.return;
+        const got = h.inspections.pickup?.borgReceivedCents ?? null;
+        if (r && got !== null && r.borgReturnedCents !== null) {
+          setBorgChoice(r.borgReturnedCents >= got ? "full" : r.borgReturnedCents === 0 ? "withheld" : "partial");
+          if (r.borgReturnedCents > 0 && r.borgReturnedCents < got) setPartialReturned(String(r.borgReturnedCents / 100));
+          setWithheldReason(r.borgWithheldReason ?? "");
         }
         setStep(checkoutResumeStep(factsOf(h)));
       })

@@ -29,6 +29,8 @@ const KICKER = "Check-in";
 const factsOf = (h: Handover): CheckinFacts => {
   const p = h.inspections.pickup;
   return {
+    fresh: p === null,
+    deskAttention: h.booking.balanceDueCents > 0 || !!h.licenceCheck?.mismatch,
     hasLicence: !!h.license,
     licensePhotoKey: p?.licensePhotoKey ?? null,
     photoLabels: (p?.photos ?? []).map((x) => x.label),
@@ -118,7 +120,11 @@ export default function CheckinWizard() {
   const progress = checkinProgress(factsOf(data));
   const ring = { done: progress.done, total: progress.items.length };
   const who = firstName(data.customer.name, data.customer.email);
-  const goToSign = () => { setHand(insp?.signatureKey && insp.rulesSigned ? "return" : "give"); setStep(6); };
+  const signedAlready = !!insp?.signatureKey && !!insp.rulesSigned;
+  // The canvas remounts blank on every hand change, so a kept blob would let
+  // "Save signature" upload ink the customer cannot see.
+  const moveHand = (to: "give" | "sign" | "return") => { setSignatureBlob(null); setHand(to); };
+  const goToSign = () => { moveHand(signedAlready ? "return" : "give"); setStep(6); };
 
   if (doneLines) {
     return (
@@ -288,13 +294,13 @@ export default function CheckinWizard() {
           title={`Hand the phone to ${who}`}
           body={`${who} reads the rental rules and signs with a finger. The phone comes back to you after.`}
           goLabel="Show me the rules"
-          onGo={() => setHand("sign")}
+          onGo={() => moveHand("sign")}
           onBack={() => setStep(5)}
         />
       ) : null}
 
       {!finished && step === 6 && hand === "sign" ? (
-        <StepShell kicker={KICKER} ring={ring} title="Read the rules, then sign" onBack={() => setHand("give")} onNext={() => setHand("return")} nextLabel="I'm done" nextDisabled={!insp?.signatureKey || !insp?.rulesSigned}>
+        <StepShell kicker={KICKER} ring={ring} title="Read the rules, then sign" onBack={() => moveHand("give")} onNext={() => moveHand("return")} nextLabel="I'm done" nextDisabled={!insp?.signatureKey || !insp?.rulesSigned}>
           <div className="wiz-policy">{data.policy?.body ?? "No rental terms published yet."}</div>
           <button type="button" className="wiz-btn" disabled={busy || insp?.rulesSigned} onClick={guarded(async () => {
             await put({ rulesSigned: true, acceptedPolicyVersion: data.policy?.version ?? 0 });
@@ -321,13 +327,16 @@ export default function CheckinWizard() {
           body="All signed. Please hand the phone back to the desk."
           goLabel="Back at the desk"
           onGo={() => setStep(7)}
+          onBack={() => moveHand("sign")}
         />
       ) : null}
 
       {!finished && step === 7 ? (
         <StepShell
           kicker={KICKER} ring={ring} title="Finish check-in"
-          onBack={goToSign}
+          // Once signed, Back skips the customer screens so the desk can still
+          // reach balance, odometer and borg.
+          onBack={signedAlready ? () => setStep(5) : goToSign}
           onNext={guarded(async () => {
             await api(`/api/admin/bookings/${bookingId}/inspection/pickup/complete`,
               b.status === "pending" ? { overrideNote: overrideNote.trim() } : {});

@@ -11,6 +11,10 @@ export interface ProgressItem { label: string; ok: boolean }
 export interface Progress { items: ProgressItem[]; done: number }
 
 export interface CheckinFacts {
+  /** No pickup inspection row yet: nobody has started this check-in. */
+  fresh: boolean;
+  /** Money or licence needs the desk on step one: balance due or an age mismatch. */
+  deskAttention: boolean;
   hasLicence: boolean;
   licensePhotoKey: string | null;
   photoLabels: string[];
@@ -22,7 +26,7 @@ export interface CheckinFacts {
 }
 
 export interface CheckoutFacts {
-  /** The return inspection exists: step one saves the damage review. */
+  /** Step one (the damage review) has been saved. */
   reviewSaved: boolean;
   odometer: number | null;
   fuelLevel: number | null;
@@ -51,10 +55,11 @@ export function checkinProgress(f: CheckinFacts): Progress {
   ]);
 }
 
-/** First step (1-7) whose gate is still open. Borg has no gate, so it is only
- *  revisited when nothing after it has happened yet. */
+/** First step (1-7) whose gate is still open. A fresh check-in, a balance due
+ *  or a licence mismatch always opens on step one so the desk sees the money.
+ *  Borg has no gate, so it is only revisited when nothing after it happened. */
 export function checkinResumeStep(f: CheckinFacts): number {
-  if (!f.hasLicence) return 1;
+  if (f.fresh || f.deskAttention || !f.hasLicence) return 1;
   if (!f.licensePhotoKey) return 2;
   if (!anglesIn(f.photoLabels)) return 3;
   if (!meterIn(f.odometer, f.fuelLevel)) return 4;
