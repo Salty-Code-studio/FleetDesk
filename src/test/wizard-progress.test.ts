@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   checkinProgress, checkinResumeStep, checkoutProgress, checkoutResumeStep,
-  ringFraction, firstName,
+  ringFraction, firstName, checkinFinishLines, checkoutFinishLines,
   type CheckinFacts, type CheckoutFacts,
 } from "../lib/admin/wizard-progress";
 
@@ -102,5 +102,47 @@ describe("firstName", () => {
     expect(firstName("Maria van Dijk", "m@x.com")).toBe("Maria");
     expect(firstName(null, "jan.de.vries@x.com")).toBe("jan.de.vries");
     expect(firstName("   ", "")).toBe("the customer");
+  });
+});
+
+describe("finish lines", () => {
+  const base = {
+    vehicle: "Jeep Wrangler", plate: "A-123", customer: "Maria", email: "m@x.com",
+    returnAt: "Aug 4, 2026 at 10:00", currency: "USD",
+    balanceDueCents: 0, wentOutUnpaid: false, borgReceivedCents: 50000, borgMethod: "card",
+  };
+
+  it("check-in says who has the car, money, borg and contract", () => {
+    expect(checkinFinishLines(base)).toEqual([
+      "Jeep Wrangler (A-123) is out with Maria until Aug 4, 2026 at 10:00.",
+      "Paid in full.",
+      "Borg USD 500 taken in card.",
+      "Contract on its way to m@x.com.",
+    ]);
+  });
+
+  it("check-in names an unpaid handover and a missing borg", () => {
+    const lines = checkinFinishLines({ ...base, wentOutUnpaid: true, borgReceivedCents: null });
+    expect(lines[1]).toContain("Went out unpaid");
+    expect(lines[2]).toBe("No borg taken.");
+  });
+
+  it("check-out reports km, borg kept and damage", () => {
+    expect(checkoutFinishLines({
+      vehicle: "Jeep", plate: "A-1", currency: "USD", kmDriven: 1234,
+      borgReceivedCents: 50000, borgReturnedCents: 35050, damageCount: 2,
+    })).toEqual([
+      "Jeep (A-1) is back on the lot.",
+      "1,234 km driven this rental.",
+      "Borg: USD 350.50 handed back, USD 149.50 kept.",
+      "2 new damages flagged. The owner gets a bell.",
+    ]);
+  });
+
+  it("check-out without borg or km stays short", () => {
+    expect(checkoutFinishLines({
+      vehicle: "Jeep", plate: "A-1", currency: "USD", kmDriven: null,
+      borgReceivedCents: null, borgReturnedCents: null, damageCount: 0,
+    })).toEqual(["Jeep (A-1) is back on the lot.", "No new damage."]);
   });
 });

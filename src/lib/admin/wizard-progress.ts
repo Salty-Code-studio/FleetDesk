@@ -93,3 +93,53 @@ export function firstName(name: string | null, email: string): string {
   const local = email.split("@")[0]?.trim();
   return local || "the customer";
 }
+
+/* ------------------------------ finish screens ------------------------------ */
+
+const cash = (cents: number, currency: string) =>
+  `${currency} ${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
+
+export interface CheckinSummary {
+  vehicle: string; plate: string; customer: string; email: string;
+  /** Already formatted for display, e.g. "Aug 4, 2026 at 10:00". */
+  returnAt: string; currency: string;
+  balanceDueCents: number; wentOutUnpaid: boolean;
+  borgReceivedCents: number | null; borgMethod: string | null;
+}
+
+/** What the check-in finish screen says got done, one fact per line. */
+export function checkinFinishLines(s: CheckinSummary): string[] {
+  return [
+    `${s.vehicle} (${s.plate}) is out with ${s.customer} until ${s.returnAt}.`,
+    s.wentOutUnpaid ? "Went out unpaid. Your override note is on the booking."
+      : s.balanceDueCents > 0 ? `${cash(s.balanceDueCents, s.currency)} still open on the booking.`
+      : "Paid in full.",
+    s.borgReceivedCents !== null
+      ? `Borg ${cash(s.borgReceivedCents, s.currency)} taken in ${s.borgMethod ?? "cash"}.`
+      : "No borg taken.",
+    `Contract on its way to ${s.email}.`,
+  ];
+}
+
+export interface CheckoutSummary {
+  vehicle: string; plate: string; currency: string;
+  kmDriven: number | null;
+  borgReceivedCents: number | null; borgReturnedCents: number | null;
+  damageCount: number;
+}
+
+export function checkoutFinishLines(s: CheckoutSummary): string[] {
+  const lines = [`${s.vehicle} (${s.plate}) is back on the lot.`];
+  if (s.kmDriven !== null) lines.push(`${s.kmDriven.toLocaleString("en-US")} km driven this rental.`);
+  if (s.borgReceivedCents !== null) {
+    const back = s.borgReturnedCents ?? 0;
+    const kept = s.borgReceivedCents - back;
+    lines.push(kept > 0
+      ? `Borg: ${cash(back, s.currency)} handed back, ${cash(kept, s.currency)} kept.`
+      : `Borg ${cash(back, s.currency)} handed back in full.`);
+  }
+  lines.push(s.damageCount > 0
+    ? `${s.damageCount === 1 ? "One new damage" : `${s.damageCount} new damages`} flagged. The owner gets a bell.`
+    : "No new damage.");
+  return lines;
+}
