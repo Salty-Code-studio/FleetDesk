@@ -200,7 +200,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-swatch--pending { background: var(--amber); }
 .pl-swatch--confirmed { background: var(--teal); }
 .pl-swatch--out { background: var(--pickup); }
-.pl-swatch--due { background: var(--pickup); box-shadow: inset 0 0 0 2px var(--amber); }
+.pl-swatch--due { background: var(--pickup); background: linear-gradient(180deg, var(--pickup) 50%, var(--amber) 50%); }
 .pl-swatch--late { background: var(--overdue); }
 .pl-swatch--unpaid { background: var(--danger); background: repeating-linear-gradient(180deg, var(--danger) 0 3px, color-mix(in srgb, var(--danger) 35%, var(--panel)) 3px 5px); }
 .pl-swatch--done { background: var(--ok); }
@@ -260,7 +260,8 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-bar--tone-pending .pl-bar__chip { color: var(--teal-700); }
 .pl-bar--tone-confirmed { --tone: var(--teal); }
 .pl-bar--tone-out { --tone: var(--pickup); cursor: default; }
-.pl-bar--tone-due { --tone: var(--pickup); --rail: var(--amber); cursor: default; }
+/* Due: half out-blue, half amber, so it reads as neither plain out nor pending. */
+.pl-bar--tone-due { --tone: var(--pickup); --rail: transparent; cursor: default; background-image: linear-gradient(180deg, var(--pickup) 0 50%, var(--amber) 50% 100%); background-size: 4px 100%; background-repeat: no-repeat; }
 .pl-bar--tone-due .pl-bar__chip { background: var(--amber); color: var(--teal-700); }
 .pl-bar--tone-late { --tone: var(--overdue); cursor: default; }
 .pl-bar--tone-done { --tone: var(--ok); cursor: default; }

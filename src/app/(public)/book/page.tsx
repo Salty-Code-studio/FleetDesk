@@ -482,10 +482,9 @@ export default function BookPage() {
                       onChange={() => { setDriverAge("under"); setStepError(""); }} />
                     <span className="grow">Under {cfg.minDriverAge}</span>
                   </label>
-                  {driverAge === "under" && (
-                    <p className="note" role="alert">Sorry, the main driver must be {cfg.minDriverAge} or older. Another driver who is old enough can book instead.</p>
-                  )}
-                  <p className="note">The main driver must be {cfg.minDriverAge} or older. We check the licence at pick-up.</p>
+                  {driverAge === "under"
+                    ? <p className="note" role="alert">Sorry, the main driver must be {cfg.minDriverAge} or older. Another driver who is old enough can book instead.</p>
+                    : <p className="note">The main driver must be {cfg.minDriverAge} or older. We check the licence at pick-up.</p>}
                 </div>
 
                 <div className="hero-list" role="radiogroup" aria-label="Car type">
