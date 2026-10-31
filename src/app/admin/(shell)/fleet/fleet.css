@@ -180,8 +180,7 @@
   padding: .25rem .6rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--panel); /* fallback where color-mix is unsupported */
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: var(--panel);
   color: var(--ink-soft);
   font: inherit;
   font-size: .72rem;
@@ -194,3 +193,7 @@
 .fc-card--skeleton { box-shadow: none; }
 .fc-card--skeleton .fc-card__body { gap: .55rem; }
 @media (prefers-reduced-motion: reduce) { .fc-card { transition: none; } }
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  .fc-card__edit { background-color: color-mix(in srgb, var(--panel) 92%, transparent); }
+}

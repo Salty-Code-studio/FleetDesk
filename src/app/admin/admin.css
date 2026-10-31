@@ -202,7 +202,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .pl-swatch--out { background: var(--pickup); }
 .pl-swatch--due { background: var(--pickup); background: linear-gradient(180deg, var(--pickup) 50%, var(--amber) 50%); }
 .pl-swatch--late { background: var(--overdue); }
-.pl-swatch--unpaid { background: var(--danger); background: repeating-linear-gradient(180deg, var(--danger) 0 3px, color-mix(in srgb, var(--danger) 35%, var(--panel)) 3px 5px); }
+.pl-swatch--unpaid { background: repeating-linear-gradient(180deg, var(--danger) 0 3px, var(--danger-bg) 3px 5px); }
 .pl-swatch--done { background: var(--ok); }
 .pl-swatch--blocked { background: repeating-linear-gradient(45deg, var(--sand-2) 0 3px, var(--line) 3px 6px); border: 1px solid var(--line); }
 
@@ -238,15 +238,17 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   --rail: var(--tone); /* left edge; due and unpaid change it so bars too short for a chip still differ */
   position: absolute; top: 6px; height: 34px; border-radius: 9px;
   display: flex; align-items: center; gap: .4rem; padding: 0 .5rem 0 .6rem;
-  background: var(--panel); /* fallback where color-mix is unsupported */
+  background: var(--panel); /* tinted below where color-mix is supported */
   border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--tone) 12%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--tone) 28%, var(--line));
   box-shadow: inset 4px 0 0 var(--rail), var(--shadow-sm);
   color: var(--teal); font-family: var(--font-body); font-size: .78rem; font-weight: 600;
   overflow: hidden; white-space: nowrap; cursor: grab; touch-action: none; user-select: none;
   container-type: inline-size;
   transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  /* longhands only, so the due and unpaid rail images are never reset */
+  .pl-bar { background-color: color-mix(in srgb, var(--tone) 12%, var(--panel)); border-color: color-mix(in srgb, var(--tone) 28%, var(--line)); }
 }
 .pl-bar:hover { transform: translateY(-1px); box-shadow: inset 4px 0 0 var(--rail), var(--shadow-md); }
 .pl-bar--tone-pending:active, .pl-bar--tone-confirmed:active { cursor: grabbing; }

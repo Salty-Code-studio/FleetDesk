@@ -1,7 +1,7 @@
 // src/app/admin/(shell)/page.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, ADMIN_MUTATED, type ApiError } from "../client";
 import { Skeleton, EmptyState, useToast } from "@/app/admin/_ui";
@@ -50,12 +50,21 @@ export default function TodayPage() {
   const [sheetId, setSheetId] = useState<string | null>(null);
   const toast = useToast();
 
+  // Refreshes can overlap (focus plus a write); only the latest may land, and
+  // nothing lands after unmount.
+  const seq = useRef(0);
+  useEffect(() => () => { seq.current = -1; }, []);
+
   /** quiet = a background refresh: no toast, the stale note says it instead. */
   const load = useCallback(async (quiet = false) => {
+    const mine = ++seq.current;
     try {
-      setBoard(await apiGet<TodayView>("/api/admin/today"));
+      const next = await apiGet<TodayView>("/api/admin/today");
+      if (mine !== seq.current) return;
+      setBoard(next);
       setFailed(false);
     } catch (e) {
+      if (mine !== seq.current) return;
       setFailed(true);
       if (!quiet) toast.show({ type: "error", message: (e as ApiError).message });
     }
