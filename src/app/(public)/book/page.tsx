@@ -56,7 +56,7 @@ interface WizardStorage {
   customer?: { name: string; email: string; phone: string };
   paymentOption?: "deposit" | "full";
   acceptTerms?: boolean;
-  driverAge?: "" | "young" | "standard";
+  driverAge?: "" | "under" | "young" | "standard";
 }
 
 function readWizardStorage(): WizardStorage {
@@ -105,7 +105,7 @@ export default function BookPage() {
   // wave-05: booking-config knobs (age band labels + fee) and the claimed age
   // band. It prices the booking; the desk checks the licence at pick-up.
   const [cfg, setCfg] = useState({ minDriverAge: 18, youngDriverAge: 21, youngDriverFeeCentsPerDay: 0 });
-  const [driverAge, setDriverAge] = useState<"" | "young" | "standard">("");
+  const [driverAge, setDriverAge] = useState<"" | "under" | "young" | "standard">("");
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -355,7 +355,7 @@ export default function BookPage() {
   // users land in the right place.
   function validateStep(n: Screen): string {
     const problem = validateScreen(n, {
-      selectedClass, pickup, ret, pickupTime, retTime, driverAge, customer, acceptTerms,
+      selectedClass, pickup, ret, pickupTime, retTime, driverAge, customer, acceptTerms, minDriverAge: cfg.minDriverAge,
       available: avail ? avail.available : null,
     });
     if (!problem) return "";
@@ -395,7 +395,7 @@ export default function BookPage() {
   // WizardStorage, so this guards the (now also persisted) age claim too in
   // case it's ever missing, rather than silently letting the button stay
   // enabled with an unset / reset claim.
-  const canReserve = !busy && acceptTerms && !!avail?.available && !!driverAge;
+  const canReserve = !busy && acceptTerms && !!avail?.available && !!driverAge && driverAge !== "under";
 
   return (
     <div className="wrap book-grid">
@@ -477,6 +477,14 @@ export default function BookPage() {
                       onChange={() => { setDriverAge("standard"); setStepError(""); }} />
                     <span className="grow">Age {cfg.youngDriverAge} or older</span>
                   </label>
+                  <label className="opt">
+                    <input type="radio" name="driver-age" checked={driverAge === "under"}
+                      onChange={() => { setDriverAge("under"); setStepError(""); }} />
+                    <span className="grow">Under {cfg.minDriverAge}</span>
+                  </label>
+                  {driverAge === "under" && (
+                    <p className="note" role="alert">Sorry, the main driver must be {cfg.minDriverAge} or older. Another driver who is old enough can book instead.</p>
+                  )}
                   <p className="note">The main driver must be {cfg.minDriverAge} or older. We check the licence at pick-up.</p>
                 </div>
 

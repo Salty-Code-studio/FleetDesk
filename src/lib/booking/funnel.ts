@@ -9,7 +9,11 @@ export type Screen = 1 | 2 | 3;
 export interface FunnelState {
   selectedClass: string;
   pickup: string; ret: string; pickupTime: string; retTime: string;
-  driverAge: "" | "young" | "standard";
+  /** "under" is the honest answer for a driver below the minimum age: it stops
+   *  the booking here instead of at the desk after payment. */
+  driverAge: "" | "under" | "young" | "standard";
+  /** The operator's minimum driver age, for the "under" message. */
+  minDriverAge?: number;
   /** Availability of the chosen class for the chosen dates; null = not checked yet. */
   available: boolean | null;
   customer: { name: string; email: string; phone: string };
@@ -27,6 +31,9 @@ export function validateScreen(n: Screen, s: FunnelState): ScreenProblem | null 
     if (!s.pickupTime) return { message: "Please choose a pick-up time.", field: "#pickup-time" };
     if (!s.retTime) return { message: "Please choose a return time.", field: "#ret-time" };
     if (!s.driverAge) return { message: "Please tell us the main driver's age so we can show the right price." };
+    if (s.driverAge === "under") {
+      return { message: `Sorry, the main driver must be ${s.minDriverAge ?? 18} or older. We cannot rent to younger drivers.` };
+    }
     if (!s.selectedClass) return { message: "Please choose a car type to continue." };
     if (s.available === false) return { message: "No cars of this type are free on those dates." };
     return null;

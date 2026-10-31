@@ -26,6 +26,8 @@ describe("validateScreen", () => {
     expect(validateScreen(1, { ...ok, pickupTime: "" })?.field).toBe("#pickup-time");
     expect(validateScreen(1, { ...ok, retTime: "" })?.field).toBe("#ret-time");
     expect(validateScreen(1, { ...ok, driverAge: "" })?.message).toBe("Please tell us the main driver's age so we can show the right price.");
+    expect(validateScreen(1, { ...ok, driverAge: "under", minDriverAge: 21 })?.message)
+      .toBe("Sorry, the main driver must be 21 or older. We cannot rent to younger drivers.");
     expect(validateScreen(1, { ...ok, selectedClass: "" })?.message).toBe("Please choose a car type to continue.");
     expect(validateScreen(1, { ...ok, available: false })?.message).toBe("No cars of this type are free on those dates.");
   });
