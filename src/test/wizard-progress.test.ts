@@ -113,7 +113,7 @@ describe("finish lines", () => {
   };
 
   it("check-in says who has the car, money, borg and contract", () => {
-    expect(checkinFinishLines(base)).toEqual([
+    expect(checkinFinishLines(base).map((l) => l.text)).toEqual([
       "Jeep Wrangler (A-123) is out with Maria until Aug 4, 2026 at 10:00.",
       "Paid in full.",
       "Borg USD 500 taken in card.",
@@ -121,17 +121,21 @@ describe("finish lines", () => {
     ]);
   });
 
+  it("an open balance is marked open, not ticked", () => {
+    expect(checkinFinishLines({ ...base, balanceDueCents: 15000 })[1]).toEqual({ text: "USD 150 still open on the booking.", open: true });
+  });
+
   it("check-in names an unpaid handover and a missing borg", () => {
     const lines = checkinFinishLines({ ...base, wentOutUnpaid: true, borgReceivedCents: null });
-    expect(lines[1]).toContain("Went out unpaid");
-    expect(lines[2]).toBe("No borg taken.");
+    expect(lines[1]).toEqual({ text: "Went out unpaid. Your override note is on the booking.", open: true });
+    expect(lines[2]).toEqual({ text: "No borg taken." });
   });
 
   it("check-out reports km, borg kept and damage", () => {
     expect(checkoutFinishLines({
       vehicle: "Jeep", plate: "A-1", currency: "USD", kmDriven: 1234,
       borgReceivedCents: 50000, borgReturnedCents: 35050, damageCount: 2,
-    })).toEqual([
+    }).map((l) => l.text)).toEqual([
       "Jeep (A-1) is back on the lot.",
       "1,234 km driven this rental.",
       "Borg: USD 350.50 handed back, USD 149.50 kept.",
@@ -143,6 +147,6 @@ describe("finish lines", () => {
     expect(checkoutFinishLines({
       vehicle: "Jeep", plate: "A-1", currency: "USD", kmDriven: null,
       borgReceivedCents: null, borgReturnedCents: null, damageCount: 0,
-    })).toEqual(["Jeep (A-1) is back on the lot.", "No new damage."]);
+    })).toEqual([{ text: "Jeep (A-1) is back on the lot." }, { text: "No new damage." }]);
   });
 });

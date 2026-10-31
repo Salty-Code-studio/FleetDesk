@@ -15,7 +15,7 @@ import { useParams, useRouter } from "next/navigation";
 import { apiGet, api, apiPut, type ApiError } from "@/app/admin/client";
 import { useToast } from "@/app/admin/_ui";
 import {
-  checkoutProgress, checkoutResumeStep, checkoutFinishLines, type CheckoutFacts,
+  checkoutProgress, checkoutResumeStep, checkoutFinishLines, type CheckoutFacts, type FinishLine,
 } from "@/lib/admin/wizard-progress";
 import {
   ANGLES, PhotoCapture, FuelSelector, StepShell, FinishScreen, CheckList,
@@ -60,7 +60,7 @@ export default function CheckoutWizard() {
   const [borgChoice, setBorgChoice] = useState<"full" | "partial" | "withheld" | null>(null);
   const [partialReturned, setPartialReturned] = useState("");
   const [withheldReason, setWithheldReason] = useState("");
-  const [doneLines, setDoneLines] = useState<string[] | null>(null);
+  const [doneLines, setDoneLines] = useState<FinishLine[] | null>(null);
 
   const pickup: InspectionDto | null = data?.inspections.pickup ?? null;
   const ret: InspectionDto | null = data?.inspections.return ?? null;

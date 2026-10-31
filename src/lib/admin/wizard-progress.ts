@@ -107,17 +107,21 @@ export interface CheckinSummary {
   borgReceivedCents: number | null; borgMethod: string | null;
 }
 
+/** A finish-screen fact. `open` marks something still left to chase, so the
+ *  screen does not tick it off as done. */
+export interface FinishLine { text: string; open?: boolean }
+
 /** What the check-in finish screen says got done, one fact per line. */
-export function checkinFinishLines(s: CheckinSummary): string[] {
+export function checkinFinishLines(s: CheckinSummary): FinishLine[] {
   return [
-    `${s.vehicle} (${s.plate}) is out with ${s.customer} until ${s.returnAt}.`,
-    s.wentOutUnpaid ? "Went out unpaid. Your override note is on the booking."
-      : s.balanceDueCents > 0 ? `${cash(s.balanceDueCents, s.currency)} still open on the booking.`
-      : "Paid in full.",
-    s.borgReceivedCents !== null
+    { text: `${s.vehicle} (${s.plate}) is out with ${s.customer} until ${s.returnAt}.` },
+    s.wentOutUnpaid ? { text: "Went out unpaid. Your override note is on the booking.", open: true }
+      : s.balanceDueCents > 0 ? { text: `${cash(s.balanceDueCents, s.currency)} still open on the booking.`, open: true }
+      : { text: "Paid in full." },
+    { text: s.borgReceivedCents !== null
       ? `Borg ${cash(s.borgReceivedCents, s.currency)} taken in ${s.borgMethod ?? "cash"}.`
-      : "No borg taken.",
-    `Contract on its way to ${s.email}.`,
+      : "No borg taken." },
+    { text: `Contract on its way to ${s.email}.` },
   ];
 }
 
@@ -128,18 +132,18 @@ export interface CheckoutSummary {
   damageCount: number;
 }
 
-export function checkoutFinishLines(s: CheckoutSummary): string[] {
-  const lines = [`${s.vehicle} (${s.plate}) is back on the lot.`];
-  if (s.kmDriven !== null) lines.push(`${s.kmDriven.toLocaleString("en-US")} km driven this rental.`);
+export function checkoutFinishLines(s: CheckoutSummary): FinishLine[] {
+  const lines: FinishLine[] = [{ text: `${s.vehicle} (${s.plate}) is back on the lot.` }];
+  if (s.kmDriven !== null) lines.push({ text: `${s.kmDriven.toLocaleString("en-US")} km driven this rental.` });
   if (s.borgReceivedCents !== null) {
     const back = s.borgReturnedCents ?? 0;
     const kept = s.borgReceivedCents - back;
-    lines.push(kept > 0
+    lines.push({ text: kept > 0
       ? `Borg: ${cash(back, s.currency)} handed back, ${cash(kept, s.currency)} kept.`
-      : `Borg ${cash(back, s.currency)} handed back in full.`);
+      : `Borg ${cash(back, s.currency)} handed back in full.` });
   }
   lines.push(s.damageCount > 0
-    ? `${s.damageCount === 1 ? "One new damage" : `${s.damageCount} new damages`} flagged. The owner gets a bell.`
-    : "No new damage.");
+    ? { text: `${s.damageCount === 1 ? "One new damage" : `${s.damageCount} new damages`} flagged. The owner gets a bell.`, open: true }
+    : { text: "No new damage." });
   return lines;
 }

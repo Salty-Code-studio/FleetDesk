@@ -16,7 +16,7 @@ import { licenceDateBounds } from "@/lib/booking/license-bounds";
 import { siteConfig } from "@/lib/site-config";
 import { formatDateTime } from "@/lib/time/format";
 import {
-  checkinProgress, checkinResumeStep, checkinFinishLines, firstName, type CheckinFacts,
+  checkinProgress, checkinResumeStep, checkinFinishLines, firstName, type CheckinFacts, type FinishLine,
 } from "@/lib/admin/wizard-progress";
 import {
   ANGLES, PhotoCapture, FuelSelector, SignatureCanvas, StepShell, HandScreen, FinishScreen, CheckList,
@@ -65,7 +65,7 @@ export default function CheckinWizard() {
   const [damageNote, setDamageNote] = useState("");
   // The rules step is three screens: give the phone, customer signs, give it back.
   const [hand, setHand] = useState<"give" | "sign" | "return">("give");
-  const [doneLines, setDoneLines] = useState<string[] | null>(null);
+  const [doneLines, setDoneLines] = useState<FinishLine[] | null>(null);
 
   const insp: InspectionDto | null = data?.inspections.pickup ?? null;
 

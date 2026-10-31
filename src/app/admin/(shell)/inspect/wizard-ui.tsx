@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { getCsrfToken } from "@/app/admin/client";
-import { ringFraction } from "@/lib/admin/wizard-progress";
+import { ringFraction, type FinishLine } from "@/lib/admin/wizard-progress";
 import "./inspect.css";
 
 export const ANGLES = [
@@ -355,7 +355,7 @@ export function HandScreen({ backWord, title, body, goLabel, onGo, onBack }: {
 export function FinishScreen({ word, title, lines, doneLabel, onDone }: {
   word: string;
   title: string;
-  lines: string[];
+  lines: FinishLine[];
   doneLabel: string;
   onDone: () => void;
 }) {
@@ -364,7 +364,7 @@ export function FinishScreen({ word, title, lines, doneLabel, onDone }: {
       <p className="wiz-finish__word" aria-hidden="true">{word}</p>
       <h2 id="wiz-finish-title">{title}</h2>
       <ul className="wiz-finish__list">
-        {lines.map((l) => <li key={l}>{l}</li>)}
+        {lines.map((l) => <li key={l.text} className={l.open ? "is-open" : undefined}>{l.text}</li>)}
       </ul>
       <button type="button" className="wiz-btn primary" onClick={onDone} autoFocus>{doneLabel}</button>
     </section>

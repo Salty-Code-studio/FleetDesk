@@ -64,7 +64,7 @@ textarea.wiz-input { min-height: 72px; padding: 10px 12px; }
    huge and faint at the back, one sentence in the middle, one button on top. */
 .wiz-hand { position: relative; isolation: isolate; overflow: hidden; min-height: min(78vh, 640px); display: flex; flex-direction: column; justify-content: center; gap: 28px; padding: 32px 20px; border-radius: var(--radius-lg); background: var(--teal); color: var(--sand); box-shadow: var(--shadow-lg); animation: wiz-rise .35s var(--ease) both; }
 .wiz-hand__back { position: absolute; inset: auto -4% 6% -4%; z-index: -1; margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(5rem, 26vw, 11rem); line-height: .85; letter-spacing: -.04em; color: var(--sand); opacity: .07; white-space: nowrap; overflow: hidden; text-overflow: clip; pointer-events: none; }
-.wiz-hand__mid h2 { font-family: var(--font-display); font-size: var(--fs-huge); line-height: 1; letter-spacing: -.03em; margin: 0 0 12px; }
+.wiz-hand__mid h2 { color: var(--sand); font-family: var(--font-display); font-size: var(--fs-huge); line-height: 1; letter-spacing: -.03em; margin: 0 0 12px; }
 .wiz-hand__mid p { margin: 0; max-width: 32ch; font-size: var(--fs-body); color: color-mix(in srgb, var(--sand) 78%, transparent); }
 .wiz-hand__top { display: flex; flex-direction: column; gap: 6px; }
 .wiz-hand__top .wiz-btn.ghost { color: color-mix(in srgb, var(--sand) 70%, transparent); }
@@ -77,6 +77,8 @@ textarea.wiz-input { min-height: 72px; padding: 10px 12px; }
 .wiz-finish__list { list-style: none; margin: 0 0 8px; padding: 0; border-top: 1px solid var(--line); }
 .wiz-finish__list li { padding: 12px 0 12px 26px; border-bottom: 1px solid var(--line-soft); font-size: 15px; position: relative; }
 .wiz-finish__list li::before { content: ""; position: absolute; left: 4px; top: 18px; width: 10px; height: 6px; border-left: 2px solid var(--ok); border-bottom: 2px solid var(--ok); transform: rotate(-45deg); }
+
+.wiz-finish__list li.is-open::before { top: 21px; height: 0; border-left: 0; border-bottom: 2px solid var(--amber); transform: none; }
 
 @keyframes wiz-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
