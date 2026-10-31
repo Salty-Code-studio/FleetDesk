@@ -52,7 +52,9 @@ export const InspectionPatchSchema = z.object({
   rulesSigned: z.boolean().optional(),
   licenseCopyReceived: z.boolean().optional(),
   borgReceivedCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
-  borgMethod: z.enum(["cash", "card"]).nullable().optional(),
+  // "none" records the desk's "no borg for this rental" answer, so it is not
+  // mistaken for a question nobody asked yet.
+  borgMethod: z.enum(["cash", "card", "none"]).nullable().optional(),
   borgReturnedCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
   borgWithheldCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
   borgWithheldReason: z.string().trim().max(500).nullable().optional(),

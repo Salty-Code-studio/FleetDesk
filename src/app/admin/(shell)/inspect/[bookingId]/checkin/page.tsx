@@ -37,6 +37,7 @@ const factsOf = (h: Handover): CheckinFacts => {
     odometer: p?.odometer ?? null,
     fuelLevel: p?.fuelLevel ?? null,
     borgReceivedCents: p?.borgReceivedCents ?? null,
+    borgMethod: p?.borgMethod ?? null,
     rulesSigned: !!p?.rulesSigned,
     signatureKey: p?.signatureKey ?? null,
   };
@@ -279,7 +280,7 @@ export default function CheckinWizard() {
             Record borg received
           </button>
           <button type="button" className="wiz-btn ghost" disabled={busy} onClick={guarded(async () => {
-            await put({ borgReceivedCents: null, borgMethod: null });
+            await put({ borgReceivedCents: null, borgMethod: "none" });
             goToSign();
           })}>
             No borg for this rental

@@ -21,6 +21,8 @@ export interface CheckinFacts {
   odometer: number | null;
   fuelLevel: number | null;
   borgReceivedCents: number | null;
+  /** "none" = the desk chose no borg for this rental. */
+  borgMethod: string | null;
   rulesSigned: boolean;
   signatureKey: string | null;
 }
@@ -41,6 +43,7 @@ const tally = (items: ProgressItem[]): Progress => ({ items, done: items.filter(
 const anglesIn = (labels: string[]) => ANGLE_IDS.every((a) => labels.includes(a));
 const meterIn = (odometer: number | null, fuel: number | null) => odometer !== null && fuel !== null;
 const signed = (f: CheckinFacts) => f.rulesSigned && !!f.signatureKey;
+const borgAnswered = (f: CheckinFacts) => f.borgReceivedCents !== null || f.borgMethod === "none";
 
 export function checkinProgress(f: CheckinFacts): Progress {
   return tally([
@@ -48,9 +51,9 @@ export function checkinProgress(f: CheckinFacts): Progress {
     { label: "Licence photo", ok: !!f.licensePhotoKey },
     { label: "Six walk-around angles", ok: anglesIn(f.photoLabels) },
     { label: "Odometer and fuel", ok: meterIn(f.odometer, f.fuelLevel) },
-    // "No borg for this rental" stores null, the same as "not asked yet", so
-    // the borg only counts as handled once the customer has signed past it.
-    { label: "Borg", ok: f.borgReceivedCents !== null || signed(f) },
+    // Rows from before "none" existed stored null for "no borg", so a signed
+    // check-in also counts it as handled.
+    { label: "Borg", ok: borgAnswered(f) || signed(f) },
     { label: "Rules accepted and signed", ok: signed(f) },
   ]);
 }
@@ -64,7 +67,7 @@ export function checkinResumeStep(f: CheckinFacts): number {
   if (!anglesIn(f.photoLabels)) return 3;
   if (!meterIn(f.odometer, f.fuelLevel)) return 4;
   if (signed(f)) return 7;
-  return f.borgReceivedCents === null ? 5 : 6;
+  return borgAnswered(f) ? 6 : 5;
 }
 
 const borgSettled = (f: CheckoutFacts) => f.borgReceivedCents === null || f.borgReturnedCents !== null;

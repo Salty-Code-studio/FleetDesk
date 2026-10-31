@@ -32,7 +32,7 @@ export const inspections = pgTable("inspections", {
   rulesSigned: boolean("rules_signed").notNull().default(false),
   licenseCopyReceived: boolean("license_copy_received").notNull().default(false),
   borgReceivedCents: integer("borg_received_cents"),
-  borgMethod: text("borg_method"), // 'cash' | 'card' (validated by zod at the boundary)
+  borgMethod: text("borg_method"), // 'cash' | 'card' | 'none' (validated by zod at the boundary)
   borgReturnedCents: integer("borg_returned_cents"),
   borgWithheldCents: integer("borg_withheld_cents"),
   borgWithheldReason: text("borg_withheld_reason"),

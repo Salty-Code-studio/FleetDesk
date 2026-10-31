@@ -9,11 +9,11 @@ const ANGLES = ["front", "back", "left", "right", "interior", "dash"];
 
 const blankIn: CheckinFacts = {
   fresh: false, deskAttention: false, hasLicence: false, licensePhotoKey: null, photoLabels: [], odometer: null, fuelLevel: null,
-  borgReceivedCents: null, rulesSigned: false, signatureKey: null,
+  borgReceivedCents: null, borgMethod: null, rulesSigned: false, signatureKey: null,
 };
 const fullIn: CheckinFacts = {
   fresh: false, deskAttention: false, hasLicence: true, licensePhotoKey: "l", photoLabels: [...ANGLES, "damage: dent"], odometer: 1200, fuelLevel: 8,
-  borgReceivedCents: 50000, rulesSigned: true, signatureKey: "s",
+  borgReceivedCents: 50000, borgMethod: "card", rulesSigned: true, signatureKey: "s",
 };
 
 describe("checkin progress", () => {
@@ -40,6 +40,12 @@ describe("checkin progress", () => {
     expect(p.items.find((i) => i.label === "Borg")!.ok).toBe(true);
     const early = checkinProgress({ ...fullIn, borgReceivedCents: null, signatureKey: null, rulesSigned: false });
     expect(early.items.find((i) => i.label === "Borg")!.ok).toBe(false);
+  });
+
+  it("no borg counts as soon as the desk says so", () => {
+    const p = checkinProgress({ ...blankIn, borgMethod: "none" });
+    expect(p.items.find((i) => i.label === "Borg")!.ok).toBe(true);
+    expect(checkinResumeStep({ ...fullIn, borgReceivedCents: null, borgMethod: "none", rulesSigned: false, signatureKey: null })).toBe(6);
   });
 
   it("fuel level 0 (empty tank) still counts as recorded", () => {
