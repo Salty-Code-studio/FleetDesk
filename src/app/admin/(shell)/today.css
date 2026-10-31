@@ -44,3 +44,6 @@ span.td-row__who { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .td-row, .td-row__do, .td-progress i { transition: none; }
 }
+
+/* Background refresh failed: say so instead of showing a stale list as live. */
+.td-stale { position: relative; margin: 0; font-size: var(--fs-small); color: var(--ink-soft); display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }

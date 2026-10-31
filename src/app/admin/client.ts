@@ -9,6 +9,10 @@ export interface ApiError { status: number; message: string; code?: string; retr
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+/** Fired on window after every successful admin write, so live summaries
+ *  (setup checklist, Today) refresh in place instead of waiting for a reload. */
+export const ADMIN_MUTATED = "yabi:admin-mutated";
+
 async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   if (method !== "GET") {
@@ -33,6 +37,7 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
       retryAfter: res.headers.get("Retry-After"),
     } satisfies ApiError;
   }
+  if (method !== "GET" && typeof window !== "undefined") window.dispatchEvent(new Event(ADMIN_MUTATED));
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet } from "../client";
+import { apiGet, ADMIN_MUTATED } from "../client";
 import type { SetupProgress } from "@/lib/admin/setup-progress";
 import "./setup-checklist.css";
 
@@ -10,10 +10,15 @@ function useSetupProgress(): SetupProgress | null {
   const [p, setP] = useState<SetupProgress | null>(null);
   useEffect(() => {
     let live = true;
-    apiGet<SetupProgress>("/api/admin/setup-progress")
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const fetchNow = () => apiGet<SetupProgress>("/api/admin/setup-progress")
       .then((r) => { if (live) setP(r); })
-      .catch(() => { /* quiet: no checklist on error */ });
-    return () => { live = false; };
+      .catch(() => { /* quiet: keep the last checklist, or none */ });
+    // Saving a setting fires several writes in a row; refetch once they settle.
+    const onMutated = () => { clearTimeout(timer); timer = setTimeout(fetchNow, 250); };
+    void fetchNow();
+    window.addEventListener(ADMIN_MUTATED, onMutated);
+    return () => { live = false; clearTimeout(timer); window.removeEventListener(ADMIN_MUTATED, onMutated); };
   }, []);
   return p;
 }

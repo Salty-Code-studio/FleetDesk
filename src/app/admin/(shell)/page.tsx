@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, type ApiError } from "../client";
+import { apiGet, ADMIN_MUTATED, type ApiError } from "../client";
 import { Skeleton, EmptyState, useToast } from "@/app/admin/_ui";
 import type { TodayBoard, TodayItem } from "@/lib/admin/today";
 import { BookingDrawer } from "./booking-drawer";
@@ -50,18 +50,33 @@ export default function TodayPage() {
   const [sheetId, setSheetId] = useState<string | null>(null);
   const toast = useToast();
 
-  const load = useCallback(async () => {
+  /** quiet = a background refresh: no toast, the stale note says it instead. */
+  const load = useCallback(async (quiet = false) => {
     try {
       setBoard(await apiGet<TodayView>("/api/admin/today"));
       setFailed(false);
     } catch (e) {
       setFailed(true);
-      toast.show({ type: "error", message: (e as ApiError).message });
+      if (!quiet) toast.show({ type: "error", message: (e as ApiError).message });
     }
     setLoading(false);
   }, [toast]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // The desk leaves this tab open all day: refresh when it comes back into
+  // view and after any write (a handover finished in the sheet, say).
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") void load(true); };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener(ADMIN_MUTATED, refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener(ADMIN_MUTATED, refresh);
+    };
+  }, [load]);
 
   if (loading) {
     return (
@@ -99,6 +114,12 @@ export default function TodayPage() {
           <h1 className="td-hero__big">{h.big}<span className="td-hero__line"> {h.line}</span></h1>
           <p className="td-hero__tail">{h.tail}</p>
         </div>
+        {failed && (
+          <p className="td-stale" role="status">
+            Could not refresh. This is the last list we had.{" "}
+            <button type="button" className="btn btn--quiet" onClick={() => void load()}>Try again</button>
+          </p>
+        )}
         <div className="td-hero__top">
           {next && (next.href
             ? <Link className="btn btn--accent td-cta" href={next.href}>{next.action}</Link>
