@@ -22,33 +22,10 @@ export const LicenseSchema = z.object({
 
 export type LicenseInput = z.infer<typeof LicenseSchema>;
 
-/** Whole years from `dob` to `onDate` (both YYYY-MM-DD). */
-export function ageOn(dob: string, onDate: string): number {
-  const [by, bm, bd] = dob.split("-").map(Number) as [number, number, number];
-  const [oy, om, od] = onDate.split("-").map(Number) as [number, number, number];
-  let age = oy - by;
-  if (om < bm || (om === bm && od < bd)) age -= 1;
-  return age;
-}
+export { ageOn } from "@/lib/booking/age";
+import { ageOn } from "@/lib/booking/age";
 
-export type DriverAgeBand = "under_min" | "young" | "standard";
-
-/**
- * Classify the main driver's age at pick-up against the operator's thresholds
- * (workstream 5). under_min hard-rejects (validateLicense), young pays the
- * per-day fee, standard pays nothing extra. Pure so it is trivially testable
- * and reusable at quote and create time.
- */
-export function driverAgeBand(
-  dob: string,
-  pickupDate: string,
-  s: { minDriverAge: number; youngDriverAge: number },
-): DriverAgeBand {
-  const age = ageOn(dob, pickupDate);
-  if (age < s.minDriverAge) return "under_min";
-  if (age < s.youngDriverAge) return "young";
-  return "standard";
-}
+export { driverAgeBand, type DriverAgeBand } from "@/lib/booking/age";
 
 /**
  * Enforce the licence rules: each date must sit inside the same window the

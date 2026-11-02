@@ -24,13 +24,18 @@ beforeAll(async () => {
   });
 });
 
+// About two months ahead of the real clock, so the test never ages into
+// "pick-up cannot be in the past".
+const AHEAD = (() => { const d = new Date(Date.now() + 60 * 86_400_000); return d.toISOString().slice(0, 10); })();
+const AHEAD_END = (() => { const d = new Date(Date.now() + 64 * 86_400_000); return d.toISOString().slice(0, 10); })();
+
 function bookingInput(key: string) {
   return {
     vehicleSlug: "desk-car",
     // A few months out (well inside the default 365-day maxAdvanceDays), on
     // the hour, inside the default 08:00-18:00 Aruba opening hours.
-    startAt: "2026-11-02T10:00:00-04:00",
-    endAt: "2026-11-06T10:00:00-04:00",
+    startAt: `${AHEAD}T10:00:00-04:00`,
+    endAt: `${AHEAD_END}T10:00:00-04:00`,
     customer: { email: "guest@example.com", name: "Guest One", phone: "+599 785 0000" },
     addOns: [], insuranceTierId: null,
     license: {

@@ -5,6 +5,7 @@ const ok: FunnelState = {
   selectedClass: "SUV", pickup: "2027-01-10", ret: "2027-01-14", pickupTime: "09:00", retTime: "09:00",
   driverAge: "standard", available: true,
   customer: { name: "Sam", email: "sam@example.com", phone: "+297 555" }, acceptTerms: true,
+  driverDob: "1990-05-05", today: "2026-11-02", minDriverAge: 21,
 };
 
 describe("SCREENS", () => {
@@ -34,6 +35,12 @@ describe("validateScreen", () => {
 
   it("screen two never blocks", () => {
     expect(validateScreen(2, { ...ok, selectedClass: "", pickup: "" })).toBeNull();
+  });
+
+  it("screen three asks for the main driver's date of birth and refuses under-age", () => {
+    expect(validateScreen(3, { ...ok, driverDob: "" })?.field).toBe("#cust-dob");
+    expect(validateScreen(3, { ...ok, driverDob: "2030-01-01" })?.message).toMatch(/check the main driver's date of birth/);
+    expect(validateScreen(3, { ...ok, driverDob: "2010-01-01", driverAge: "under" })?.message).toMatch(/must be 21 or older/);
   });
 
   it("screen three asks for name, email, phone and the terms", () => {

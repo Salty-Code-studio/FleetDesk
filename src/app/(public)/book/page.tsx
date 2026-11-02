@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { DatePicker, TimeSelect } from "@/components/ui";
 import { paymentAmounts, depositSettingsFromSnapshot } from "@/lib/payments/amounts";
 import { SCREENS, validateScreen, screenFromStored, type Screen } from "@/lib/booking/funnel";
+import { driverAgeBand, plausibleDob } from "@/lib/booking/age";
+import { licenceDateBounds } from "@/lib/booking/license-bounds";
 
 interface ClassOption { class: string; fromDayCents: number; depositCents: number | null; cars: number; available: boolean | null; carSlug: string | null; photo: string | null }
 interface Tier { id: string; name: string; dailyPriceCents: number; coverage: string; isDefault: boolean }
@@ -106,6 +108,16 @@ export default function BookPage() {
   // band. It prices the booking; the desk checks the licence at pick-up.
   const [cfg, setCfg] = useState({ minDriverAge: 18, youngDriverAge: 21, youngDriverFeeCentsPerDay: 0 });
   const [driverAge, setDriverAge] = useState<"" | "under" | "young" | "standard">("");
+  // Asked on the last screen and never stored in the browser. Once given it
+  // decides the age band (and so the young driver fee), whatever was ticked on
+  // screen one; the server checks it again and refuses under-age drivers.
+  const [driverDob, setDriverDob] = useState("");
+  const dobBounds = useMemo(() => licenceDateBounds(todayISO()).dob, []);
+  useEffect(() => {
+    if (!driverDob || !pickup || !plausibleDob(driverDob, todayISO())) return;
+    const band = driverAgeBand(driverDob, pickup, cfg);
+    setDriverAge(band === "under_min" ? "under" : band);
+  }, [driverDob, pickup, cfg]);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -267,6 +279,7 @@ export default function BookPage() {
           idempotencyKey: idemKey,
           // The claimed age band prices the booking; check-in verifies it.
           youngDriver: driverAge === "young",
+          driverDob,
         }),
       });
       const data = await res.json();
@@ -356,6 +369,7 @@ export default function BookPage() {
   function validateStep(n: Screen): string {
     const problem = validateScreen(n, {
       selectedClass, pickup, ret, pickupTime, retTime, driverAge, customer, acceptTerms, minDriverAge: cfg.minDriverAge,
+      driverDob, today: todayISO(),
       available: avail ? avail.available : null,
     });
     if (!problem) return "";
@@ -395,7 +409,7 @@ export default function BookPage() {
   // WizardStorage, so this guards the (now also persisted) age claim too in
   // case it's ever missing, rather than silently letting the button stay
   // enabled with an unset / reset claim.
-  const canReserve = !busy && acceptTerms && !!avail?.available && !!driverAge && driverAge !== "under";
+  const canReserve = !busy && acceptTerms && !!avail?.available && !!driverAge && driverAge !== "under" && !!driverDob;
 
   return (
     <div className="wrap book-grid">
@@ -554,15 +568,18 @@ export default function BookPage() {
                   <label className="fld">Full name<input id="cust-name" required value={customer.name} onChange={(e) => { setCustomer({ ...customer, name: e.target.value }); setStepError(""); }} /></label>
                   <label className="fld">Email<input id="cust-email" type="email" required value={customer.email} onChange={(e) => { setCustomer({ ...customer, email: e.target.value }); setStepError(""); }} /></label>
                   <label className="fld">Phone<input id="cust-phone" required value={customer.phone} onChange={(e) => { setCustomer({ ...customer, phone: e.target.value }); setStepError(""); }} /></label>
+                  <label className="fld">Main driver&apos;s date of birth<DatePicker id="cust-dob" name="dob" required min={dobBounds.min} max={dobBounds.max} value={driverDob} onChange={(iso) => { setDriverDob(iso); setStepError(""); }} ariaLabel="Main driver's date of birth" /></label>
                 </div>
-                <p className="note">Bring your driver&apos;s licence when you pick up the car. We check it at the desk.</p>
+                {driverAge === "under" && driverDob
+                  ? <p className="note" role="alert">Sorry, the main driver must be {cfg.minDriverAge} or older on the pick-up date. Another driver who is old enough can book instead.</p>
+                  : <p className="note">The main driver must be {cfg.minDriverAge} or older. Bring your driver&apos;s licence to pick-up, we check it at the desk.</p>}
 
                 <dl className="recap">
                   <div className="recap-row"><dt>Car type</dt><dd>{selectedClass || "Not chosen yet"}</dd></div>
                   <div className="recap-row"><dt>Dates</dt><dd>{pickup && ret ? `Pick-up ${pickup} at ${pickupTime} to Return ${ret} at ${retTime}` : "Not set"}{breakdown ? ` · ${breakdown.days} day${breakdown.days !== 1 ? "s" : ""}` : ""}</dd></div>
                   <div className="recap-row"><dt>Insurance</dt><dd>{tiers.find((t) => t.id === tierId)?.name ?? "Basic"}</dd></div>
                   <div className="recap-row"><dt>Extras</dt><dd>{addOnsBody.length === 0 ? "None" : addons.filter((a) => (qty[a.id] ?? 0) > 0).map((a) => `${a.name}${(qty[a.id] ?? 0) > 1 ? ` ×${qty[a.id]}` : ""}`).join(", ")}</dd></div>
-                  <div className="recap-row"><dt>Driver age</dt><dd>{driverAge === "young" ? `${cfg.minDriverAge} to ${cfg.youngDriverAge - 1}` : driverAge === "standard" ? `${cfg.youngDriverAge} or older` : "Not set"}</dd></div>
+                  <div className="recap-row"><dt>Driver age</dt><dd>{driverAge === "young" ? `${cfg.minDriverAge} to ${cfg.youngDriverAge - 1}` : driverAge === "standard" ? `${cfg.youngDriverAge} or older` : driverAge === "under" ? `Under ${cfg.minDriverAge}` : "Not set"}</dd></div>
                   {breakdown && <div className="recap-row total"><dt>Rental total</dt><dd>{money(breakdown.subtotalCents, cur)}</dd></div>}
                 </dl>
 

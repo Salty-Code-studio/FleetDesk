@@ -14,11 +14,17 @@ export interface FunnelState {
   driverAge: "" | "under" | "young" | "standard";
   /** The operator's minimum driver age, for the "under" message. */
   minDriverAge?: number;
+  /** Main driver's date of birth (YYYY-MM-DD), asked on the last screen. */
+  driverDob?: string;
+  /** Today on the island (YYYY-MM-DD), to sanity-check the date of birth. */
+  today?: string;
   /** Availability of the chosen class for the chosen dates; null = not checked yet. */
   available: boolean | null;
   customer: { name: string; email: string; phone: string };
   acceptTerms: boolean;
 }
+
+import { plausibleDob } from "@/lib/booking/age";
 
 export interface ScreenProblem { message: string; field?: string }
 
@@ -42,6 +48,12 @@ export function validateScreen(n: Screen, s: FunnelState): ScreenProblem | null 
     if (!s.customer.name.trim()) return { message: "Please enter your full name.", field: "#cust-name" };
     if (!s.customer.email.trim()) return { message: "Please enter your email.", field: "#cust-email" };
     if (!s.customer.phone.trim()) return { message: "Please enter your phone number.", field: "#cust-phone" };
+    if (!s.driverDob) return { message: "Please enter the main driver's date of birth.", field: "#cust-dob" };
+    if (s.today && !plausibleDob(s.driverDob, s.today)) return { message: "Please check the main driver's date of birth.", field: "#cust-dob" };
+    // The page derives driverAge from the date of birth, so this is the real age.
+    if (s.driverAge === "under") {
+      return { message: `Sorry, the main driver must be ${s.minDriverAge ?? 18} or older on the pick-up date. Another driver who is old enough can book instead.`, field: "#cust-dob" };
+    }
     if (!s.acceptTerms) return { message: "Please accept the terms to reserve.", field: "#accept-terms" };
     if (s.available !== true) return { message: "Your dates are no longer available. Please go back and adjust them." };
   }

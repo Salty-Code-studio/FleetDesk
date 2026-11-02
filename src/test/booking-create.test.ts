@@ -128,28 +128,49 @@ describe("createBooking", () => {
     ).rejects.toThrow(/left for those dates/i);
   });
 
-  it("books without a licence and prices by the claimed age band", async () => {
-    await db.update(settings).set({ youngDriverFeeCentsPerDay: 1000 }).where(eq(settings.id, 1));
+  it("without a licence, the date of birth prices the booking, not the claimed band", async () => {
+    await db.update(settings).set({ youngDriverFeeCentsPerDay: 1000, minDriverAge: 21, youngDriverAge: 25 }).where(eq(settings.id, 1));
     try {
+      // Claims "standard" but is 22 at pick-up: the fee is added anyway.
       const young = await createBooking(input({
-        license: undefined, youngDriver: true,
+        license: undefined, youngDriver: false, driverDob: "2005-01-01",
         startAt: at("2027-06-01"), endAt: at("2027-06-04"), idempotencyKey: "nolic-young",
       }), TODAY);
       expect(young.breakdown.youngDriver).toBe(true);
       expect(young.breakdown.youngDriverCents).toBe(3000);
-      expect(young.priceAdjusted).toBe(false);
+      expect(young.priceAdjusted).toBe(true);
       const lic = await db.select().from(driverLicenses).where(eq(driverLicenses.bookingId, young.booking.id));
       expect(lic).toHaveLength(0);
 
       const standard = await createBooking(input({
-        license: undefined, youngDriver: false,
+        license: undefined, youngDriver: false, driverDob: "1980-03-03",
         startAt: at("2027-06-10"), endAt: at("2027-06-13"), idempotencyKey: "nolic-std",
       }), TODAY);
       expect(standard.breakdown.youngDriverCents).toBe(0);
       expect(standard.priceAdjusted).toBe(false);
     } finally {
-      await db.update(settings).set({ youngDriverFeeCentsPerDay: 1000 }).where(eq(settings.id, 1));
+      await db.update(settings).set({ youngDriverFeeCentsPerDay: 1000, minDriverAge: 18, youngDriverAge: 21 }).where(eq(settings.id, 1));
     }
+  });
+
+  it("refuses an under-age main driver before any payment", async () => {
+    await db.update(settings).set({ minDriverAge: 21, youngDriverAge: 25 }).where(eq(settings.id, 1));
+    try {
+      // 20 on the pick-up date, even though they turn 21 during the rental.
+      await expect(createBooking(input({
+        license: undefined, youngDriver: true, driverDob: "2007-06-05",
+        startAt: at("2027-06-01"), endAt: at("2027-06-10"), idempotencyKey: "nolic-under",
+      }), TODAY)).rejects.toThrow(/must be 21 or older/);
+    } finally {
+      await db.update(settings).set({ minDriverAge: 18, youngDriverAge: 21 }).where(eq(settings.id, 1));
+    }
+  });
+
+  it("refuses a booking with no licence and no date of birth, or an impossible one", async () => {
+    await expect(createBooking(input({ license: undefined, idempotencyKey: "nolic-nodob" }), TODAY))
+      .rejects.toThrow(/date of birth/);
+    await expect(createBooking(input({ license: undefined, driverDob: "2030-02-30", idempotencyKey: "nolic-baddob" }), TODAY))
+      .rejects.toThrow(/date of birth/);
   });
 
   it("never returns licence plaintext on the booking", async () => {

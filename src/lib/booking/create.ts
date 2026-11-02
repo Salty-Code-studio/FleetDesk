@@ -25,6 +25,7 @@ import { rentalDays, quote, type QuoteBreakdown } from "@/lib/booking/quote";
 import { paymentAmounts } from "@/lib/payments/charge";
 import { validateDates, checkAvailability } from "@/lib/booking/availability";
 import { LicenseSchema, validateLicense, encryptLicense, driverAgeBand } from "@/lib/booking/license";
+import { plausibleDob } from "@/lib/booking/age";
 import { addHoursIso, arubaDateOf, parseTs } from "@/lib/time/format";
 import { isoDateTime } from "@/lib/validation/iso-date";
 
@@ -47,6 +48,10 @@ export const BookingCreateSchema = z.object({
   // truth and createBooking reprices on mismatch (priceAdjusted). Without one,
   // the claim prices the booking and check-in verifies it.
   youngDriver: z.boolean().optional().default(false),
+  // Main driver's date of birth (YYYY-MM-DD). Without a licence it is the age
+  // gate: under the minimum age is refused before any payment, and the band
+  // it gives prices the young-driver fee. The licence still confirms it at check-in.
+  driverDob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD").optional(),
   idempotencyKey: z.string().trim().min(8).max(200),
 }).strict();
 
@@ -84,9 +89,9 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
   // Guardrails (throw 4xx on violation).
   validateDates(input.startAt, input.endAt, settings, nowIso);
   const pickupDateStr = arubaDateOf(input.startAt);
-  // Young-driver truth check (workstream 5): with a licence, the DOB decides
-  // the surcharge, never the claimed band. under_min never reaches the band.
-  // Without a licence the claim stands until check-in.
+  // Young-driver truth check (workstream 5): the date of birth decides the
+  // surcharge, never the claimed band: from the licence when one is sent,
+  // otherwise from driverDob, which also refuses under-age drivers up front.
   let youngDriver = input.youngDriver;
   if (input.license) {
     validateLicense(input.license, {
@@ -96,6 +101,14 @@ export async function createBooking(input: BookingCreateInput, nowIso: string): 
       today: arubaDateOf(nowIso),
     });
     youngDriver = driverAgeBand(input.license.dob, pickupDateStr, settings) === "young";
+  } else {
+    if (!input.driverDob) throw Errors.badRequest("Please enter the main driver's date of birth");
+    if (!plausibleDob(input.driverDob, arubaDateOf(nowIso))) throw Errors.badRequest("Please check the main driver's date of birth");
+    const band = driverAgeBand(input.driverDob, pickupDateStr, settings);
+    if (band === "under_min") {
+      throw Errors.badRequest(`Sorry, the main driver must be ${settings.minDriverAge} or older on the pick-up date`);
+    }
+    youngDriver = band === "young";
   }
   const priceAdjusted = youngDriver !== input.youngDriver;
 
