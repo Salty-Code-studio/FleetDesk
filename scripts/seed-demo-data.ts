@@ -109,7 +109,7 @@ async function main() {
   for (const type of ["rental_terms", "cancellation", "privacy"] as const) {
     const [have] = await db.select({ id: policies.id }).from(policies).where(eq(policies.type, type));
     if (!have) {
-      const body = readFileSync(path.join(__dirname, "demo-policies", `${type}.txt`), "utf8").trim();
+      const body = readFileSync(path.join(process.cwd(), "scripts", "demo-policies", `${type}.txt`), "utf8").trim();
       await db.insert(policies).values({ type, version: 1, body, publishedAt: new Date() });
     }
   }
