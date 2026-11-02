@@ -19,6 +19,8 @@ import { isProd } from "@/env";
  *   X-Frame-Options + CSP frame-ancestors 'none' .. Clickjacking defense.
  *   Referrer-Policy ............... Don't leak full URLs cross-origin.
  *   Permissions-Policy ............ Disable powerful browser features by default.
+ *       UI pages allow the camera for this origin only (check-in/out photos);
+ *       the API and any other origin never get it.
  *   Cross-Origin-* ................ Isolate the document (Spectre-class defense).
  *   Cache-Control (for API) ....... Prevent caching of potentially sensitive JSON.
  */
@@ -65,7 +67,7 @@ export function securityHeaders(opts: { ui?: boolean } = {}): Record<string, str
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+    "Permissions-Policy": `camera=${opts.ui ? "(self)" : "()"}, microphone=(), geolocation=(), browsing-topics=()`,
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Resource-Policy": "same-origin",
     "X-Permitted-Cross-Domain-Policies": "none",

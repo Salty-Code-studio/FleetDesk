@@ -7,7 +7,7 @@
  * renders through the same-origin /api/admin/files route because the strict
  * admin CSP (img-src 'self') forbids cross-origin storage URLs.
  */
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { getCsrfToken } from "@/app/admin/client";
 import { ringFraction, type FinishLine } from "@/lib/admin/wizard-progress";
 import "./inspect.css";
@@ -25,21 +25,6 @@ export type AngleId = (typeof ANGLES)[number]["id"];
 
 export const fileUrl = (key: string) => `/api/admin/files/${key}`;
 
-export type ReturnDamageChoice = "same" | "new";
-
-/**
- * Angles the operator marked "new damage" that still lack a return photo.
- * Check-out only requires a return photo where there is NEW damage — an
- * angle marked "same as pickup" (the default) needs none. The wizard step
- * can advance once this list is empty; a non-empty list names what's left.
- */
-export function pendingReturnPhotoAngles(
-  choices: Record<string, ReturnDamageChoice | undefined>,
-  hasReturnPhoto: (angleId: AngleId) => boolean,
-): AngleId[] {
-  return ANGLES.filter((a) => choices[a.id] === "new" && !hasReturnPhoto(a.id)).map((a) => a.id);
-}
-
 /* ---------- client mirrors of the server payloads (Task 5 shapes) ---------- */
 
 export interface InspectionDto {
@@ -49,6 +34,7 @@ export interface InspectionDto {
   fuelLevel: number | null;
   notes: string;
   photos: { key: string; label: string }[];
+  damageCheck: "none" | "found" | null;
   licensePhotoKey: string | null;
   signatureKey: string | null;
   contractPdfKey: string | null;
@@ -140,44 +126,148 @@ export async function capturePhoto(file: File, opts: UploadOpts): Promise<string
 
 /* ------------------------------- components ------------------------------- */
 
-export function PhotoCapture({ label, photoKey, onFile }: {
+/** True when this browser can show a live camera inside the page. */
+const canStream = () =>
+  typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
+
+/**
+ * Full-screen live camera: the back camera on a phone, the webcam on a laptop.
+ * One shutter button; the frame comes back as a JPEG File, so it goes through
+ * the same downscale + upload path as a picked file.
+ */
+export function CameraSheet({ label, onShot, onClose, onFallback }: {
+  label: string;
+  onShot: (file: File) => void;
+  onClose: () => void;
+  /** No camera or permission refused: hand over to the file picker instead. */
+  onFallback: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        const v = videoRef.current;
+        if (v) { v.srcObject = stream; void v.play().catch(() => undefined); }
+      })
+      .catch((e: Error) => {
+        setError(e.name === "NotAllowedError"
+          ? "Camera access was refused. Allow the camera in the browser, or upload a photo instead."
+          : "No camera found on this device. Upload a photo instead.");
+      });
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
+  const shoot = () => {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) return;
+    const c = document.createElement("canvas");
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
+    c.toBlob((blob) => {
+      if (blob) onShot(new File([blob], "camera.jpg", { type: "image/jpeg" }));
+    }, "image/jpeg", 0.9);
+  };
+
+  return (
+    <div className="wiz-cam" role="dialog" aria-modal="true" aria-label={`Camera: ${label}`}>
+      <p className="wiz-cam__label">{label}</p>
+      {error ? (
+        <div className="wiz-cam__error">
+          <p>{error}</p>
+          <button type="button" className="wiz-btn" onClick={onFallback}>Upload a photo</button>
+        </div>
+      ) : (
+        <video ref={videoRef} className="wiz-cam__video" playsInline muted autoPlay onLoadedData={() => setReady(true)} />
+      )}
+      <div className="wiz-cam__bar">
+        <button type="button" className="wiz-btn ghost wiz-cam__cancel" onClick={onClose}>Cancel</button>
+        {error ? null : (
+          <button type="button" className="wiz-btn primary wiz-cam__shutter" onClick={shoot} disabled={!ready} aria-label="Take photo">
+            Take photo
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One photo slot: "Take photo" opens the live camera (falls back to the
+ * phone's camera app where streaming is not available), "Upload" picks a file
+ * from the device. Both end in the same onFile.
+ */
+export function PhotoCapture({ label, photoKey, onFile, emptyText }: {
   label: string;
   photoKey: string | null;
   onFile: (file: File) => Promise<void>;
+  /** Text in the empty frame; defaults to "No <label> photo yet". */
+  emptyText?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [camOpen, setCamOpen] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const cameraAppRef = useRef<HTMLInputElement>(null);
+
+  const handle = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onFile(file);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    void handle(file);
+  };
+
+  const lower = label.toLowerCase();
   return (
     <div className="wiz-photo">
       {photoKey
         // eslint-disable-next-line @next/next/no-img-element
         ? <img src={fileUrl(photoKey)} alt={label} />
-        : <div className="wiz-photo-empty">No {label.toLowerCase()} photo yet</div>}
-      <button type="button" className="wiz-btn" disabled={busy} onClick={() => inputRef.current?.click()}>
-        {busy ? "Uploading..." : photoKey ? `Retake ${label.toLowerCase()}` : `Take ${label.toLowerCase()} photo`}
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        hidden
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          e.target.value = ""; // allow re-selecting the same file
-          if (!file) return;
-          setBusy(true);
-          setError("");
-          try {
-            await onFile(file);
-          } catch (err) {
-            setError((err as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
+        : <div className="wiz-photo-empty">{emptyText ?? `No ${lower} photo yet`}</div>}
+      <div className="wiz-photo__actions">
+        <button type="button" className="wiz-btn" disabled={busy} onClick={() => (canStream() ? setCamOpen(true) : cameraAppRef.current?.click())}>
+          {busy ? "Uploading..." : photoKey ? "Retake" : "Take photo"}
+        </button>
+        <button type="button" className="wiz-btn ghost" disabled={busy} onClick={() => uploadRef.current?.click()}>
+          Upload
+        </button>
+      </div>
+      {/* Phone camera app, used only where the page cannot stream the camera. */}
+      <input ref={cameraAppRef} type="file" accept="image/*" capture="environment" hidden onChange={pick} />
+      {/* Plain picker: gallery, files, or a photo taken earlier. */}
+      <input ref={uploadRef} type="file" accept="image/*" hidden onChange={pick} />
+      {camOpen ? (
+        <CameraSheet
+          label={label}
+          onClose={() => setCamOpen(false)}
+          onFallback={() => { setCamOpen(false); uploadRef.current?.click(); }}
+          onShot={(file) => { setCamOpen(false); void handle(file); }}
+        />
+      ) : null}
       {error ? <p className="wiz-error">{error}</p> : null}
     </div>
   );

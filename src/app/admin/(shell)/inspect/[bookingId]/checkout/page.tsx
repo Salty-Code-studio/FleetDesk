@@ -2,15 +2,13 @@
 
 /**
  * Check-out wizard (spec W4). Reopens on the first open step and ends on a
- * finish screen that says what got done (Flow Desk phase 5). Return photos render SIDE-BY-SIDE with
- * the pickup photo of the same angle so new damage is obvious at a glance.
- * A return photo is only REQUIRED where the operator flags new damage: every
- * angle defaults to "same as pickup" (no photo needed); choosing "new damage"
- * reveals the note field and the upload control for that angle only.
+ * finish screen that says what got done (Flow Desk phase 5). Step one asks one
+ * question: "No new damage" skips ahead; "New damage" asks for a note and a
+ * photo per damage. Damage already found at pickup is shown for comparison.
  * The borg button records returned in full / partial / withheld; a reason is
  * required whenever anything is withheld.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, api, apiPut, type ApiError } from "@/app/admin/client";
 import { useToast } from "@/app/admin/_ui";
@@ -18,10 +16,9 @@ import {
   checkoutProgress, checkoutResumeStep, checkoutFinishLines, type CheckoutFacts, type FinishLine,
 } from "@/lib/admin/wizard-progress";
 import {
-  ANGLES, PhotoCapture, FuelSelector, StepShell, FinishScreen, CheckList,
+  PhotoCapture, FuelSelector, StepShell, FinishScreen, CheckList,
   capturePhoto, money, fileUrl, FUEL_LABELS,
-  pendingReturnPhotoAngles,
-  type Handover, type InspectionDto, type ReturnDamageChoice,
+  type Handover, type InspectionDto,
 } from "../../wizard-ui";
 
 const KICKER = "Check-out";
@@ -43,8 +40,6 @@ const factsOf = (h: Handover): CheckoutFacts => {
   };
 };
 
-type DamageChoice = ReturnDamageChoice;
-
 export default function CheckoutWizard() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const router = useRouter();
@@ -54,12 +49,9 @@ export default function CheckoutWizard() {
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [odometer, setOdometer] = useState("");
-  // Every angle defaults to "same as pickup" (no photo required); the operator
-  // opts an angle INTO the photo requirement by marking it "new damage".
-  const [choices, setChoices] = useState<Record<string, DamageChoice>>(() =>
-    Object.fromEntries(ANGLES.map((a) => [a.id, "same" as DamageChoice])),
-  );
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  // "New damage" opens the photo list; each photo carries its own note.
+  const [newDamage, setNewDamage] = useState(false);
+  const [damageNote, setDamageNote] = useState("");
   const [borgChoice, setBorgChoice] = useState<"full" | "partial" | "withheld" | null>(null);
   const [partialReturned, setPartialReturned] = useState("");
   const [withheldReason, setWithheldReason] = useState("");
@@ -78,20 +70,8 @@ export default function CheckoutWizard() {
     reload()
       .then((h) => {
         setOdometer(h.inspections.return?.odometer?.toString() ?? "");
-        // Flags saved on an earlier visit come back as "new damage" choices,
-        // so resuming past step one cannot silently drop them.
-        const flagged = h.inspections.return?.damageFlags ?? [];
-        if (flagged.length) {
-          setChoices((cur) => {
-            const next = { ...cur };
-            for (const a of ANGLES) if (flagged.some((f) => f.note.startsWith(`${a.label}: `))) next[a.id] = "new";
-            return next;
-          });
-          setNotes(Object.fromEntries(ANGLES.flatMap((a) => {
-            const f = flagged.find((x) => x.note.startsWith(`${a.label}: `));
-            return f ? [[a.id, f.note.slice(a.label.length + 2)]] : [];
-          })));
-        }
+        // Flags saved on an earlier visit reopen the damage list.
+        if ((h.inspections.return?.damageFlags ?? []).length) setNewDamage(true);
         // A settled borg comes back as the choice it was, so resuming on step
         // three neither blocks Next nor invites overwriting a withhold.
         const r = h.inspections.return;
@@ -124,27 +104,33 @@ export default function CheckoutWizard() {
     }
   };
 
-  const pickupPhoto = (angle: string) => pickup?.photos.find((p) => p.label === angle)?.key ?? null;
-  const returnPhoto = (angle: string) => ret?.photos.find((p) => p.label === angle)?.key ?? null;
-  // Return photos are required ONLY for angles marked "new damage"; angles
-  // left as "same as pickup" (the default) need none.
-  const returnPhotosReady = useMemo(
-    () => pendingReturnPhotoAngles(choices, (id) => !!returnPhoto(id)).length === 0,
-    [choices, ret], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-
-  const setAnglePhoto = (angle: string) => async (file: File) => {
-    const key = await capturePhoto(file, { category: "inspection", bookingId, kind: "return", label: angle });
-    const photos = [...(ret?.photos ?? []).filter((p) => p.label !== angle), { key, label: angle }];
-    await put({ photos });
+  // Each damage photo is saved with its note as a flag straight away, so a
+  // reload never loses one.
+  const addDamage = async (file: File) => {
+    // The note is optional: a photo is never thrown away for a missing word.
+    const note = damageNote.trim() || "new damage";
+    const key = await capturePhoto(file, { category: "inspection", bookingId, kind: "return", label: `damage: ${note}` });
+    await put({
+      photos: [...(ret?.photos ?? []), { key, label: `damage: ${note}` }],
+      damageFlags: [...(ret?.damageFlags ?? []), { photoKey: key, note }],
+    });
+    setDamageNote("");
   };
+
+  const removeDamage = (photoKey: string) => guarded(async () => {
+    await put({
+      photos: (ret?.photos ?? []).filter((p) => p.key !== photoKey),
+      damageFlags: (ret?.damageFlags ?? []).filter((f) => f.photoKey !== photoKey),
+    });
+  });
 
   if (!data) return <main className="wiz-page"><p className="wiz-sub">Loading booking...</p></main>;
 
   const b = data.booking;
   const received = pickup?.borgReceivedCents ?? null;
   const finished = b.status === "completed";
-  const newDamageAngles = ANGLES.filter((a) => choices[a.id] === "new");
+  const flags = ret?.damageFlags ?? [];
+  const pickupDamage = (pickup?.photos ?? []).filter((p) => p.label.startsWith("damage:"));
   const progress = checkoutProgress(factsOf(data));
   const ring = { done: progress.done, total: progress.items.length };
 
@@ -170,52 +156,63 @@ export default function CheckoutWizard() {
 
       {!finished && step === 1 ? (
         <StepShell
-          kicker={KICKER} ring={ring} title="Return photos"
+          kicker={KICKER} ring={ring} title="Any new damage?"
           onNext={guarded(async () => {
-            for (const a of newDamageAngles) {
-              if (!notes[a.id]?.trim()) throw new Error(`Add a note for the new damage on: ${a.label}`);
-            }
-            const damageFlags = newDamageAngles.map((a) => ({
-              photoKey: returnPhoto(a.id) ?? "",
-              note: `${a.label}: ${notes[a.id]!.trim()}`,
-            }));
-            await put({ damageFlags });
+            if (newDamage && flags.length === 0) throw new Error("Photograph the new damage, or tap No new damage");
             setStep(2);
           })}
-          nextDisabled={busy || !returnPhotosReady}
+          nextDisabled={busy || !factsOf(data).reviewSaved || (newDamage && flags.length === 0)}
         >
-          <p className="wiz-sub">Same six angles as pickup, for comparison. Mark each one same or new damage; a return photo is only required where you mark new damage.</p>
-          {ANGLES.map((a) => (
-            <div className="wiz-card" key={a.id}>
-              <strong>{a.label}</strong>
-              <div className="wiz-compare">
-                <figure>
-                  <figcaption>At pickup</figcaption>
-                  {pickupPhoto(a.id)
-                    ? <img src={fileUrl(pickupPhoto(a.id)!)} alt={`${a.label} at pickup`} />
-                    : <div className="wiz-photo-empty">No pickup photo</div>}
-                </figure>
-                <figure>
-                  <figcaption>Now</figcaption>
-                  {returnPhoto(a.id)
-                    ? <img src={fileUrl(returnPhoto(a.id)!)} alt={`${a.label} at return`} />
-                    : <div className="wiz-photo-empty">{choices[a.id] === "new" ? "Not taken yet" : "No new damage"}</div>}
-                </figure>
+          <p className="wiz-sub">Walk around the car. Only photograph damage that was not there at pickup.</p>
+          {pickupDamage.length ? (
+            <div className="wiz-card">
+              <strong>Already there at pickup</strong>
+              <div className="wiz-damage-list" style={{ marginTop: 8 }}>
+                {pickupDamage.map((p) => (
+                  <div className="wiz-damage-item" key={p.key}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={fileUrl(p.key)} alt={p.label} />
+                    <span>{p.label.slice("damage:".length).trim()}</span>
+                    <span />
+                  </div>
+                ))}
               </div>
-              <div className="wiz-choice">
-                <button type="button" className={choices[a.id] === "same" ? "on" : ""} onClick={() => setChoices({ ...choices, [a.id]: "same" })}>Same as pickup</button>
-                <button type="button" className={choices[a.id] === "new" ? "on" : ""} onClick={() => setChoices({ ...choices, [a.id]: "new" })}>New damage</button>
-              </div>
-              {choices[a.id] === "new" ? (
-                <>
-                  <div style={{ height: 8 }} />
-                  <textarea className="wiz-input" placeholder="Describe the new damage (required)" value={notes[a.id] ?? ""} onChange={(e) => setNotes({ ...notes, [a.id]: e.target.value })} />
-                  <div style={{ height: 8 }} />
-                  <PhotoCapture label={a.label} photoKey={returnPhoto(a.id)} onFile={setAnglePhoto(a.id)} />
-                </>
+            </div>
+          ) : pickup?.damageCheck === "none" ? <p className="wiz-sub">No damage was found at pickup.</p> : null}
+          <div className="wiz-answer">
+            <button type="button" className={`wiz-btn${!newDamage && factsOf(data).reviewSaved ? " on" : ""}`} disabled={busy || flags.length > 0} onClick={guarded(async () => {
+              await put({ damageFlags: [] });
+              setNewDamage(false);
+              setStep(2);
+            })}>
+              No new damage
+            </button>
+            <button type="button" className={`wiz-btn${newDamage ? " on" : ""}`} disabled={busy} onClick={() => setNewDamage(true)}>
+              New damage
+            </button>
+          </div>
+          {flags.length > 0 ? <p className="wiz-sub">Remove the damage photos below to switch to No new damage.</p> : null}
+          {newDamage ? (
+            <div className="wiz-card">
+              <strong>Photograph each new damage</strong>
+              <p className="wiz-sub">Take or upload a photo of each one. The owner gets a warning bell.</p>
+              <input className="wiz-input" placeholder="What? (optional) e.g. dent front left door" value={damageNote} onChange={(e) => setDamageNote(e.target.value)} />
+              <div style={{ height: 8 }} />
+              <PhotoCapture label="New damage" photoKey={null} emptyText={flags.length ? "Add another damage photo" : "No damage photo yet"} onFile={addDamage} />
+              {flags.length ? (
+                <div className="wiz-damage-list" style={{ marginTop: 12 }}>
+                  {flags.map((f) => (
+                    <div className="wiz-damage-item" key={f.photoKey}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={fileUrl(f.photoKey)} alt={f.note} />
+                      <span>{f.note}</span>
+                      <button type="button" className="wiz-btn ghost" disabled={busy} onClick={removeDamage(f.photoKey)}>Remove</button>
+                    </div>
+                  ))}
+                </div>
               ) : null}
             </div>
-          ))}
+          ) : null}
         </StepShell>
       ) : null}
 

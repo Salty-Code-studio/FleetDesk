@@ -51,7 +51,7 @@ async function readyPickup(bookingId: string) {
   const sigKey = `signatures/${bookingId}.png`;
   await putObject(sigKey, new Uint8Array(PNG_1PX), "image/png");
   await upsertInspection(bookingId, "pickup", {
-    photos: REQUIRED_ANGLES.map((a) => ({ key: `inspections/${bookingId}/pickup/${a}.jpg`, label: a })),
+    damageCheck: "none",
     odometer: 41250, fuelLevel: 6,
     borgReceivedCents: 25000, borgMethod: "cash",
     licensePhotoKey: `licenses/${bookingId}/x.jpg`, licenseCopyReceived: true,
@@ -113,11 +113,34 @@ describe("completePickup", () => {
     await expect(completePickup(b.id, { actorId: adminId })).rejects.toThrow(/licence first/i);
   });
 
-  it("refuses an incomplete inspection (missing angles)", async () => {
+  it("refuses an incomplete inspection (damage check not answered)", async () => {
     const b = await mkBooking("done-pickup-2", "confirmed");
     await addLicence(b.id);
     await upsertInspection(b.id, "pickup", { odometer: 1, fuelLevel: 4 }, adminId);
-    await expect(completePickup(b.id, { actorId: adminId })).rejects.toThrow(/walk-around photos/i);
+    await expect(completePickup(b.id, { actorId: adminId })).rejects.toThrow(/damage check/i);
+  });
+
+  it("refuses damage marked as found until it is photographed", async () => {
+    const b = await mkBooking("done-pickup-found", "confirmed");
+    await readyPickup(b.id);
+    await upsertInspection(b.id, "pickup", { damageCheck: "found", photos: [] }, adminId);
+    await expect(completePickup(b.id, { actorId: adminId })).rejects.toThrow(/photograph the damage/i);
+    await upsertInspection(b.id, "pickup", {
+      photos: [{ key: `inspections/${b.id}/pickup/dent.jpg`, label: "damage: dent rear bumper" }],
+    }, adminId);
+    const updated = await completePickup(b.id, { actorId: adminId });
+    expect(updated.status).toBe("picked_up");
+  });
+
+  it("still completes an older check-in that has all six walk-around angles", async () => {
+    const b = await mkBooking("done-pickup-legacy", "confirmed");
+    await readyPickup(b.id);
+    await upsertInspection(b.id, "pickup", {
+      damageCheck: null,
+      photos: REQUIRED_ANGLES.map((a) => ({ key: `inspections/${b.id}/pickup/${a}.jpg`, label: a })),
+    }, adminId);
+    const updated = await completePickup(b.id, { actorId: adminId });
+    expect(updated.status).toBe("picked_up");
   });
 
   it("requires a desk override note for an unpaid (pending) booking, then records it", async () => {

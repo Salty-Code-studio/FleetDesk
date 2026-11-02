@@ -85,3 +85,23 @@ textarea.wiz-input { min-height: 72px; padding: 10px 12px; }
   .wiz-hand, .wiz-finish { animation: none; }
   .wiz-ring__fill { transition: none; }
 }
+
+/* Photo slot: Take photo + Upload side by side */
+.wiz-photo__actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+
+/* Live camera: full screen, dark, one shutter on top */
+.wiz-cam { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; background: #0b1214; color: #f4efe6; padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.wiz-cam__label { margin: 0 0 10px; font-size: var(--fs-tiny); text-transform: uppercase; letter-spacing: .08em; opacity: .7; }
+.wiz-cam__video { flex: 1; min-height: 0; width: 100%; object-fit: contain; border-radius: var(--radius-sm); background: #000; }
+.wiz-cam__error { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; max-width: 360px; margin: 0 auto; }
+.wiz-cam__bar { display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; gap: 12px; padding-top: 14px; }
+.wiz-cam__cancel { color: #f4efe6; justify-self: start; }
+.wiz-cam__shutter { grid-column: 2; min-height: 64px; border-radius: 999px; font-size: 16px; }
+
+/* Damage check: two big answers */
+.wiz-answer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wiz-answer .wiz-btn { min-height: 72px; font-size: 16px; }
+.wiz-answer .wiz-btn.on { border-color: var(--teal); background: var(--fill); }
+.wiz-damage-list { display: flex; flex-direction: column; gap: 8px; }
+.wiz-damage-item { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; align-items: center; }
+.wiz-damage-item img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line-soft); }

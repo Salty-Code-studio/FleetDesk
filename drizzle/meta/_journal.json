@@ -190,6 +190,13 @@
       "when": 1793430000000,
       "tag": "0026_scrub_licence_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793623379192,
+      "tag": "0027_damage_check",
+      "breakpoints": true
     }
   ]
 }

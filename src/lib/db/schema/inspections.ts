@@ -37,6 +37,9 @@ export const inspections = pgTable("inspections", {
   borgWithheldCents: integer("borg_withheld_cents"),
   borgWithheldReason: text("borg_withheld_reason"),
   keysReturned: boolean("keys_returned").notNull().default(false),
+  // Pickup damage check: "none" = desk tapped No damage, "found" = damage
+  // photographed. Null = not answered yet (or an older six-angle check-in).
+  damageCheck: text("damage_check"),
   createdBy: uuid("created_by").notNull().references(() => adminUsers.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

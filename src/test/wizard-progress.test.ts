@@ -8,11 +8,11 @@ import {
 const ANGLES = ["front", "back", "left", "right", "interior", "dash"];
 
 const blankIn: CheckinFacts = {
-  fresh: false, deskAttention: false, hasLicence: false, licensePhotoKey: null, photoLabels: [], odometer: null, fuelLevel: null,
+  fresh: false, deskAttention: false, hasLicence: false, licensePhotoKey: null, photoLabels: [], damageCheck: null, odometer: null, fuelLevel: null,
   borgReceivedCents: null, borgMethod: null, rulesSigned: false, signatureKey: null,
 };
 const fullIn: CheckinFacts = {
-  fresh: false, deskAttention: false, hasLicence: true, licensePhotoKey: "l", photoLabels: [...ANGLES, "damage: dent"], odometer: 1200, fuelLevel: 8,
+  fresh: false, deskAttention: false, hasLicence: true, licensePhotoKey: "l", photoLabels: ["damage: dent"], damageCheck: "found", odometer: 1200, fuelLevel: 8,
   borgReceivedCents: 50000, borgMethod: "card", rulesSigned: true, signatureKey: "s",
 };
 
@@ -21,7 +21,7 @@ describe("checkin progress", () => {
     const p = checkinProgress(blankIn);
     expect(p.done).toBe(0);
     expect(p.items.map((i) => i.label)).toEqual([
-      "Licence on file", "Licence photo", "Six walk-around angles", "Odometer and fuel", "Borg", "Rules accepted and signed",
+      "Licence on file", "Licence photo", "Damage check", "Odometer and fuel", "Borg", "Rules accepted and signed",
     ]);
   });
 
@@ -30,9 +30,20 @@ describe("checkin progress", () => {
     expect(p.done).toBe(p.items.length);
   });
 
-  it("five of six angles does not count the walk-around", () => {
-    const p = checkinProgress({ ...blankIn, photoLabels: ANGLES.slice(0, 5) });
-    expect(p.items.find((i) => i.label === "Six walk-around angles")!.ok).toBe(false);
+  const damageItem = (f: CheckinFacts) => checkinProgress(f).items.find((i) => i.label === "Damage check")!.ok;
+
+  it("No damage answers the damage check without any photo", () => {
+    expect(damageItem({ ...blankIn, damageCheck: "none" })).toBe(true);
+  });
+
+  it("damage marked but not photographed is still open", () => {
+    expect(damageItem({ ...blankIn, damageCheck: "found" })).toBe(false);
+    expect(damageItem({ ...blankIn, damageCheck: "found", photoLabels: ["damage: scratch rear bumper"] })).toBe(true);
+  });
+
+  it("an older six-angle check-in still counts; five angles does not", () => {
+    expect(damageItem({ ...blankIn, photoLabels: ANGLES })).toBe(true);
+    expect(damageItem({ ...blankIn, photoLabels: ANGLES.slice(0, 5) })).toBe(false);
   });
 
   it("no borg counts once the customer has signed past it", () => {
@@ -58,10 +69,12 @@ describe("checkin resume step", () => {
   it("starts at verify with no licence", () => expect(checkinResumeStep(blankIn)).toBe(1));
   it("goes to the licence photo once the licence is saved", () =>
     expect(checkinResumeStep({ ...blankIn, hasLicence: true })).toBe(2));
-  it("goes to the walk-around after the licence photo", () =>
+  it("goes to the damage check after the licence photo", () =>
     expect(checkinResumeStep({ ...blankIn, hasLicence: true, licensePhotoKey: "l" })).toBe(3));
-  it("goes to odometer when the angles are in", () =>
-    expect(checkinResumeStep({ ...blankIn, hasLicence: true, licensePhotoKey: "l", photoLabels: ANGLES })).toBe(4));
+  it("goes to odometer once the desk tapped No damage", () =>
+    expect(checkinResumeStep({ ...blankIn, hasLicence: true, licensePhotoKey: "l", damageCheck: "none" })).toBe(4));
+  it("stays on the damage check while found damage has no photo", () =>
+    expect(checkinResumeStep({ ...blankIn, hasLicence: true, licensePhotoKey: "l", damageCheck: "found" })).toBe(3));
   it("goes to borg when odometer and fuel are in but nothing is signed", () =>
     expect(checkinResumeStep({ ...fullIn, borgReceivedCents: null, rulesSigned: false, signatureKey: null })).toBe(5));
   it("skips borg when it is already recorded", () =>

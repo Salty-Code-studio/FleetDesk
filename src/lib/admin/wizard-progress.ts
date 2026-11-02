@@ -18,6 +18,8 @@ export interface CheckinFacts {
   hasLicence: boolean;
   licensePhotoKey: string | null;
   photoLabels: string[];
+  /** "none" = desk tapped No damage, "found" = damage marked, null = not asked yet. */
+  damageCheck: string | null;
   odometer: number | null;
   fuelLevel: number | null;
   borgReceivedCents: number | null;
@@ -41,6 +43,12 @@ export interface CheckoutFacts {
 const tally = (items: ProgressItem[]): Progress => ({ items, done: items.filter((i) => i.ok).length });
 
 const anglesIn = (labels: string[]) => ANGLE_IDS.every((a) => labels.includes(a));
+/** Mirrors damageCheckAnswered on the server: No damage, or damage marked and
+ *  photographed, or an older check-in that has all six walk-around angles. */
+export const damageChecked = (f: Pick<CheckinFacts, "damageCheck" | "photoLabels">) =>
+  f.damageCheck === "none"
+  || (f.damageCheck === "found" && f.photoLabels.some((l) => l.startsWith("damage:")))
+  || anglesIn(f.photoLabels);
 const meterIn = (odometer: number | null, fuel: number | null) => odometer !== null && fuel !== null;
 const signed = (f: CheckinFacts) => f.rulesSigned && !!f.signatureKey;
 const borgAnswered = (f: CheckinFacts) => f.borgReceivedCents !== null || f.borgMethod === "none";
@@ -49,7 +57,7 @@ export function checkinProgress(f: CheckinFacts): Progress {
   return tally([
     { label: "Licence on file", ok: f.hasLicence },
     { label: "Licence photo", ok: !!f.licensePhotoKey },
-    { label: "Six walk-around angles", ok: anglesIn(f.photoLabels) },
+    { label: "Damage check", ok: damageChecked(f) },
     { label: "Odometer and fuel", ok: meterIn(f.odometer, f.fuelLevel) },
     // Rows from before "none" existed stored null for "no borg", so a signed
     // check-in also counts it as handled.
@@ -64,7 +72,7 @@ export function checkinProgress(f: CheckinFacts): Progress {
 export function checkinResumeStep(f: CheckinFacts): number {
   if (f.fresh || f.deskAttention || !f.hasLicence) return 1;
   if (!f.licensePhotoKey) return 2;
-  if (!anglesIn(f.photoLabels)) return 3;
+  if (!damageChecked(f)) return 3;
   if (!meterIn(f.odometer, f.fuelLevel)) return 4;
   if (signed(f)) return 7;
   return borgAnswered(f) ? 6 : 5;

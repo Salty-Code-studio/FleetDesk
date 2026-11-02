@@ -58,6 +58,8 @@ export const InspectionPatchSchema = z.object({
   borgReturnedCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
   borgWithheldCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
   borgWithheldReason: z.string().trim().max(500).nullable().optional(),
+  // Pickup damage check: the desk taps "No damage" or photographs what it finds.
+  damageCheck: z.enum(["none", "found"]).nullable().optional(),
   keysReturned: z.boolean().optional(),
 }).strict();
 
@@ -242,10 +244,26 @@ export async function getHandover(bookingId: string): Promise<HandoverPayload> {
   };
 }
 
-function assertAnglesPresent(insp: Inspection, what: string): void {
+/** Photos the desk took of damage it found (label "damage: <note>"). */
+export const isDamagePhoto = (label: string) => label.startsWith("damage:");
+
+/**
+ * The pickup damage check is answered when the desk tapped "No damage", or
+ * marked damage AND photographed at least one spot. A check-in from before the
+ * damage check (all six walk-around angles on file) also counts as answered.
+ */
+export function damageCheckAnswered(insp: Pick<Inspection, "damageCheck" | "photos">): boolean {
+  if (insp.damageCheck === "none") return true;
+  if (insp.damageCheck === "found") return insp.photos.some((p) => isDamagePhoto(p.label));
   const labels = new Set(insp.photos.map((p) => p.label));
-  const missing = REQUIRED_ANGLES.filter((a) => !labels.has(a));
-  if (missing.length > 0) throw Errors.badRequest(`${what} still needed: ${missing.join(", ")}`);
+  return REQUIRED_ANGLES.every((a) => labels.has(a));
+}
+
+function assertDamageChecked(insp: Inspection): void {
+  if (damageCheckAnswered(insp)) return;
+  throw Errors.badRequest(insp.damageCheck === "found"
+    ? "Damage check: photograph the damage you found, or tap No damage"
+    : "Damage check still needed: tap No damage, or photograph the damage");
 }
 
 /**
@@ -275,7 +293,7 @@ export async function completePickup(
     const [insp] = await tx.select().from(inspections)
       .where(and(eq(inspections.bookingId, bookingId), eq(inspections.kind, "pickup")));
     if (!insp) throw Errors.badRequest("Start the check-in wizard first");
-    assertAnglesPresent(insp, "Walk-around photos");
+    assertDamageChecked(insp);
     if (insp.odometer === null || insp.fuelLevel === null) {
       throw Errors.badRequest("Record the odometer and fuel level first");
     }
@@ -414,9 +432,8 @@ export async function completeReturn(
     const pickup = rows.find((i) => i.kind === "pickup") ?? null;
     const ret = rows.find((i) => i.kind === "return");
     if (!ret) throw Errors.badRequest("Start the check-out wizard first");
-    // Return photos are required ONLY where there is new damage (unlike the
-    // pickup walk-around, which always needs all six angles): an angle the
-    // operator left "same as pickup" needs no photo of its own.
+    // Return photos are required ONLY where there is new damage: "No new
+    // damage" needs no photo at all.
     if (ret.odometer === null || ret.fuelLevel === null) {
       throw Errors.badRequest("Record the odometer and fuel level first");
     }

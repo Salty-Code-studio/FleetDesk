@@ -16,10 +16,10 @@ import { licenceDateBounds } from "@/lib/booking/license-bounds";
 import { siteConfig } from "@/lib/site-config";
 import { formatDateTime } from "@/lib/time/format";
 import {
-  checkinProgress, checkinResumeStep, checkinFinishLines, firstName, type CheckinFacts, type FinishLine,
+  checkinProgress, checkinResumeStep, checkinFinishLines, firstName, damageChecked, type CheckinFacts, type FinishLine,
 } from "@/lib/admin/wizard-progress";
 import {
-  ANGLES, PhotoCapture, FuelSelector, SignatureCanvas, StepShell, HandScreen, FinishScreen, CheckList,
+  PhotoCapture, FuelSelector, SignatureCanvas, StepShell, HandScreen, FinishScreen, CheckList,
   capturePhoto, uploadBlob, money, fileUrl,
   type Handover, type InspectionDto,
 } from "../../wizard-ui";
@@ -34,6 +34,7 @@ const factsOf = (h: Handover): CheckinFacts => {
     hasLicence: !!h.license,
     licensePhotoKey: p?.licensePhotoKey ?? null,
     photoLabels: (p?.photos ?? []).map((x) => x.label),
+    damageCheck: p?.damageCheck ?? null,
     odometer: p?.odometer ?? null,
     fuelLevel: p?.fuelLevel ?? null,
     borgReceivedCents: p?.borgReceivedCents ?? null,
@@ -106,14 +107,26 @@ export default function CheckinWizard() {
     }
   };
 
-  const setAnglePhoto = (angle: string) => async (file: File) => {
-    const key = await capturePhoto(file, { category: "inspection", bookingId, kind: "pickup", label: angle });
-    const photos = [...(insp?.photos ?? []).filter((p) => p.label !== angle), { key, label: angle }];
-    await put({ photos });
+  const damagePhotos = (insp?.photos ?? []).filter((p) => p.label.startsWith("damage:"));
+  // "There is damage" opens the photo list before anything is saved, so the
+  // desk can photograph first; the server only records "found" with a photo.
+  const [damageOpen, setDamageOpen] = useState(false);
+  const showDamage = damageOpen || insp?.damageCheck === "found";
+
+  const addDamagePhoto = async (file: File) => {
+    // The note is optional: a photo is never thrown away for a missing word.
+    const note = damageNote.trim() || "existing damage";
+    const label = `damage: ${note}`;
+    const key = await capturePhoto(file, { category: "inspection", bookingId, kind: "pickup", label });
+    await put({ photos: [...(insp?.photos ?? []), { key, label }], damageCheck: "found" });
+    setDamageNote("");
   };
 
-  const anglePhoto = (angle: string) => insp?.photos.find((p) => p.label === angle)?.key ?? null;
-  const anglesDone = useMemo(() => ANGLES.every((a) => anglePhoto(a.id)), [insp]); // eslint-disable-line react-hooks/exhaustive-deps
+  const removeDamagePhoto = (key: string) => guarded(async () => {
+    const photos = (insp?.photos ?? []).filter((p) => p.key !== key);
+    const left = photos.some((p) => p.label.startsWith("damage:"));
+    await put({ photos, damageCheck: left ? "found" : null });
+  });
 
   if (!data) return <main className="wiz-page"><p className="wiz-sub">Loading booking...</p></main>;
 
@@ -221,28 +234,47 @@ export default function CheckinWizard() {
       ) : null}
 
       {!finished && step === 3 ? (
-        <StepShell kicker={KICKER} ring={ring} title="Walk-around photos" onBack={() => setStep(2)} onNext={() => setStep(4)} nextDisabled={!anglesDone}>
-          <p className="wiz-sub">Six angles, every car, every time. Add close-ups for existing damage.</p>
-          {ANGLES.map((a) => (
-            <div className="wiz-card" key={a.id}>
-              <strong>{a.label}</strong>
-              <PhotoCapture label={a.label} photoKey={anglePhoto(a.id)} onFile={setAnglePhoto(a.id)} />
-            </div>
-          ))}
-          <div className="wiz-card">
-            <strong>Existing damage close-up (optional)</strong>
-            <input className="wiz-input" placeholder="What does the photo show? e.g. scratch rear bumper" value={damageNote} onChange={(e) => setDamageNote(e.target.value)} />
-            <div style={{ height: 8 }} />
-            <PhotoCapture label="Damage close-up" photoKey={null} onFile={async (file) => {
-              const note = damageNote.trim() || "existing damage";
-              const key = await capturePhoto(file, { category: "inspection", bookingId, kind: "pickup", label: `damage: ${note}` });
-              await put({ photos: [...(insp?.photos ?? []), { key, label: `damage: ${note}` }] });
-              setDamageNote("");
-            }} />
-            {(insp?.photos ?? []).filter((p) => p.label.startsWith("damage:")).map((p) => (
-              <div className="wiz-row" key={p.key}><span className="muted">{p.label}</span><span>saved</span></div>
-            ))}
+        <StepShell
+          kicker={KICKER} ring={ring} title="Any damage on the car?"
+          onBack={() => setStep(2)}
+          onNext={() => setStep(4)}
+          nextDisabled={!damageChecked(factsOf(data))}
+        >
+          <p className="wiz-sub">Walk around the car with {who}. Only photograph damage you find.</p>
+          <div className="wiz-answer">
+            <button type="button" className={`wiz-btn${insp?.damageCheck === "none" ? " on" : ""}`} disabled={busy} onClick={guarded(async () => {
+              // Damage photos stay on file; "No damage" only answers the question.
+              await put({ damageCheck: "none" });
+              setDamageOpen(false);
+              setStep(4);
+            })}>
+              No damage
+            </button>
+            <button type="button" className={`wiz-btn${showDamage ? " on" : ""}`} disabled={busy} onClick={() => setDamageOpen(true)}>
+              There is damage
+            </button>
           </div>
+          {showDamage ? (
+            <div className="wiz-card">
+              <strong>Photograph each damage</strong>
+              <p className="wiz-sub">Take or upload a photo of each one. Add a word on where it is if it helps.</p>
+              <input className="wiz-input" placeholder="Where? (optional) e.g. scratch rear bumper" value={damageNote} onChange={(e) => setDamageNote(e.target.value)} />
+              <div style={{ height: 8 }} />
+              <PhotoCapture label="Damage" photoKey={null} emptyText={damagePhotos.length ? "Add another damage photo" : "No damage photo yet"} onFile={addDamagePhoto} />
+              {damagePhotos.length ? (
+                <div className="wiz-damage-list" style={{ marginTop: 12 }}>
+                  {damagePhotos.map((p) => (
+                    <div className="wiz-damage-item" key={p.key}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={fileUrl(p.key)} alt={p.label} />
+                      <span>{p.label.slice("damage:".length).trim()}</span>
+                      <button type="button" className="wiz-btn ghost" disabled={busy} onClick={removeDamagePhoto(p.key)}>Remove</button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </StepShell>
       ) : null}
 
