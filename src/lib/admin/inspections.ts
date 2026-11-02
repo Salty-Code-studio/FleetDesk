@@ -103,6 +103,7 @@ export async function recordDeskBalancePayment(
   bookingId: string,
   amountCents: number,
   actorId: string,
+  tender: "cash" | "card" | null = null,
 ): Promise<BookingRow> {
   void actorId; // actor lands in the audit log via mutate(); kept in the signature for symmetry
   const db = await getDb();
@@ -121,7 +122,7 @@ export async function recordDeskBalancePayment(
     if (amountCents <= 0) throw Errors.badRequest("Amount must be positive");
     if (amountCents > balance) throw Errors.badRequest("That is more than the open balance");
     await tx.insert(payments).values({
-      bookingId, type: "balance", method: "desk", amountCents,
+      bookingId, type: "balance", method: "desk", tender, amountCents,
       currency: breakdown.currency ?? "USD", status: "succeeded",
     });
     const [updated] = await tx.update(bookings)

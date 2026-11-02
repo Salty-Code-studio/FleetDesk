@@ -187,22 +187,15 @@
 .bd-failed { display: flex; flex-direction: column; align-items: flex-start; gap: .7rem; }
 .bd-section .pl-pop-note { margin: .7rem 0 0; }
 
-/* Take payment: one row, the full amount pre-filled; a lower number is a
-   part payment. Replaces the Mark paid / Part payment pair. */
-.bd-take {
-  display: grid; grid-template-columns: 1fr auto; align-items: end; gap: .4rem .6rem;
-  margin-top: 1rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
-}
-.bd-take__field { display: flex; flex-direction: column; gap: .3rem; margin: 0; min-width: 0; }
-.bd-take__field > span { font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
-.bd-take__go.btn { width: auto; white-space: nowrap; padding: .62rem 1.1rem; }
-.bd-take__hint { grid-column: 1 / -1; margin: 0; font-size: .78rem; color: var(--ink-mute); }
-.bd-take__hint.is-bad { color: var(--danger); }
+/* Take payment: one button in the drawer, the amount and cash/card in a pop-up. */
+.bd-paybtn.btn { display: block; width: 100%; margin-top: 1rem; padding: .7rem 1rem; }
+.bd-pay { display: flex; flex-direction: column; gap: .7rem; }
+.bd-pay input { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 600; padding: .6rem .75rem; }
+.bd-pay__hint { margin: -.3rem 0 0; font-size: .8rem; color: var(--ink-soft); }
+.bd-pay__hint.is-bad { color: var(--danger); }
+.bd-tender { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; padding: .25rem; border-radius: 12px; background: var(--fill); }
+.bd-tender__opt { border: 0; border-radius: 9px; padding: .6rem; background: transparent; font: inherit; font-weight: 600; color: var(--ink-soft); cursor: pointer; }
+.bd-tender__opt.is-on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgba(28,43,46,.12); }
 .bd-tools { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin: .9rem 0 0; }
 .bd-tools .bd-link { color: var(--ink-soft); font-weight: 500; }
 .bd-tools .bd-link:hover { color: var(--teal-700); }
-.bd-take input {
-  width: 100%; padding: .55rem .7rem; border: 1.5px solid var(--line); border-radius: 10px;
-  background: var(--fill); color: var(--ink); font-family: var(--font-mono); font-size: 1rem; font-weight: 600;
-}
-.bd-take input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(14,58,64,.12); }

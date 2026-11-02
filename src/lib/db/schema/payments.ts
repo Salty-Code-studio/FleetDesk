@@ -19,6 +19,8 @@ export const payments = pgTable("payments", {
   stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
   type: paymentType("type").notNull(),
   method: paymentMethod("method").notNull().default("stripe"),
+  /** Desk rows only: how the customer paid at the counter ("cash" | "card"). Null = not recorded. */
+  tender: text("tender"),
   amountCents: integer("amount_cents").notNull(),
   refundedCents: integer("refunded_cents").notNull().default(0),
   currency: text("currency").notNull().default("USD"),

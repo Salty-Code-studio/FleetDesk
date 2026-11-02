@@ -23,6 +23,8 @@ export interface BookingDetailPayment {
   id: string;
   type: string;
   method: string;
+  /** Desk rows: "cash" | "card" when recorded. */
+  tender: string | null;
   amountCents: number;
   refundedCents: number;
   status: string;
@@ -109,7 +111,7 @@ export async function getBookingDetail(id: string): Promise<BookingDetail | unde
     customer: { name: row.customerName, email: row.customerEmail, phone: row.customerPhone },
     vehicle: { id: row.vehicleId, name: row.vehicleName, plate: row.vehiclePlate },
     payments: paymentRows.map((p) => ({
-      id: p.id, type: p.type, method: p.method, amountCents: p.amountCents, refundedCents: p.refundedCents,
+      id: p.id, type: p.type, method: p.method, tender: p.tender ?? null, amountCents: p.amountCents, refundedCents: p.refundedCents,
       status: p.status, createdAt: p.createdAt.toISOString(), stripePaymentIntentId: p.stripePaymentIntentId,
     })),
     balanceDueCents: paid.balanceDueCents,

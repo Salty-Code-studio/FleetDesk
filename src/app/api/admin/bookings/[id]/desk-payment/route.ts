@@ -9,14 +9,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
-const BodySchema = z.object({ amountCents: z.number().int().min(1).max(5_000_000) }).strict();
+const BodySchema = z.object({
+  amountCents: z.number().int().min(1).max(5_000_000),
+  tender: z.enum(["cash", "card"]).optional(),
+}).strict();
 
 export const POST = withRoute(async (req, { params }) => {
   const { id } = parseParams(await params, ParamsSchema);
-  const { amountCents } = await parseJsonBody(req, BodySchema);
+  const { amountCents, tender } = await parseJsonBody(req, BodySchema);
   const updated = await mutate(req, "admin.desk_payment_recorded", async (ctx) => {
-    const row = await recordDeskBalancePayment(id, amountCents, ctx.admin.id);
-    return { result: row, entity: "booking", entityId: id, after: { amountCents, amountPaidCents: row.amountPaidCents } };
+    const row = await recordDeskBalancePayment(id, amountCents, ctx.admin.id, tender ?? null);
+    return { result: row, entity: "booking", entityId: id, after: { amountCents, tender: tender ?? null, amountPaidCents: row.amountPaidCents } };
   });
   return json({ id: updated.id, amountPaidCents: updated.amountPaidCents }, req);
 });

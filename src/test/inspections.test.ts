@@ -105,6 +105,14 @@ describe("recordDeskBalancePayment", () => {
     expect(rows[0]!.status).toBe("succeeded");
   });
 
+  it("records how the customer paid (cash or card), and leaves it empty when not given", async () => {
+    const b = await mkBooking("insp-desk-tender", "confirmed");
+    await recordDeskBalancePayment(b.id, 10000, adminId, "card");
+    await recordDeskBalancePayment(b.id, 5000, adminId);
+    const rows = await db.select().from(payments).where(eq(payments.bookingId, b.id));
+    expect(rows.map((r) => r.tender).sort()).toEqual(["card", null].sort());
+  });
+
   it("refuses a cancelled booking", async () => {
     const b = await mkBooking("insp-desk-4", "cancelled");
     await expect(recordDeskBalancePayment(b.id, 40000, adminId)).rejects.toThrow(/no longer take payments/i);

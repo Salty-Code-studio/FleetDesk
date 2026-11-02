@@ -197,6 +197,13 @@
       "when": 1793623379192,
       "tag": "0027_damage_check",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793657729654,
+      "tag": "0028_payment_tender",
+      "breakpoints": true
     }
   ]
 }

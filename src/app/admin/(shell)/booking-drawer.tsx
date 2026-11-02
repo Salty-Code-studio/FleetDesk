@@ -97,6 +97,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
   const [showPriceEdit, setShowPriceEdit] = useState(false);
   const [showPaidUntil, setShowPaidUntil] = useState(false);
+  const [payTender, setPayTender] = useState<"cash" | "card">("cash");
   const [priceDraftCents, setPriceDraftCents] = useState<number | null>(null);
   const [priceReason, setPriceReason] = useState("");
   const [priceBusy, setPriceBusy] = useState(false);
@@ -418,11 +419,17 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
 
   /** Record cash taken at the desk. Reuses the check-in wizard's route, which
    *  writes a succeeded desk 'balance' payment and bumps the ledger atomically. */
+  function openPay() {
+    if (!detail) return;
+    setOtherAmountCents(detail.balanceDueCents);
+    setShowOtherAmount(true);
+  }
+
   async function recordPayment(amountCents: number) {
     if (!detail || amountCents <= 0) return;
     setPayBusy(true);
     try {
-      await api(`/api/admin/bookings/${detail.booking.id}/desk-payment`, { amountCents });
+      await api(`/api/admin/bookings/${detail.booking.id}/desk-payment`, { amountCents, tender: payTender });
       setShowOtherAmount(false);
       setOtherAmountCents(null);
       onChanged();
@@ -521,9 +528,8 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                     <Link href={next.href} className="btn btn--accent bd-next">{next.label}</Link>
                   )}
                   {next.kind === "pay" && (
-                    <button type="button" className="btn btn--accent bd-next" disabled={payBusy}
-                      onClick={() => recordPayment(next.amountCents)}>
-                      {payBusy ? "Saving…" : `${next.label} (${money(next.amountCents)})`}
+                    <button type="button" className="btn btn--accent bd-next" onClick={openPay}>
+                      {`${next.label} (${money(next.amountCents)})`}
                     </button>
                   )}
                 </div>
@@ -650,7 +656,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                         <span className={`bd-dot bd-dot--${p.status}`} aria-hidden="true" />
                         <span className="bd-payment-main">
                           <span className="bd-payment-type">{TYPE_LABEL[p.type] ?? niceWord(p.type)}</span>
-                          <small>{niceWord(p.method)} · {formatDate(p.createdAt)}{p.status !== "succeeded" ? ` · ${niceWord(p.status)}` : ""}{p.refundedCents > 0 ? ` · ${money(p.refundedCents)} refunded` : ""}</small>
+                          <small>{p.tender ? niceWord(p.tender) : niceWord(p.method)} · {formatDate(p.createdAt)}{p.status !== "succeeded" ? ` · ${niceWord(p.status)}` : ""}{p.refundedCents > 0 ? ` · ${money(p.refundedCents)} refunded` : ""}</small>
                         </span>
                         <span className="bd-payment-amt">{money(p.amountCents)}</span>
                         {p.status === "succeeded" && remaining > 0 && (
@@ -662,28 +668,9 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 </ul>
               )}
 
-              {b.status !== "cancelled" && detail.balanceDueCents > 0 && (() => {
-                const take = otherAmountCents ?? detail.balanceDueCents;
-                const tooMuch = take > detail.balanceDueCents;
-                return (
-                  <form className="bd-take" onSubmit={(e) => { e.preventDefault(); if (take > 0 && !tooMuch) void recordPayment(take); }}>
-                    <label className="bd-take__field">
-                      <span>Take payment</span>
-                      <MoneyInput cents={take} ariaLabel="Amount received" onChange={(cents) => setOtherAmountCents(cents)} />
-                    </label>
-                    <button type="submit" className="btn btn--confirm bd-take__go" disabled={payBusy || take <= 0 || tooMuch}>
-                      {payBusy ? "Saving…" : `Take ${money(take)}`}
-                    </button>
-                    <p className={`bd-take__hint${tooMuch ? " is-bad" : ""}`}>
-                      {tooMuch
-                        ? `More than the ${money(detail.balanceDueCents)} still owed.`
-                        : take === detail.balanceDueCents
-                          ? "The full amount is filled in. Type a lower amount for a part payment."
-                          : `${money(detail.balanceDueCents - take)} will still be owed after this.`}
-                    </p>
-                  </form>
-                );
-              })()}
+              {b.status !== "cancelled" && detail.balanceDueCents > 0 && (
+                <button type="button" className="btn btn--confirm bd-paybtn" onClick={openPay}>Take payment</button>
+              )}
 
               {b.status !== "cancelled" && (detail.viewerRole === "owner" || b.status === "picked_up" || b.status === "confirmed" || b.status === "completed") && (
                 <p className="bd-tools">
@@ -753,6 +740,49 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
           </div>
         )}
       </Drawer>
+
+      <Modal
+        open={showOtherAmount && detail !== null}
+        onClose={() => setShowOtherAmount(false)}
+        title="Take payment"
+        description={detail ? `${detail.customer.name || detail.customer.email} · ${money(detail.balanceDueCents)} still owed` : undefined}
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn--quiet" onClick={() => setShowOtherAmount(false)}>Cancel</button>
+            <button type="submit" form="bd-pay-form" className="btn btn--confirm"
+              disabled={payBusy || !detail || !otherAmountCents || otherAmountCents <= 0 || otherAmountCents > detail.balanceDueCents}>
+              {payBusy ? "Saving…" : `Confirm ${money(otherAmountCents ?? 0)}`}
+            </button>
+          </>
+        }
+      >
+        {detail && (
+          <form id="bd-pay-form" className="pl-form bd-pay" onSubmit={(e) => {
+            e.preventDefault();
+            if (otherAmountCents && otherAmountCents > 0 && otherAmountCents <= detail.balanceDueCents) void recordPayment(otherAmountCents);
+          }}>
+            <label>Amount
+              <MoneyInput autoFocus cents={otherAmountCents} ariaLabel="Amount" onChange={setOtherAmountCents} />
+            </label>
+            <p className={`bd-pay__hint${(otherAmountCents ?? 0) > detail.balanceDueCents ? " is-bad" : ""}`}>
+              {(otherAmountCents ?? 0) > detail.balanceDueCents
+                ? `That is more than the ${money(detail.balanceDueCents)} still owed.`
+                : (otherAmountCents ?? 0) === detail.balanceDueCents
+                  ? "Pays the rental in full."
+                  : `Part payment. ${money(detail.balanceDueCents - (otherAmountCents ?? 0))} will still be owed.`}
+            </p>
+            <div className="bd-tender" role="radiogroup" aria-label="Paid with">
+              {(["cash", "card"] as const).map((t) => (
+                <button key={t} type="button" role="radio" aria-checked={payTender === t}
+                  className={`bd-tender__opt${payTender === t ? " is-on" : ""}`} onClick={() => setPayTender(t)}>
+                  {t === "cash" ? "Cash" : "Card"}
+                </button>
+              ))}
+            </div>
+          </form>
+        )}
+      </Modal>
 
       <Modal
         open={refundFor !== null}
