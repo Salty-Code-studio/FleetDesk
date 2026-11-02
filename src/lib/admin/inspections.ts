@@ -386,7 +386,9 @@ async function finalizePickupArtifacts(booking: BookingRow, insp: Inspection): P
       ? `${money(insp.borgReceivedCents, currency)} received in ${insp.borgMethod === "card" ? "card" : "cash"} (refundable at return)`
       : "No security deposit collected",
     policyVersion: policy?.version ?? 0,
-    policyText: policy?.body ?? "",
+    // The contract is only made after the customer ticked every key rule and
+    // signed, so the "[ ]" rule lines print as ticked.
+    policyText: (policy?.body ?? "").replace(/^(\s*)\[\s?\]/gm, "$1[x]"),
     signaturePngDataUrl,
     photoCount: insp.photos.length,
     odometer: insp.odometer === null ? "" : String(insp.odometer),

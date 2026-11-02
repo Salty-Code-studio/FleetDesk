@@ -15,6 +15,7 @@ import { DatePicker } from "@/components/ui";
 import { licenceDateBounds } from "@/lib/booking/license-bounds";
 import { siteConfig } from "@/lib/site-config";
 import { formatDateTime } from "@/lib/time/format";
+import { splitKeyRules, allRulesTicked } from "@/lib/booking/key-rules";
 import {
   checkinProgress, checkinResumeStep, checkinFinishLines, firstName, damageChecked, type CheckinFacts, type FinishLine,
 } from "@/lib/admin/wizard-progress";
@@ -70,6 +71,8 @@ export default function CheckinWizard() {
   // The rules step is three screens: give the phone, customer signs, give it back.
   const [hand, setHand] = useState<"give" | "sign" | "return">("give");
   const [doneLines, setDoneLines] = useState<FinishLine[] | null>(null);
+  // Key rules the customer ticks one by one before accepting and signing.
+  const [ticked, setTicked] = useState<Set<number>>(() => new Set());
 
   const insp: InspectionDto | null = data?.inspections.pickup ?? null;
 
@@ -138,6 +141,14 @@ export default function CheckinWizard() {
   // The canvas remounts blank on every hand change, so a kept blob would let
   // "Save signature" upload ink the customer cannot see.
   const moveHand = (to: "give" | "sign" | "return") => { setSignatureBlob(null); setHand(to); };
+  const terms = splitKeyRules(data.policy?.body ?? "");
+  // Once accepted, the ticks are on record: show them all ticked.
+  const rulesDone = !!insp?.rulesSigned || allRulesTicked(terms.rules, ticked);
+  const toggleRule = (i: number) => setTicked((cur) => {
+    const next = new Set(cur);
+    if (next.has(i)) next.delete(i); else next.add(i);
+    return next;
+  });
   const goToSign = () => { moveHand(signedAlready ? "return" : "give"); setStep(6); };
 
   if (doneLines) {
@@ -334,14 +345,37 @@ export default function CheckinWizard() {
 
       {!finished && step === 6 && hand === "sign" ? (
         <StepShell kicker={KICKER} ring={ring} title="Read the rules, then sign" onBack={() => moveHand("give")} onNext={() => moveHand("return")} nextLabel="I'm done" nextDisabled={!insp?.signatureKey || !insp?.rulesSigned}>
-          <div className="wiz-policy">{data.policy?.body ?? "No rental terms published yet."}</div>
-          <button type="button" className="wiz-btn" disabled={busy || insp?.rulesSigned} onClick={guarded(async () => {
+          {terms.rules.length ? (
+            <div className="wiz-card">
+              <strong>Tick each rule</strong>
+              <p className="wiz-sub">Read every rule and tick it. You can sign once all {terms.rules.length} are ticked.</p>
+              <ul className="wiz-rules">
+                {terms.rules.map((r, i) => {
+                  const on = !!insp?.rulesSigned || ticked.has(i);
+                  return (
+                    <li key={r}>
+                      <label className={`wiz-rule${on ? " is-on" : ""}`}>
+                        <span className="wiz-rule__text">{r}</span>
+                        <input type="checkbox" checked={on} disabled={!!insp?.rulesSigned} onChange={() => toggleRule(i)} aria-label={`I read: ${r}`} />
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="wiz-sub" aria-live="polite">{insp?.rulesSigned ? "All rules accepted." : `${[...ticked].length} of ${terms.rules.length} ticked`}</p>
+            </div>
+          ) : null}
+          <details className="wiz-terms">
+            <summary>Read all terms</summary>
+            <div className="wiz-policy">{terms.rest || (data.policy ? "" : "No rental terms published yet.")}</div>
+          </details>
+          <button type="button" className="wiz-btn" disabled={busy || insp?.rulesSigned || !rulesDone} onClick={guarded(async () => {
             await put({ rulesSigned: true, acceptedPolicyVersion: data.policy?.version ?? 0 });
           })}>
             {insp?.rulesSigned ? "Rules accepted" : "I accept the rules"}
           </button>
-          <SignatureCanvas onBlob={setSignatureBlob} />
-          <button type="button" className="wiz-btn" disabled={busy || !signatureBlob} onClick={guarded(async () => {
+          {insp?.rulesSigned ? <SignatureCanvas onBlob={setSignatureBlob} /> : <p className="wiz-sub">Accept the rules to sign.</p>}
+          <button type="button" className="wiz-btn" disabled={busy || !signatureBlob || !insp?.rulesSigned} onClick={guarded(async () => {
             const key = await uploadBlob(signatureBlob!, { category: "signature", bookingId });
             await put({ signatureKey: key, agreementSigned: true });
             toast.show({ type: "success", message: "Signature saved" });

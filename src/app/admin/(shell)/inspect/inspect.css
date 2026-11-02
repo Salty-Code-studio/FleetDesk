@@ -105,3 +105,10 @@ textarea.wiz-input { min-height: 72px; padding: 10px 12px; }
 .wiz-damage-list { display: flex; flex-direction: column; gap: 8px; }
 .wiz-damage-item { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; align-items: center; }
 .wiz-damage-item img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line-soft); }
+
+/* Key rules: one tick box behind each rule */
+.wiz-rules { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wiz-rule { display: grid; grid-template-columns: 1fr 32px; gap: 12px; align-items: center; padding: 10px 12px; min-height: 52px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--panel); cursor: pointer; font-size: 15px; line-height: 1.4; }
+.wiz-rule.is-on { border-color: var(--teal); background: var(--fill); }
+.wiz-rule input { width: 26px; height: 26px; margin: 0; justify-self: end; accent-color: var(--teal); cursor: pointer; }
+.wiz-terms summary { cursor: pointer; font-size: var(--fs-small); color: var(--ink-soft); padding: 6px 0; }
