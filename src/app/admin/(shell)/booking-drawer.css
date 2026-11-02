@@ -43,14 +43,6 @@
 .bd-status--cancelled { background: var(--ink-mute); }
 
 /* Payments: one row per payment, wraps gracefully on narrow drawers. */
-.bd-payments { display: flex; flex-direction: column; gap: .55rem; margin-bottom: 1rem; }
-.bd-payment-row {
-  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
-  padding: .6rem .7rem; background: var(--fill); border-radius: 10px;
-}
-.bd-payment-type { font-weight: 600; }
-.bd-payment-amt { font-family: var(--font-mono); font-weight: 700; margin-left: auto; }
-.bd-payment-row .btn--quiet { padding: .3rem .55rem; font-size: .82rem; }
 
 .bd-balance {
   font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
@@ -84,7 +76,7 @@
 }
 
 /* Amount received / Paid until groups under Payments (Task 11). */
-.bd-paidnote { margin: .35rem 0 0; font-size: .82rem; }
+.bd-paidnote { margin: .6rem 0 0; font-size: .82rem; }
 .bd-paidnote--unpaid { color: #C0473A; font-weight: 600; }
 .bd-moneygroup { margin-top: .9rem; padding-top: .75rem; border-top: 1px solid var(--line-soft, #e3ded4); }
 .bd-moneygroup__title { margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; opacity: .7; font-weight: 600; }
@@ -97,20 +89,80 @@
 .bd-priceedit { display: flex; flex-direction: column; gap: .6rem; margin-top: .6rem; }
 .bd-priceedit input { width: 100%; }
 
-/* Sheet head: three planes. Plate huge (--fs-huge) and faint behind, name at
-   a mid size and the period (shown only here, not again in Summary) in the
-   middle, the one next-stage button on top. */
-.bd-head { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 1rem; min-height: 9rem; justify-content: flex-end; padding: 1.2rem 0 .4rem; }
-.bd-head__plate {
-  position: absolute; right: -.04em; bottom: -.2em; font-family: var(--font-display); font-weight: 700;
-  font-size: var(--fs-huge); line-height: 1; letter-spacing: -.04em; white-space: nowrap;
-  color: var(--ink); opacity: .06; pointer-events: none; user-select: none;
+/* Sheet head: status line, the trip as pick-up → return with the length in
+   the middle, then the one next-stage button full width. The drawer title
+   already carries name + plate, so neither repeats here. */
+.bd-head { display: flex; flex-direction: column; gap: 1rem; padding: .2rem 0 1.1rem; }
+.bd-head__row { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+.bd-timing { font-size: .82rem; font-weight: 600; color: var(--ink); }
+.bd-timing--warn { color: var(--danger); }
+.bd-source { margin-left: auto; font-size: .76rem; color: var(--ink-mute); }
+.bd-trip {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .9rem;
+  padding: .9rem 1rem; border: 1px solid var(--line-soft); border-radius: 14px; background: var(--fill);
 }
-.bd-head__mid { position: relative; }
-.bd-head__name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-big); line-height: 1.1; letter-spacing: -.02em; color: var(--ink); text-wrap: balance; }
-.bd-head__period { margin: .4rem 0 0; font-family: var(--font-mono); font-size: var(--fs-tiny); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
-.bd-head__top { position: relative; display: flex; gap: .6rem; flex-wrap: wrap; }
-.bd-next { width: auto; text-decoration: none; }
+.bd-trip__end { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.bd-trip__end--right { text-align: right; }
+.bd-trip__label { font-size: .66rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-mute); }
+.bd-trip__end strong { font-family: var(--font-display); font-size: 1.05rem; letter-spacing: -.01em; color: var(--ink); }
+.bd-trip__end span:last-child { font-family: var(--font-mono); font-size: .82rem; color: var(--ink-soft); }
+.bd-trip__line { position: relative; height: 1px; background: var(--line); }
+.bd-trip__line span {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  padding: .1rem .55rem; border-radius: 999px; background: var(--fill); border: 1px solid var(--line);
+  font-size: .72rem; font-weight: 600; color: var(--ink-soft); white-space: nowrap;
+}
+.bd-head__top { display: flex; }
+.bd-next { flex: 1; justify-content: center; text-align: center; text-decoration: none; }
+
+/* Customer + car: two calm cards, contact as tap targets. */
+.bd-cards { display: grid; grid-template-columns: 1.4fr 1fr; gap: .7rem; }
+.bd-card { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; padding: .9rem 1rem; border: 1px solid var(--line-soft); border-radius: 14px; min-width: 0; }
+.bd-card__title { margin: 0; font-weight: 700; font-size: 1rem; color: var(--ink); overflow-wrap: anywhere; }
+.bd-card__meta { margin: 0; font-size: .8rem; line-height: 1.5; color: var(--ink-soft); overflow-wrap: anywhere; }
+.bd-contact { display: flex; gap: .35rem; flex-wrap: wrap; }
+.bd-chip {
+  display: inline-flex; align-items: center; min-height: 2rem; padding: .25rem .75rem; border-radius: 999px;
+  border: 1px solid var(--line); font-size: .8rem; font-weight: 600; color: var(--ink); text-decoration: none;
+}
+.bd-chip:hover { background: var(--fill); }
+.bd-plate {
+  display: inline-block; padding: .2rem .55rem; border: 1.5px solid var(--ink); border-radius: 6px;
+  font-family: var(--font-mono); font-weight: 700; font-size: .85rem; letter-spacing: .04em; color: var(--ink);
+}
+.bd-link { background: none; border: 0; padding: 0; font: inherit; font-size: .82rem; font-weight: 600; color: var(--teal-700); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* Money: three tiles, then the payment list, then quiet tools. */
+.bd-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+.bd-tile { display: flex; flex-direction: column; gap: .2rem; padding: .8rem .9rem; border-radius: 12px; background: var(--fill); min-width: 0; }
+.bd-tile span { font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-mute); }
+.bd-tile strong { font-family: var(--font-display); font-size: 1.15rem; color: var(--ink); }
+.bd-tile small { font-size: .74rem; color: var(--ink-mute); text-decoration: line-through; }
+.bd-tile--due { background: var(--danger-bg); }
+.bd-tile--due strong, .bd-tile--due span { color: var(--danger); }
+.bd-tile--ok strong { color: var(--ok); font-size: 1rem; }
+.bd-reason { margin: .5rem 0 0; font-size: .8rem; }
+.bd-payments { list-style: none; padding: 0; margin: .9rem 0 0; display: flex; flex-direction: column; }
+.bd-payment-row { display: flex; align-items: center; gap: .7rem; padding: .65rem 0; border-bottom: 1px solid var(--line-soft); }
+.bd-payment-row:last-child { border-bottom: 0; }
+.bd-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--ink-mute); flex: none; }
+.bd-dot--succeeded { background: var(--ok); }
+.bd-dot--failed { background: var(--danger); }
+.bd-payment-main { display: flex; flex-direction: column; min-width: 0; }
+.bd-payment-main small { font-size: .76rem; color: var(--ink-mute); }
+.bd-payment-type { font-weight: 600; }
+.bd-payment-amt { font-family: var(--font-mono); font-weight: 700; margin-left: auto; }
+.bd-moneyactions { margin-top: .9rem; }
+.bd-pills .btn.is-on { background: var(--fill); border-color: var(--ink-soft); }
+.bd-panel { margin-top: .7rem; padding: .9rem 1rem; border: 1px solid var(--line-soft); border-radius: 12px; }
+.bd-panel__title { margin: 0 0 .5rem; font-weight: 700; font-size: .9rem; }
+.bd-panel .bd-priceedit { margin-top: 0; }
+
+@media (max-width: 640px) {
+  .bd-cards { grid-template-columns: 1fr; }
+  .bd-tiles { grid-template-columns: 1fr 1fr; }
+  .bd-tile--due, .bd-tile--ok { grid-column: 1 / -1; }
+}
 
 /* Stage track: hairline connector, done in --ok ink, current in --teal-700. */
 .bd-track { list-style: none; margin: 0 0 1.3rem; padding: 0; display: flex; gap: 0; }

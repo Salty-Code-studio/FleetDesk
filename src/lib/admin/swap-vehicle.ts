@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { bookings, vehicles } from "@/lib/db/schema";
+import { availabilityBlocks, bookings, vehicles } from "@/lib/db/schema";
 import { Errors } from "@/lib/http/errors";
 import { translateDbError } from "@/lib/db/errors";
 import { getSettings } from "@/lib/admin/settings";
@@ -93,4 +93,44 @@ export async function swapVehicle(id: string, input: SwapInput) {
     if (t) throw t;
     throw e;
   }
+}
+
+export interface SwapOption { id: string; plate: string; name: string; class: string | null }
+
+/**
+ * The cars a booking can be swapped to right now: active, not the current car,
+ * no other live booking inside this booking's own [start, bufferEnd) window,
+ * and no block (maintenance, cleaning…) touching its dates. Blackout days are
+ * shop-wide, so they never single out a car and are not checked here.
+ * One query per table, so a 90-car fleet costs the same as a 9-car one.
+ */
+export async function swapOptions(id: string): Promise<SwapOption[] | undefined> {
+  const db = await getDb();
+  const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+  if (!booking) return undefined;
+  if (!isSwappable(booking.status)) return [];
+
+  const cars = await db.select({ id: vehicles.id, plate: vehicles.plate, name: vehicles.name, class: vehicles.class })
+    .from(vehicles)
+    .where(and(eq(vehicles.status, "active"), ne(vehicles.id, booking.vehicleId)));
+  if (cars.length === 0) return [];
+  const ids = cars.map((c) => c.id);
+
+  // Same overlap rule as the exclusion constraint: ranges [start, bufferEnd) meet.
+  const busy = await db.select({ vehicleId: bookings.vehicleId }).from(bookings).where(and(
+    inArray(bookings.vehicleId, ids),
+    inArray(bookings.status, ["pending", "confirmed", "picked_up"]),
+    ne(bookings.id, id),
+    lt(bookings.startAt, booking.bufferEndAt),
+    gt(bookings.bufferEndAt, booking.startAt),
+  ));
+  const blocked = await db.select({ vehicleId: availabilityBlocks.vehicleId }).from(availabilityBlocks).where(and(
+    inArray(availabilityBlocks.vehicleId, ids),
+    lt(availabilityBlocks.startAt, booking.endAt),
+    gt(availabilityBlocks.endAt, booking.startAt),
+  ));
+  const taken = new Set([...busy, ...blocked].map((r) => r.vehicleId));
+  return cars
+    .filter((c) => !taken.has(c.id))
+    .sort((x, y) => (x.class ?? "").localeCompare(y.class ?? "") || x.plate.localeCompare(y.plate));
 }

@@ -115,7 +115,7 @@ export function InspectionPanel({ bookingId, onChanged }: { bookingId: string; o
           <Toggle label="Licence copy received" value={!!pickup?.licenseCopyReceived} disabled={busy}
             onTap={toggle("pickup", "licenseCopyReceived", !pickup?.licenseCopyReceived)} />
           <div className="wiz-check">
-            <span>Borg received</span>
+            <span>Deposit received</span>
             <span className={`state ${pickup?.borgReceivedCents !== null && pickup?.borgReceivedCents !== undefined ? "ok" : "todo"}`}>
               {pickup?.borgReceivedCents !== null && pickup?.borgReceivedCents !== undefined
                 ? money(pickup.borgReceivedCents, booking.currency)

@@ -126,3 +126,32 @@ describe("swapVehicle", () => {
     expect(forced.vehicleId).toBe(carC);
   });
 });
+
+describe("swapOptions", () => {
+  it("lists only active cars free for the booking's dates, never the current car", async () => {
+    const { swapOptions } = await import("@/lib/admin/swap-vehicle");
+    const bk = await createManualBooking({ vehicleId: carA, startAt: at("2030-05-10"), endAt: at("2030-05-14"), customerName: "Opts" });
+    // carB taken by an overlapping booking; carC blocked for maintenance.
+    await seedBooking({ vehicleId: carB, start: "2030-05-12", end: "2030-05-16", key: "opt-clash" });
+    await db.insert(availabilityBlocks).values({ vehicleId: carC, startAt: at("2030-05-11"), endAt: at("2030-05-12"), type: "maintenance" });
+    const ids = (await swapOptions(bk.id))!.map((o) => o.id);
+    expect(ids).not.toContain(carA);
+    expect(ids).not.toContain(carB);
+    expect(ids).not.toContain(carC);
+    expect(ids).not.toContain(retired);
+  });
+
+  it("shows a car again once its clash is outside the dates", async () => {
+    const { swapOptions } = await import("@/lib/admin/swap-vehicle");
+    const bk = await createManualBooking({ vehicleId: carA, startAt: at("2030-07-01"), endAt: at("2030-07-03"), customerName: "Opts2" });
+    await seedBooking({ vehicleId: carB, start: "2030-07-10", end: "2030-07-12", key: "opt-later" });
+    const ids = (await swapOptions(bk.id))!.map((o) => o.id);
+    expect(ids).toContain(carB);
+    expect(ids).toContain(carC);
+  });
+
+  it("returns undefined for an unknown booking", async () => {
+    const { swapOptions } = await import("@/lib/admin/swap-vehicle");
+    expect(await swapOptions("00000000-0000-4000-8000-000000000000")).toBeUndefined();
+  });
+});

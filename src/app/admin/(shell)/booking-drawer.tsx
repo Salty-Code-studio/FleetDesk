@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { apiGet, api, apiPatch, type ApiError } from "../client";
 import { Drawer, Modal, useToast, SkeletonRows } from "@/app/admin/_ui";
 import { DatePicker, MoneyInput, Select, TimeSelect } from "@/components/ui";
-import { formatDateTime, atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, parseTs } from "@/lib/time/format";
+import { formatDate, formatDateTime, atAruba, arubaDateOf, arubaTimeOf, arubaNowIso, parseTs } from "@/lib/time/format";
 import Link from "next/link";
 import { InspectionPanel } from "./inspection-panel";
 import { StageTrack } from "./stage-track";
@@ -40,7 +40,29 @@ const TYPE_LABEL: Record<string, string> = {
   rental_deposit: "Deposit",
   rental_full: "Full rental",
   extension: "Extension",
+  balance: "Balance",
 };
+/** "desk" → "Desk", "rental_full" → "Rental full". */
+const niceWord = (w: string) => (w.charAt(0).toUpperCase() + w.slice(1)).replace(/_/g, " ");
+const dayFmt = new Intl.DateTimeFormat("en-US", { timeZone: "America/Aruba", weekday: "short", day: "numeric", month: "short" });
+/** "Wed, Oct 28" in island time. */
+const dayLabel = (ts: string) => dayFmt.format(new Date(parseTs(ts)));
+/** A short "when" line for the head: how far off the pick-up or return is. */
+function timingFor(status: string, startAt: string, endAt: string, nowMs: number): { text: string; warn: boolean } | null {
+  const days = (ms: number) => Math.round(ms / 86_400_000);
+  const plural = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
+  if (status === "picked_up") {
+    const left = parseTs(endAt) - nowMs;
+    if (left < 0) return { text: `Return overdue by ${left > -86_400_000 ? `${Math.max(1, Math.round(-left / 3_600_000))}h` : plural(days(-left))}`, warn: true };
+    return { text: left < 86_400_000 ? "Returns today" : `Returns in ${plural(days(left))}`, warn: false };
+  }
+  if (status === "pending" || status === "confirmed") {
+    const until = parseTs(startAt) - nowMs;
+    if (until < 0) return { text: "Pick-up time has passed", warn: true };
+    return { text: until < 86_400_000 ? "Picks up today" : `Picks up in ${plural(days(until))}`, warn: false };
+  }
+  return null;
+}
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 
 /**
@@ -74,6 +96,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   const [otherAmountCents, setOtherAmountCents] = useState<number | null>(null);
 
   const [showPriceEdit, setShowPriceEdit] = useState(false);
+  const [showPaidUntil, setShowPaidUntil] = useState(false);
   const [priceDraftCents, setPriceDraftCents] = useState<number | null>(null);
   const [priceReason, setPriceReason] = useState("");
   const [priceBusy, setPriceBusy] = useState(false);
@@ -93,6 +116,8 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
   const [swapBusy, setSwapBusy] = useState(false);
   const [swapVehicleId, setSwapVehicleId] = useState("");
   const [swapAdvisory, setSwapAdvisory] = useState<string | null>(null);
+  // Only cars free for this booking's exact dates (null = still loading).
+  const [swapOptions, setSwapOptions] = useState<VehicleOption[] | null>(null);
   const [repairFor, setRepairFor] = useState<{ vehicleId: string; plate: string } | null>(null);
   const [repair, setRepair] = useState({ type: "maintenance", startDate: "", endDate: "", reason: "" });
   const [repairBusy, setRepairBusy] = useState(false);
@@ -141,6 +166,7 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     setShowOtherAmount(false);
     setOtherAmountCents(null);
     setShowPriceEdit(false);
+    setShowPaidUntil(false);
     setPriceDraftCents(null);
     setPriceReason("");
   }, [bookingId]);
@@ -183,10 +209,9 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     setSwapVehicleId("");
     setSwapAdvisory(null);
     setShowSwap(true);
-    if (vehicles.length === 0) {
-      try { setVehicles(await apiGet<VehicleOption[]>("/api/admin/vehicles")); }
-      catch (e) { toast.show({ type: "error", message: (e as ApiError).message }); }
-    }
+    setSwapOptions(null);
+    try { setSwapOptions(await apiGet<VehicleOption[]>(`/api/admin/bookings/${bookingId}/swap-vehicle`)); }
+    catch (e) { setSwapOptions([]); toast.show({ type: "error", message: (e as ApiError).message }); }
   }
 
   async function submitSwap(override: boolean) {
@@ -439,11 +464,9 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     : null;
   const next = stage?.next ?? null;
   const { move: canMove, extend: canExtend, swap: canSwap, cancel: canCancel } = sheetActions(b?.status ?? "");
-  const swapCandidates = detail
-    ? vehicles
-        .filter((v) => v.id !== detail.vehicle.id && v.status !== "retired")
-        .sort((x, y) => (x.class ?? "").localeCompare(y.class ?? "") || x.plate.localeCompare(y.plate))
-    : [];
+  const swapCandidates = swapOptions ?? [];
+  const timing = b ? timingFor(b.status, b.startAt, b.endAt, Date.now()) : null;
+  const tripDays = b ? Math.max(1, Math.ceil((parseTs(b.endAt) - parseTs(b.startAt)) / 86_400_000)) : 0;
 
   return (
     <>
@@ -459,10 +482,23 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
         {detail && b && (
           <div className="bd">
             <header className="bd-head">
-              <span className="bd-head__plate" aria-hidden="true">{detail.vehicle.plate}</span>
-              <div className="bd-head__mid">
-                <p className="bd-head__name">{detail.customer.name || detail.customer.email}</p>
-                <p className="bd-head__period">{formatDateTime(b.startAt)} to {formatDateTime(b.endAt)}</p>
+              <div className="bd-head__row">
+                <span className={`bd-status bd-status--${b.status}`}>{STATUS_LABEL[b.status] ?? b.status}</span>
+                {timing && <span className={`bd-timing${timing.warn ? " bd-timing--warn" : ""}`}>{timing.text}</span>}
+                <span className="bd-source">{b.source === "manual" ? "Desk booking" : "Booked online"}</span>
+              </div>
+              <div className="bd-trip">
+                <div className="bd-trip__end">
+                  <span className="bd-trip__label">Pick-up</span>
+                  <strong>{dayLabel(b.startAt)}</strong>
+                  <span>{arubaTimeOf(b.startAt)}</span>
+                </div>
+                <div className="bd-trip__line" aria-hidden="true"><span>{tripDays} {tripDays === 1 ? "day" : "days"}</span></div>
+                <div className="bd-trip__end bd-trip__end--right">
+                  <span className="bd-trip__label">Return</span>
+                  <strong>{dayLabel(b.endAt)}</strong>
+                  <span>{arubaTimeOf(b.endAt)}</span>
+                </div>
               </div>
               {next && showNextFor(next, detail.viewerRole) && (
                 <div className="bd-head__top">
@@ -485,155 +521,9 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
             </header>
             {stage && <StageTrack view={stage} />}
 
-            <section className="bd-section">
-              <h3>Summary</h3>
-              <dl className="bd-summary">
-                <div>
-                  <dt>Customer</dt>
-                  <dd>{detail.customer.name || detail.customer.email}<small>{detail.customer.email} · {detail.customer.phone || "no phone on file"}</small></dd>
-                </div>
-                <div>
-                  <dt>Vehicle</dt>
-                  <dd>{detail.vehicle.plate} · {detail.vehicle.name}</dd>
-                </div>
-                <div>
-                  <dt>Status</dt>
-                  <dd><span className={`bd-status bd-status--${b.status}`}>{STATUS_LABEL[b.status] ?? b.status}</span></dd>
-                </div>
-                <div>
-                  <dt>Source</dt>
-                  <dd><span className="tag">{b.source === "manual" ? "Manual" : "Online"}</span></dd>
-                </div>
-              </dl>
-              {b.notes && <p className="pl-pop-note">{b.notes}</p>}
-            </section>
-
-            <section className="bd-section">
-              <h3>Payments</h3>
-              {detail.payments.length === 0 ? (
-                <p className="muted">No payments yet.</p>
-              ) : (
-                <div className="bd-payments">
-                  {detail.payments.map((p) => {
-                    const remaining = p.amountCents - p.refundedCents;
-                    return (
-                      <div className="bd-payment-row" key={p.id}>
-                        <span className="bd-payment-type">{TYPE_LABEL[p.type] ?? p.type}</span>
-                        <span className="tag">{p.method}</span>
-                        <span className={`tag ${p.status === "succeeded" ? "on" : p.status === "failed" ? "off" : ""}`}>{p.status}</span>
-                        {p.refundedCents > 0 && <span className="tag off">Refunded {money(p.refundedCents)}</span>}
-                        <span className="bd-payment-amt">{money(p.amountCents)}</span>
-                        {p.status === "succeeded" && remaining > 0 && (
-                          <button type="button" className="btn btn--quiet" onClick={() => openRefund(p)}>Refund</button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="bd-balance">Paid {money(b.amountPaidCents)} · Balance due at pickup {money(detail.balanceDueCents)}</p>
-              {detail.paidNote && (
-                <p className={detail.unpaid ? "bd-paidnote bd-paidnote--unpaid" : "bd-paidnote"}>{detail.paidNote}</p>
-              )}
-
-              {detail.viewerRole === "owner" && b.status !== "cancelled" && (
-                <div className="bd-moneygroup">
-                  <h4 className="bd-moneygroup__title">Price</h4>
-                  <p className="bd-priceline">
-                    {money(currentSubtotalCents)}
-                    {priceOverride && (
-                      <span className="muted"> · was {money(priceOverride.previousSubtotalCents)} · {priceOverride.reason}</span>
-                    )}
-                  </p>
-                  {!showPriceEdit ? (
-                    <button type="button" className="btn btn--quiet"
-                      onClick={() => {
-                        setPriceDraftCents(currentSubtotalCents);
-                        setPriceReason("");
-                        setShowPriceEdit(true);
-                      }}>Change price…</button>
-                  ) : (
-                    <div className="bd-priceedit">
-                      <label>New price
-                        <MoneyInput cents={priceDraftCents} ariaLabel="New price"
-                          onChange={(cents) => setPriceDraftCents(cents)} autoFocus />
-                      </label>
-                      <label>Reason
-                        <input value={priceReason} maxLength={500}
-                          placeholder="e.g. settled against key work"
-                          onChange={(e) => setPriceReason(e.target.value)} />
-                      </label>
-                      <p className="muted">The customer&apos;s confirmation email still shows the old price. Nothing is re-sent.</p>
-                      <div className="pl-pop-actions">
-                        <button type="button" className="btn"
-                          disabled={priceBusy || priceDraftCents === null || priceReason.trim().length < 3}
-                          onClick={savePrice}>{priceBusy ? "Saving…" : "Save price"}</button>
-                        <button type="button" className="btn btn--quiet" disabled={priceBusy}
-                          onClick={() => setShowPriceEdit(false)}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {b.status !== "cancelled" && detail.balanceDueCents > 0 && (
-                <div className="bd-moneygroup">
-                  <h4 className="bd-moneygroup__title">Amount received</h4>
-                  <div className="pl-pop-actions">
-                    {next?.kind !== "pay" && (
-                      <button type="button" className="btn" disabled={payBusy}
-                        onClick={() => recordPayment(detail.balanceDueCents)}>
-                        {payBusy ? "Saving…" : `Mark as paid (${money(detail.balanceDueCents)})`}
-                      </button>
-                    )}
-                    <button type="button" className="btn btn--quiet" disabled={payBusy}
-                      onClick={() => setShowOtherAmount((v) => !v)}>
-                      {showOtherAmount ? "Cancel" : "Other amount…"}
-                    </button>
-                  </div>
-                  {showOtherAmount && (
-                    <div className="bd-otheramount">
-                      <label>Amount received
-                        <MoneyInput cents={otherAmountCents} ariaLabel="Amount received"
-                          onChange={(cents) => setOtherAmountCents(cents)} autoFocus />
-                      </label>
-                      <button type="button" className="btn"
-                        disabled={payBusy || otherAmountCents === null || otherAmountCents <= 0}
-                        onClick={() => recordPayment(otherAmountCents!)}>
-                        {payBusy ? "Saving…" : "Record payment"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {(b.status === "picked_up" || b.status === "confirmed" || b.status === "completed") && (
-                <div className="bd-moneygroup">
-                  <h4 className="bd-moneygroup__title">Paid until</h4>
-                  <div className="bd-paiduntil">
-                    <label className="bd-paiduntil__label">
-                      <DatePicker value={paidUntilDraft} onChange={(iso) => setPaidUntilDraft(iso)} ariaLabel="Paid until" />
-                    </label>
-                    <button type="button" className="btn btn--quiet"
-                      disabled={paidUntilBusy || !paidUntilDraft || paidUntilDraft === (b.paidUntil ?? "")}
-                      onClick={() => savePaidUntil(paidUntilDraft)}>Save</button>
-                    <button type="button" className="btn btn--quiet" disabled={paidUntilBusy}
-                      onClick={() => savePaidUntil(addMonth(paidUntilDraft || arubaDateOf(arubaNowIso())))}>+1 month</button>
-                    {b.paidUntil && (
-                      <button type="button" className="btn btn--quiet" disabled={paidUntilBusy}
-                        onClick={() => savePaidUntil(null)}>Clear</button>
-                    )}
-                  </div>
-                  <p className="muted bd-paiduntil__hint">For rentals paid by the month. Set the last day the customer has covered. Once that date passes, the bar on the board turns red. Leave this empty for ordinary rentals. Then the balance above decides.</p>
-                </div>
-              )}
-            </section>
-
-            {extraSections ?? <InspectionPanel bookingId={b.id} onChanged={onChanged} />}
-
             {(canMove || canExtend || canSwap || canCancel || showMove || showSwap) && (
               <section className="bd-section">
-                <h3>Actions</h3>
+                <h3>Change this rental</h3>
                 {!showMove && !showSwap && (
                   <div className="pl-pop-actions bd-pills">
                     {canMove && (
@@ -657,10 +547,14 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                         value={swapVehicleId}
                         onChange={setSwapVehicleId}
                         options={swapCandidates.map((v) => ({ value: v.id, label: `${v.class ? v.class + " · " : ""}${v.plate} · ${v.name}` }))}
-                        placeholder={vehicles.length === 0 ? "Loading cars…" : "Choose a replacement car"}
+                        placeholder={swapOptions === null ? "Finding free cars…" : swapCandidates.length === 0 ? "No car is free on these dates" : "Choose a free car"}
                       />
                     </label>
-                    <p className="muted">Same dates and same price. Only the car changes.</p>
+                    <p className="muted">
+                      {swapOptions !== null && swapCandidates.length === 0
+                        ? "Every other car is booked or blocked for these dates."
+                        : `${swapCandidates.length} free for these dates. Same dates and same price. Only the car changes.`}
+                    </p>
                     <div className="pl-pop-actions">
                       <button type="button" className="btn" disabled={swapBusy || !swapVehicleId} onClick={() => submitSwap(false)}>{swapBusy ? "Swapping…" : "Swap car"}</button>
                       <button type="button" className="btn btn--quiet" onClick={() => setShowSwap(false)}>Back</button>
@@ -691,6 +585,162 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 )}
               </section>
             )}
+
+            <section className="bd-section">
+              <h3>Customer and car</h3>
+              <div className="bd-cards">
+                <div className="bd-card">
+                  <p className="bd-card__title">{detail.customer.name || detail.customer.email}</p>
+                  <div className="bd-contact">
+                    {detail.customer.phone && <a className="bd-chip" href={`tel:${detail.customer.phone.replace(/[^\d+]/g, "")}`}>Call</a>}
+                    {detail.customer.phone && (
+                      <a className="bd-chip" href={`https://wa.me/${detail.customer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                    )}
+                    {detail.customer.email && <a className="bd-chip" href={`mailto:${detail.customer.email}`}>Email</a>}
+                  </div>
+                  <p className="bd-card__meta">{detail.customer.phone || "No phone on file"}<br />{detail.customer.email}</p>
+                </div>
+                <div className="bd-card">
+                  <p className="bd-card__title">{detail.vehicle.name}</p>
+                  <span className="bd-plate">{detail.vehicle.plate}</span>
+                </div>
+              </div>
+              {b.notes && <p className="pl-pop-note">{b.notes}</p>}
+            </section>
+
+            <section className="bd-section">
+              <h3>Money</h3>
+              <div className="bd-tiles">
+                <div className="bd-tile">
+                  <span>Price</span>
+                  <strong>{money(currentSubtotalCents)}</strong>
+                  {priceOverride && <small>was {money(priceOverride.previousSubtotalCents)}</small>}
+                </div>
+                <div className="bd-tile">
+                  <span>Paid</span>
+                  <strong>{money(b.amountPaidCents)}</strong>
+                </div>
+                <div className={`bd-tile ${detail.balanceDueCents > 0 ? "bd-tile--due" : "bd-tile--ok"}`}>
+                  <span>{detail.balanceDueCents > 0 ? (b.status === "picked_up" || b.status === "completed" ? "Still owed" : "Due at pick-up") : "Balance"}</span>
+                  <strong>{detail.balanceDueCents > 0 ? money(detail.balanceDueCents) : "Paid in full"}</strong>
+                </div>
+              </div>
+              {priceOverride && <p className="muted bd-reason">Price changed: {priceOverride.reason}</p>}
+              {detail.paidNote && (
+                <p className={detail.unpaid ? "bd-paidnote bd-paidnote--unpaid" : "bd-paidnote"}>{detail.paidNote}</p>
+              )}
+
+              {detail.payments.length > 0 && (
+                <ul className="bd-payments">
+                  {detail.payments.map((p) => {
+                    const remaining = p.amountCents - p.refundedCents;
+                    return (
+                      <li className="bd-payment-row" key={p.id}>
+                        <span className={`bd-dot bd-dot--${p.status}`} aria-hidden="true" />
+                        <span className="bd-payment-main">
+                          <span className="bd-payment-type">{TYPE_LABEL[p.type] ?? niceWord(p.type)}</span>
+                          <small>{niceWord(p.method)} · {formatDate(p.createdAt)}{p.status !== "succeeded" ? ` · ${niceWord(p.status)}` : ""}{p.refundedCents > 0 ? ` · ${money(p.refundedCents)} refunded` : ""}</small>
+                        </span>
+                        <span className="bd-payment-amt">{money(p.amountCents)}</span>
+                        {p.status === "succeeded" && remaining > 0 && (
+                          <button type="button" className="bd-link" onClick={() => openRefund(p)}>Refund</button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {b.status !== "cancelled" && (
+                <div className="pl-pop-actions bd-pills bd-moneyactions">
+                  {detail.balanceDueCents > 0 && next?.kind !== "pay" && (
+                    <button type="button" className="btn btn--quiet" disabled={payBusy}
+                      onClick={() => recordPayment(detail.balanceDueCents)}>
+                      {payBusy ? "Saving…" : `Mark paid (${money(detail.balanceDueCents)})`}
+                    </button>
+                  )}
+                  {detail.balanceDueCents > 0 && (
+                    <button type="button" className={`btn btn--quiet${showOtherAmount ? " is-on" : ""}`} disabled={payBusy}
+                      onClick={() => setShowOtherAmount((v) => !v)}>Part payment…</button>
+                  )}
+                  {detail.viewerRole === "owner" && (
+                    <button type="button" className={`btn btn--quiet${showPriceEdit ? " is-on" : ""}`}
+                      onClick={() => {
+                        if (!showPriceEdit) { setPriceDraftCents(currentSubtotalCents); setPriceReason(""); }
+                        setShowPriceEdit((v) => !v);
+                      }}>Change price…</button>
+                  )}
+                  {(b.status === "picked_up" || b.status === "confirmed" || b.status === "completed") && (
+                    <button type="button" className={`btn btn--quiet${showPaidUntil ? " is-on" : ""}`}
+                      onClick={() => setShowPaidUntil((v) => !v)}>
+                      {b.paidUntil ? `Paid until ${formatDate(`${b.paidUntil}T12:00:00-04:00`)}` : "Monthly rental…"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {b.status !== "cancelled" && detail.balanceDueCents > 0 && showOtherAmount && (
+                    <div className="bd-otheramount">
+                      <label>Amount received
+                        <MoneyInput cents={otherAmountCents} ariaLabel="Amount received"
+                          onChange={(cents) => setOtherAmountCents(cents)} autoFocus />
+                      </label>
+                      <button type="button" className="btn"
+                        disabled={payBusy || otherAmountCents === null || otherAmountCents <= 0}
+                        onClick={() => recordPayment(otherAmountCents!)}>
+                        {payBusy ? "Saving…" : "Record payment"}
+                      </button>
+                    </div>
+              )}
+
+              {detail.viewerRole === "owner" && b.status !== "cancelled" && showPriceEdit && (
+                <div className="bd-panel">
+                    <div className="bd-priceedit">
+                      <label>New price
+                        <MoneyInput cents={priceDraftCents} ariaLabel="New price"
+                          onChange={(cents) => setPriceDraftCents(cents)} autoFocus />
+                      </label>
+                      <label>Reason
+                        <input value={priceReason} maxLength={500}
+                          placeholder="e.g. settled against key work"
+                          onChange={(e) => setPriceReason(e.target.value)} />
+                      </label>
+                      <p className="muted">The customer&apos;s confirmation email still shows the old price. Nothing is re-sent.</p>
+                      <div className="pl-pop-actions">
+                        <button type="button" className="btn"
+                          disabled={priceBusy || priceDraftCents === null || priceReason.trim().length < 3}
+                          onClick={savePrice}>{priceBusy ? "Saving…" : "Save price"}</button>
+                        <button type="button" className="btn btn--quiet" disabled={priceBusy}
+                          onClick={() => setShowPriceEdit(false)}>Cancel</button>
+                      </div>
+                    </div>
+                </div>
+              )}
+
+              {showPaidUntil && (b.status === "picked_up" || b.status === "confirmed" || b.status === "completed") && (
+                <div className="bd-panel">
+                  <p className="bd-panel__title">Paid until</p>
+                  <div className="bd-paiduntil">
+                    <label className="bd-paiduntil__label">
+                      <DatePicker value={paidUntilDraft} onChange={(iso) => setPaidUntilDraft(iso)} ariaLabel="Paid until" />
+                    </label>
+                    <button type="button" className="btn btn--quiet"
+                      disabled={paidUntilBusy || !paidUntilDraft || paidUntilDraft === (b.paidUntil ?? "")}
+                      onClick={() => savePaidUntil(paidUntilDraft)}>Save</button>
+                    <button type="button" className="btn btn--quiet" disabled={paidUntilBusy}
+                      onClick={() => savePaidUntil(addMonth(paidUntilDraft || arubaDateOf(arubaNowIso())))}>+1 month</button>
+                    {b.paidUntil && (
+                      <button type="button" className="btn btn--quiet" disabled={paidUntilBusy}
+                        onClick={() => savePaidUntil(null)}>Clear</button>
+                    )}
+                  </div>
+                  <p className="muted bd-paiduntil__hint">For customers who pay month by month. Once this date passes, the car turns red on the board.</p>
+                </div>
+              )}
+            </section>
+
+            {extraSections ?? <InspectionPanel bookingId={b.id} onChanged={onChanged} />}
+
           </div>
         )}
       </Drawer>

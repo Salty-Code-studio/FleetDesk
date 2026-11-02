@@ -2,13 +2,22 @@ import { z } from "zod";
 import { withRoute } from "@/lib/http/handler";
 import { json } from "@/lib/http/respond";
 import { parseJsonBody, parseParams } from "@/lib/http/validate";
-import { mutate } from "@/lib/admin/guard";
-import { swapVehicle, SwapSchema } from "@/lib/admin/swap-vehicle";
+import { mutate, read } from "@/lib/admin/guard";
+import { Errors } from "@/lib/http/errors";
+import { swapOptions, swapVehicle, SwapSchema } from "@/lib/admin/swap-vehicle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
+
+/** GET the cars this booking can be swapped to: free for its exact dates. */
+export const GET = withRoute(async (req, { params }) => {
+  const { id } = parseParams(await params, ParamsSchema);
+  const options = await read(req, () => swapOptions(id));
+  if (!options) throw Errors.notFound("Booking not found");
+  return json(options, req);
+});
 
 export const POST = withRoute(async (req, { params }) => {
   const { id } = parseParams(await params, ParamsSchema);

@@ -265,7 +265,7 @@ export default function CheckoutWizard() {
         >
           {received !== null ? (
             <>
-              <p className="wiz-sub">Borg received at pickup: {money(received, b.currency)} in {pickup?.borgMethod ?? "cash"}.</p>
+              <p className="wiz-sub">Deposit received at pickup: {money(received, b.currency)} in {pickup?.borgMethod ?? "cash"}.</p>
               <div className="wiz-choice">
                 <button type="button" className={borgChoice === "full" ? "on" : ""} onClick={() => setBorgChoice("full")}>Returned in full</button>
                 <button type="button" className={borgChoice === "partial" ? "on" : ""} onClick={() => setBorgChoice("partial")}>Partially withheld</button>
