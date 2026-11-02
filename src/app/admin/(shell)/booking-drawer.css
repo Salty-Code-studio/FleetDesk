@@ -185,3 +185,4 @@
 .bd-pills .btn:hover { background: var(--fill); }
 .bd-pills .btn.danger { color: var(--danger); border-color: var(--line); }
 .bd-failed { display: flex; flex-direction: column; align-items: flex-start; gap: .7rem; }
+.bd-section .pl-pop-note { margin: .7rem 0 0; }

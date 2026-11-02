@@ -636,7 +636,8 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 </div>
               </div>
               {priceOverride && <p className="muted bd-reason">Price changed: {priceOverride.reason}</p>}
-              {detail.paidNote && (
+              {/* The tiles already say what is owed; the note only adds news for monthly renters. */}
+              {detail.paidNote && b.paidUntil && (
                 <p className={detail.unpaid ? "bd-paidnote bd-paidnote--unpaid" : "bd-paidnote"}>{detail.paidNote}</p>
               )}
 
