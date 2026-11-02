@@ -40,7 +40,7 @@ const TYPE_LABEL: Record<string, string> = {
   rental_deposit: "Deposit",
   rental_full: "Full rental",
   extension: "Extension",
-  balance: "Balance",
+  balance: "Payment",
 };
 /** "desk" → "Desk", "rental_full" → "Rental full". */
 const niceWord = (w: string) => (w.charAt(0).toUpperCase() + w.slice(1)).replace(/_/g, " ");
@@ -662,46 +662,44 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
                 </ul>
               )}
 
-              {b.status !== "cancelled" && (
-                <div className="pl-pop-actions bd-pills bd-moneyactions">
-                  {detail.balanceDueCents > 0 && next?.kind !== "pay" && (
-                    <button type="button" className="btn btn--quiet" disabled={payBusy}
-                      onClick={() => recordPayment(detail.balanceDueCents)}>
-                      {payBusy ? "Saving…" : `Mark paid (${money(detail.balanceDueCents)})`}
+              {b.status !== "cancelled" && detail.balanceDueCents > 0 && (() => {
+                const take = otherAmountCents ?? detail.balanceDueCents;
+                const tooMuch = take > detail.balanceDueCents;
+                return (
+                  <form className="bd-take" onSubmit={(e) => { e.preventDefault(); if (take > 0 && !tooMuch) void recordPayment(take); }}>
+                    <label className="bd-take__field">
+                      <span>Take payment</span>
+                      <MoneyInput cents={take} ariaLabel="Amount received" onChange={(cents) => setOtherAmountCents(cents)} />
+                    </label>
+                    <button type="submit" className="btn btn--confirm bd-take__go" disabled={payBusy || take <= 0 || tooMuch}>
+                      {payBusy ? "Saving…" : `Take ${money(take)}`}
                     </button>
-                  )}
-                  {detail.balanceDueCents > 0 && (
-                    <button type="button" className={`btn btn--quiet${showOtherAmount ? " is-on" : ""}`} disabled={payBusy}
-                      onClick={() => setShowOtherAmount((v) => !v)}>Part payment…</button>
-                  )}
+                    <p className={`bd-take__hint${tooMuch ? " is-bad" : ""}`}>
+                      {tooMuch
+                        ? `More than the ${money(detail.balanceDueCents)} still owed.`
+                        : take === detail.balanceDueCents
+                          ? "The full amount is filled in. Type a lower amount for a part payment."
+                          : `${money(detail.balanceDueCents - take)} will still be owed after this.`}
+                    </p>
+                  </form>
+                );
+              })()}
+
+              {b.status !== "cancelled" && (detail.viewerRole === "owner" || b.status === "picked_up" || b.status === "confirmed" || b.status === "completed") && (
+                <p className="bd-tools">
                   {detail.viewerRole === "owner" && (
-                    <button type="button" className={`btn btn--quiet${showPriceEdit ? " is-on" : ""}`}
+                    <button type="button" className="bd-link"
                       onClick={() => {
                         if (!showPriceEdit) { setPriceDraftCents(currentSubtotalCents); setPriceReason(""); }
                         setShowPriceEdit((v) => !v);
-                      }}>Change price…</button>
+                      }}>{showPriceEdit ? "Close price change" : "Change the price"}</button>
                   )}
                   {(b.status === "picked_up" || b.status === "confirmed" || b.status === "completed") && (
-                    <button type="button" className={`btn btn--quiet${showPaidUntil ? " is-on" : ""}`}
-                      onClick={() => setShowPaidUntil((v) => !v)}>
-                      {b.paidUntil ? `Paid until ${formatDate(`${b.paidUntil}T12:00:00-04:00`)}` : "Monthly rental…"}
+                    <button type="button" className="bd-link" onClick={() => setShowPaidUntil((v) => !v)}>
+                      {showPaidUntil ? "Close paid-until" : b.paidUntil ? `Paid until ${formatDate(`${b.paidUntil}T12:00:00-04:00`)}` : "Pays monthly? Set a paid-until date"}
                     </button>
                   )}
-                </div>
-              )}
-
-              {b.status !== "cancelled" && detail.balanceDueCents > 0 && showOtherAmount && (
-                    <div className="bd-otheramount">
-                      <label>Amount received
-                        <MoneyInput cents={otherAmountCents} ariaLabel="Amount received"
-                          onChange={(cents) => setOtherAmountCents(cents)} autoFocus />
-                      </label>
-                      <button type="button" className="btn"
-                        disabled={payBusy || otherAmountCents === null || otherAmountCents <= 0}
-                        onClick={() => recordPayment(otherAmountCents!)}>
-                        {payBusy ? "Saving…" : "Record payment"}
-                      </button>
-                    </div>
+                </p>
               )}
 
               {detail.viewerRole === "owner" && b.status !== "cancelled" && showPriceEdit && (
