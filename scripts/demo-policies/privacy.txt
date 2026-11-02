@@ -1,0 +1,24 @@
+PRIVACY
+Yabi Demo Rentals. Demo text, not legal advice.
+
+WHAT WE COLLECT
+- Name, email, phone and booking details.
+- Driving licence details and a photo of your licence, taken at pickup.
+- Photos of the car and any damage, your signature, odometer and fuel readings.
+- Payment status. Card numbers are handled by our payment provider, we never see or store them.
+
+WHY
+- To run your rental, check you may legally drive, protect you and us in case of damage, and send your contract and receipts.
+- We do not sell your data and do not use it for advertising.
+
+HOW WE KEEP IT SAFE
+- Licence numbers and dates of birth are stored encrypted.
+- Photos and signatures live in private storage that only our staff can open.
+
+HOW LONG
+- Rental records are kept as long as tax rules require (usually 7 years).
+- Licence photos, car photos and signatures are deleted after the retention period set by the rental company, unless there is an open damage or fine case.
+
+YOUR RIGHTS
+- Ask to see, correct or delete your data at any time. Email us and we answer within 30 days.
+- Some records (invoices, open damage cases) we must keep by law. We tell you which.

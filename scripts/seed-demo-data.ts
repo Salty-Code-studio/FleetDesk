@@ -7,9 +7,11 @@
  * Run: node --import tsx --env-file-if-exists=.env.local scripts/seed-demo-data.ts
  * Refuses to run against anything but the local pglite database.
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { sql, eq } from "drizzle-orm";
 import { getDb, closeDb } from "../src/lib/db/client";
-import { vehicles, bookings, payments, settings } from "../src/lib/db/schema";
+import { vehicles, bookings, payments, settings, policies } from "../src/lib/db/schema";
 import { createManualBooking } from "../src/lib/admin/manual-booking";
 
 if (!process.env.DATABASE_URL?.startsWith("pglite://")) {
@@ -101,7 +103,16 @@ function dayRate(v: { priceDayCents: number; priceWeekCents: number | null; pric
 
 async function main() {
   const db = await getDb();
-  await db.update(settings).set({ currency: "USD" }).where(eq(settings.id, 1));
+  // Island norm: 21 to rent, young driver fee under 25.
+  await db.update(settings).set({ currency: "USD", minDriverAge: 21, youngDriverAge: 25, youngDriverFeeCentsPerDay: 1000 }).where(eq(settings.id, 1));
+  // Demo rules, cancellation and privacy text (scripts/demo-policies), once.
+  for (const type of ["rental_terms", "cancellation", "privacy"] as const) {
+    const [have] = await db.select({ id: policies.id }).from(policies).where(eq(policies.type, type));
+    if (!have) {
+      const body = readFileSync(path.join(__dirname, "demo-policies", `${type}.txt`), "utf8").trim();
+      await db.insert(policies).values({ type, version: 1, body, publishedAt: new Date() });
+    }
+  }
   await db.insert(vehicles).values(EXTRA_FLEET).onConflictDoNothing({ target: vehicles.slug });
   // Give the stock demo cars real makes so cards read like a real fleet.
   const named: Record<string, [string, string, string, number]> = {
