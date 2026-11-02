@@ -8,9 +8,9 @@ const read = (p: string) => readFileSync(path.join(app, p), "utf8");
 // Guard scans the admin stylesheets listed below.
 /** Exact selectors allowed to use coral: tap targets, brand marks, decoration. */
 const ALLOWED = [
-  ".btn--accent", ".btn-demo", ".td-row__do", ".td-cta", ".nbell__badge",
+  ".btn--accent", ".btn-demo", ".td-card__do", ".td-cta", ".nbell__badge",
   ".ui-palette__icon", ".auth-brand::before", ".side .logo .logo-mark",
-  ".td-row__who",
+  ".td-card__open", // the whole Today card is a tap target
   ".nbell__mark", // "mark all read" button text, a tap target
   ".brand-dot", ".side .logo b", // brand marks, not statuses
   ".bd-next", ".fc-add", // tap targets created by Phase 3 tasks

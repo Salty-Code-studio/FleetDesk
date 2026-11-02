@@ -140,7 +140,12 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
     if (!bookingId) { setDetail(null); return; }
     setLoading(true);
     try {
-      const d = await apiGet<BookingDetailResponse>(`/api/admin/bookings/${bookingId}`);
+      // A cold server or a deploy switching over can leave the request hanging;
+      // give up after 15s so the sheet offers Try again instead of a skeleton forever.
+      const d = await Promise.race([
+        apiGet<BookingDetailResponse>(`/api/admin/bookings/${bookingId}`),
+        new Promise<never>((_, reject) => setTimeout(() => reject({ message: "This booking took too long to load." }), 15_000)),
+      ]);
       setDetail(d);
       setPaidUntilDraft(d.booking.paidUntil ?? "");
     } catch (e) {
@@ -478,7 +483,12 @@ export function BookingDrawer({ bookingId, onClose, onChanged, extraSections = n
         size="lg"
       >
         {loading && !detail && <SkeletonRows rows={4} cols={2} />}
-        {!loading && !detail && <p className="muted">Couldn&apos;t load this booking.</p>}
+        {!loading && !detail && (
+          <div className="bd-failed">
+            <p className="muted">Couldn&apos;t load this booking.</p>
+            <button type="button" className="btn" onClick={() => void load()}>Try again</button>
+          </div>
+        )}
         {detail && b && (
           <div className="bd">
             <header className="bd-head">

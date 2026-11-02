@@ -184,3 +184,4 @@
 .bd-pills .btn { border: 1px solid var(--line); border-radius: 999px; background: transparent; }
 .bd-pills .btn:hover { background: var(--fill); }
 .bd-pills .btn.danger { color: var(--danger); border-color: var(--line); }
+.bd-failed { display: flex; flex-direction: column; align-items: flex-start; gap: .7rem; }

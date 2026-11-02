@@ -8,6 +8,7 @@ import { Skeleton, EmptyState, useToast } from "@/app/admin/_ui";
 import type { TodayBoard, TodayItem } from "@/lib/admin/today";
 import { BookingDrawer } from "./booking-drawer";
 import { SetupHook } from "./setup-checklist";
+import "./fleet/fleet.css";
 import "./today.css";
 
 const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -43,11 +44,26 @@ function firstOpen(b: TodayBoard, staff: boolean): TodayItem | undefined {
 
 type TodayView = TodayBoard & { viewerRole: "owner" | "staff" };
 
+const KIND_LABEL: Record<TodayItem["kind"], string> = {
+  overdue: "Overdue", return: "Coming back", handover: "Going out", unpaid: "Unpaid",
+};
+/** "Unpaid: $175.00 still due" → "$175.00"; falls back to the whole note. */
+const owed = (note: string) => note.match(/\$[\d,.]+/)?.[0] ?? note;
+type FilterId = "all" | "out" | "back" | "unpaid" | "done";
+const FILTERS: { id: FilterId; label: string; match: (i: TodayItem) => boolean }[] = [
+  { id: "all", label: "All", match: () => true },
+  { id: "out", label: "Going out", match: (i) => i.kind === "handover" && !i.done },
+  { id: "back", label: "Coming back", match: (i) => (i.kind === "return" || i.kind === "overdue") && !i.done },
+  { id: "unpaid", label: "Unpaid", match: (i) => i.kind === "unpaid" && !i.done },
+  { id: "done", label: "Done", match: (i) => i.done },
+];
+
 export default function TodayPage() {
   const [board, setBoard] = useState<TodayView | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [sheetId, setSheetId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterId>("all");
   const toast = useToast();
 
   // Refreshes can overlap (focus plus a write); only the latest may land, and
@@ -91,7 +107,7 @@ export default function TodayPage() {
     return (
       <div className="td">
         <div className="td-hero td-hero--skel"><Skeleton height={56} width="40%" /><Skeleton height={18} width="60%" /></div>
-        <div className="td-queue"><Skeleton height={64} /><Skeleton height={64} /><Skeleton height={64} /></div>
+        <div className="td-grid"><Skeleton height={190} /><Skeleton height={190} /><Skeleton height={190} /></div>
       </div>
     );
   }
@@ -154,31 +170,43 @@ export default function TodayPage() {
           action={<Link className="btn btn--accent" href="/admin/board">Open the board</Link>}
         />
       ) : (
-        <ol className="td-queue">
-          {board.items.map((it) => (
-            <li key={it.bookingId} className={`td-row td-row--${it.kind}${it.done ? " is-done" : ""}`}>
-              <span className="td-row__time">{it.time}</span>
-              {(() => {
-                const sub = (
-                  <>
-                    <b>{it.customer}</b>
-                    <span>{it.vehicle}, {it.plate}{it.kind === "overdue" ? ", overdue" : ""}{it.unpaid && it.note ? `, ${it.note}` : ""}</span>
-                  </>
-                );
-                return staff
-                  ? <span className="td-row__who">{sub}</span>
-                  : <button type="button" className="td-row__who" onClick={() => setSheetId(it.bookingId)}>{sub}</button>;
-              })()}
-              {it.done
-                ? <span className="td-row__done">{it.action}</span>
-                : it.href
-                  ? <Link className="td-row__do" href={it.href}>{it.action}</Link>
-                  : staff
-                    ? <span className="td-row__owner">{it.action}</span>
-                    : <button type="button" className="td-row__do" onClick={() => setSheetId(it.bookingId)}>{it.action}</button>}
-            </li>
-          ))}
-        </ol>
+        <div className="panel td-panel">
+          <div className="td-filters" role="group" aria-label="Show">
+            {FILTERS.filter((f) => f.id === "all" || board.items.some(f.match)).map((f) => (
+              <button key={f.id} type="button" className={`fleet-chip ${filter === f.id ? "is-on" : ""}`} onClick={() => setFilter(f.id)}>
+                {f.label} <span className="td-filters__n">{board.items.filter(f.match).length}</span>
+              </button>
+            ))}
+          </div>
+          <ol className="td-grid">
+            {board.items.filter((FILTERS.find((f) => f.id === filter) ?? FILTERS[0]!).match).sort((a, b) => Number(a.done) - Number(b.done)).map((it) => (
+              <li key={it.bookingId} className={`td-card td-card--${it.kind}${it.done ? " is-done" : ""}`}>
+                {!staff && (
+                  <button type="button" className="td-card__open" aria-label={`Open ${it.customer}`} onClick={() => setSheetId(it.bookingId)} />
+                )}
+                <div className="td-card__top">
+                  <span className="td-card__kind">{it.done ? `Done · ${KIND_LABEL[it.kind]}` : KIND_LABEL[it.kind]}</span>
+                  <span className="td-card__time">{it.kind === "unpaid" && it.note ? owed(it.note) : it.time}</span>
+                </div>
+                <div className="td-card__body">
+                  <span className="td-card__name">{it.customer}</span>
+                  <span className="td-card__car">{it.plate} · {it.vehicle}</span>
+                  {it.unpaid && it.note && it.kind !== "unpaid" && <span className="td-card__note">{it.note.replace(/^Unpaid:\s*/, "")}</span>}
+                  {it.kind === "unpaid" && <span className="td-card__note">Still owed</span>}
+                  <div className="td-card__foot">
+                    {it.done
+                      ? <span className="td-card__done">{it.action}</span>
+                      : it.href
+                        ? <Link className="td-card__do" href={it.href}>{it.action}</Link>
+                        : staff
+                          ? <span className="td-card__owner">{it.action}</span>
+                          : <button type="button" className="td-card__do" onClick={() => setSheetId(it.bookingId)}>{it.action}</button>}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
 
       <BookingDrawer bookingId={sheetId} onClose={() => setSheetId(null)} onChanged={() => { void load(); }} />
