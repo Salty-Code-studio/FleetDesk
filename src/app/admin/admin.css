@@ -396,7 +396,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 
 /* ---- drawer (right slide) ---- */
 .ui-drawer {
-  width: 100%; max-width: 460px; height: 100dvh;
+  width: 100%; max-width: 460px; height: 100dvh; max-height: 100%;
   display: flex; flex-direction: column;
   background: var(--panel); border-left: 1px solid var(--line);
   box-shadow: var(--shadow-lg);
@@ -410,7 +410,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 }
 .ui-drawer__title { font-family: var(--font-display); font-size: 1.22rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
 .ui-drawer__desc { margin: .3rem 0 0; color: var(--ink-soft); font-size: .88rem; }
-.ui-drawer__body { padding: 1.4rem 1.5rem; overflow-y: auto; flex: 1; }
+.ui-drawer__body { padding: 1.4rem 1.5rem; overflow-y: auto; overscroll-behavior: contain; flex: 1; min-height: 0; }
 .ui-drawer__foot {
   display: flex; justify-content: flex-end; gap: .7rem; flex-wrap: wrap;
   padding: 1rem 1.5rem 1.2rem; border-top: 1px solid var(--line-soft); background: var(--fill);
@@ -578,6 +578,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   .rp-bars { overflow-x: auto; padding-bottom: .4rem; }
   .rp-bar { min-width: 44px; }
   .ui-overlay { padding: .8rem; }
+  .ui-overlay--drawer { padding: 0; }
   .ui-modal { max-height: calc(100dvh - 1.6rem); }
   .ui-modal__head { padding: 1.05rem 1.05rem .85rem; }
   .ui-modal__body { padding: 1.05rem; }
