@@ -28,7 +28,9 @@ const overlayStack: object[] = [];
 function lockBody() {
   if (lockCount === 0 && typeof document !== "undefined") {
     const { body } = document;
-    savedOverflow = body.style.overflow;
+    // Never save our own lock as the "original" value: if a lock leaked (a hot
+    // reload or an unmount mid-transition), unlocking must still free the page.
+    savedOverflow = body.style.overflow === "hidden" ? "" : body.style.overflow;
     savedPaddingRight = body.style.paddingRight;
     // Compensate for the scrollbar so the layout does not shift on lock.
     const sbw = window.innerWidth - document.documentElement.clientWidth;

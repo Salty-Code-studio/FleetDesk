@@ -76,3 +76,27 @@
 
 /* Background refresh failed: say so instead of showing a stale list as live. */
 .td-stale { position: relative; margin: 0; font-size: var(--fs-small); color: var(--ink-soft); display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
+
+/* Kind colours: one hue per job so the desk reads the grid at a glance.
+   Going out = green, coming back = blue, unpaid = amber, overdue = red.
+   Each hue shows on the top plane, the chip, a 4px edge and the filter dot. */
+.td-card { --k: #8A8F87; --k-bg1: var(--sand-2); --k-bg2: var(--line-soft); --k-chip: var(--panel); }
+.td-card--handover { --k: #2E7D57; --k-bg1: #D7ECDF; --k-bg2: #E9F4EC; --k-chip: #EAF5EE; }
+.td-card--return   { --k: #2F5E8C; --k-bg1: #D8E4F1; --k-bg2: #E9F0F7; --k-chip: #EBF1F8; }
+.td-card--unpaid   { --k: #A4660F; --k-bg1: #F4DFB8; --k-bg2: #F8EBD3; --k-chip: #FBF0DC; }
+.td-card--overdue  { --k: #B23B2E; --k-bg1: #F4D9D4; --k-bg2: #FAECE9; --k-chip: #FBEDEA; }
+.td-card { border-left: 4px solid var(--k); }
+.td-card .td-card__top { background-image: linear-gradient(135deg, var(--k-bg1), var(--k-bg2)); }
+.td-card .td-card__time { color: var(--k); }
+.td-card .td-card__kind { display: inline-flex; align-items: center; gap: .4rem; color: var(--k); background: var(--k-chip); border-color: color-mix(in srgb, var(--k) 28%, transparent); }
+.td-card .td-card__kind::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: var(--k); }
+.td-card:hover { border-color: var(--k); }
+.td-card.is-done { border-left-color: var(--line); }
+.td-card.is-done .td-card__time, .td-card.is-done .td-card__kind { color: var(--ink-mute); }
+.td-card.is-done .td-card__kind::before { background: var(--ink-mute); }
+
+.td-filter { display: inline-flex; align-items: center; gap: .4rem; }
+.td-filter--out::before, .td-filter--back::before, .td-filter--unpaid::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; }
+.td-filter--out::before { background: #2E7D57; }
+.td-filter--back::before { background: #2F5E8C; }
+.td-filter--unpaid::before { background: #A4660F; }

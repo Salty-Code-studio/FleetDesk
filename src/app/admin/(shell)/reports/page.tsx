@@ -143,19 +143,6 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="panel rp-percar" aria-busy="true">
-          <h2>Revenue per car</h2>
-          <div className="rp-hbars">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div className="rp-hbar" key={i}>
-                <span className="rp-hbar__label"><Skeleton width="80%" height={11} /></span>
-                <span className="rp-hbar__track"><Skeleton width={`${85 - i * 13}%`} height={13} radius={7} style={{ display: "block" }} /></span>
-                <span className="rp-hbar__val"><Skeleton width={56} height={11} /></span>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div className="panel" aria-busy="true">
           <h2>Deposits held</h2>
           <Skeleton width="100%" height={48} />
@@ -187,6 +174,19 @@ export default function ReportsPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        <div className="panel rp-percar" aria-busy="true">
+          <h2>Revenue per car</h2>
+          <div className="rp-hbars">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div className="rp-hbar" key={i}>
+                <span className="rp-hbar__label"><Skeleton width="80%" height={11} /></span>
+                <span className="rp-hbar__track"><Skeleton width={`${85 - i * 13}%`} height={13} radius={7} style={{ display: "block" }} /></span>
+                <span className="rp-hbar__val"><Skeleton width={56} height={11} /></span>
+              </div>
+            ))}
           </div>
         </div>
       </>
@@ -235,6 +235,65 @@ export default function ReportsPage() {
           </details>
         </div>
       </section>
+
+      <div className="panel">
+        <h2>Deposits held <span className="v">security deposits, {year}</span></h2>
+        {!perCar ? (
+          <div aria-busy="true"><Skeleton width="100%" height={48} /></div>
+        ) : (
+          <>
+            <div className="rp-borg">
+              <div className="rp-kpi"><span>Held at pickup</span><b>{fmt(perCar.borg.heldCents)}</b></div>
+              <div className="rp-kpi"><span>Returned</span><b>{fmt(perCar.borg.returnedCents)}</b></div>
+              <div className="rp-kpi"><span>Withheld ({perCar.borg.withheldCount})</span><b>{fmt(perCar.borg.withheldCents)}</b></div>
+            </div>
+            {perCar.borg.withheldItems.length > 0 && (
+              <ul className="rp-borg-items">
+                {perCar.borg.withheldItems.map((w, i) => (
+                  <li key={i}><b>{w.plate}</b> <small className="muted">{w.name}</small> {fmt(w.amountCents)} withheld. {w.reason}</li>
+                ))}
+              </ul>
+            )}
+            <p className="sub" style={{ margin: ".6rem 0 0" }}>Deposits are money you hold for the customer, not income. They never count toward revenue.</p>
+          </>
+        )}
+      </div>
+
+      <div className="rp-grid">
+        <div className="panel">
+          <h2>Revenue by month</h2>
+          {data.revenueByMonth.every((m) => m.cents === 0) ? (
+            <EmptyState title="No revenue yet" hint="Confirmed and completed rentals will chart here month by month." />
+          ) : (
+            <div className="rp-bars">
+              {data.revenueByMonth.map((m) => (
+                <div className="rp-bar" key={m.month}>
+                  <div className="rp-bar__val">{m.cents > 0 ? fmt(m.cents) : ""}</div>
+                  <div className="rp-bar__track"><div className="rp-bar__fill" style={{ height: `${(m.cents / maxMonth) * 100}%` }} /></div>
+                  <div className="rp-bar__label">{monthLabel(m.month)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="panel">
+          <h2>Revenue by class</h2>
+          {data.revenueByClass.length === 0 ? (
+            <EmptyState title="No revenue yet" hint="Once cars start renting, earnings split by class will show here." />
+          ) : (
+            <div className="rp-hbars">
+              {data.revenueByClass.map((c) => (
+                <div className="rp-hbar" key={c.class}>
+                  <span className="rp-hbar__label">{c.class}</span>
+                  <span className="rp-hbar__track"><span className="rp-hbar__fill" style={{ width: `${(c.cents / maxClass) * 100}%` }} /></span>
+                  <span className="rp-hbar__val">{fmt(c.cents)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="panel rp-percar">
         <div className="rp-percar__head">
@@ -313,65 +372,6 @@ export default function ReportsPage() {
             </details>
           </>
         )}
-      </div>
-
-      <div className="panel">
-        <h2>Deposits held <span className="v">security deposits, {year}</span></h2>
-        {!perCar ? (
-          <div aria-busy="true"><Skeleton width="100%" height={48} /></div>
-        ) : (
-          <>
-            <div className="rp-borg">
-              <div className="rp-kpi"><span>Held at pickup</span><b>{fmt(perCar.borg.heldCents)}</b></div>
-              <div className="rp-kpi"><span>Returned</span><b>{fmt(perCar.borg.returnedCents)}</b></div>
-              <div className="rp-kpi"><span>Withheld ({perCar.borg.withheldCount})</span><b>{fmt(perCar.borg.withheldCents)}</b></div>
-            </div>
-            {perCar.borg.withheldItems.length > 0 && (
-              <ul className="rp-borg-items">
-                {perCar.borg.withheldItems.map((w, i) => (
-                  <li key={i}><b>{w.plate}</b> <small className="muted">{w.name}</small> {fmt(w.amountCents)} withheld. {w.reason}</li>
-                ))}
-              </ul>
-            )}
-            <p className="sub" style={{ margin: ".6rem 0 0" }}>Deposits are money you hold for the customer, not income. They never count toward revenue.</p>
-          </>
-        )}
-      </div>
-
-      <div className="rp-grid">
-        <div className="panel">
-          <h2>Revenue by month</h2>
-          {data.revenueByMonth.every((m) => m.cents === 0) ? (
-            <EmptyState title="No revenue yet" hint="Confirmed and completed rentals will chart here month by month." />
-          ) : (
-            <div className="rp-bars">
-              {data.revenueByMonth.map((m) => (
-                <div className="rp-bar" key={m.month}>
-                  <div className="rp-bar__val">{m.cents > 0 ? fmt(m.cents) : ""}</div>
-                  <div className="rp-bar__track"><div className="rp-bar__fill" style={{ height: `${(m.cents / maxMonth) * 100}%` }} /></div>
-                  <div className="rp-bar__label">{monthLabel(m.month)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="panel">
-          <h2>Revenue by class</h2>
-          {data.revenueByClass.length === 0 ? (
-            <EmptyState title="No revenue yet" hint="Once cars start renting, earnings split by class will show here." />
-          ) : (
-            <div className="rp-hbars">
-              {data.revenueByClass.map((c) => (
-                <div className="rp-hbar" key={c.class}>
-                  <span className="rp-hbar__label">{c.class}</span>
-                  <span className="rp-hbar__track"><span className="rp-hbar__fill" style={{ width: `${(c.cents / maxClass) * 100}%` }} /></span>
-                  <span className="rp-hbar__val">{fmt(c.cents)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </>
   );

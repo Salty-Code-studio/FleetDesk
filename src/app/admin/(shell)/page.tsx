@@ -173,7 +173,7 @@ export default function TodayPage() {
         <div className="panel td-panel">
           <div className="td-filters" role="group" aria-label="Show">
             {FILTERS.filter((f) => f.id === "all" || board.items.some(f.match)).map((f) => (
-              <button key={f.id} type="button" className={`fleet-chip ${filter === f.id ? "is-on" : ""}`} onClick={() => setFilter(f.id)}>
+              <button key={f.id} type="button" className={`fleet-chip td-filter td-filter--${f.id} ${filter === f.id ? "is-on" : ""}`} onClick={() => setFilter(f.id)}>
                 {f.label} <span className="td-filters__n">{board.items.filter(f.match).length}</span>
               </button>
             ))}
