@@ -30,6 +30,8 @@ export {
   CommandPalette,
   openCommandPalette,
   registerPaletteAction,
+  openBooking,
+  OPEN_BOOKING_EVENT,
 } from "./CommandPalette";
 export type { PaletteAction } from "./CommandPalette";
 

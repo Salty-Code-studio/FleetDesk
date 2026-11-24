@@ -18,6 +18,7 @@ import { hourSpan } from "@/lib/admin/hour-grid";
 import { chipFor } from "@/lib/admin/bar-chip";
 import { createDragClickGuard, type DragClickGuard } from "@/lib/admin/drag-click-guard";
 import { BookingDrawer } from "../booking-drawer";
+import { SHEET_CHANGED_EVENT } from "../booking-opener";
 import "./dashboard.css";
 
 interface Bar { id: string; start: string; end: string; startAt: string; endAt: string; status: string; source: string; label: string; notes: string | null; unpaid?: boolean; paidUntil?: string | null; paidNote?: string | null; balanceDueCents?: number }
@@ -105,6 +106,15 @@ export default function AdminDashboard() {
     setLoading(false);
   }
   useEffect(() => { void load(); }, []);
+
+  // A booking opened from search (BookingOpener) changed: redraw this range.
+  const reloadRef = useRef(() => {});
+  reloadRef.current = () => { void load(from, to); };
+  useEffect(() => {
+    const onSheet = () => reloadRef.current();
+    window.addEventListener(SHEET_CHANGED_EVENT, onSheet);
+    return () => window.removeEventListener(SHEET_CHANGED_EVENT, onSheet);
+  }, []);
 
   // Compliance card data. Best-effort: the board must render even if this call fails.
   useEffect(() => {

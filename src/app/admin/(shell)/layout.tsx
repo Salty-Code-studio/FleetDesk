@@ -9,6 +9,8 @@ import { adminUsers } from "@/lib/db/schema";
 import { AdminChrome } from "../_ui";
 import { LogoutButton } from "./logout-button";
 import { NotificationBell } from "./notification-bell";
+import { SearchButton } from "./search-button";
+import { BookingOpener } from "./booking-opener";
 import { SideNav } from "./side-nav";
 import { ViewerRoleProvider } from "./viewer-role";
 import { fontVars } from "@/app/fonts";
@@ -57,10 +59,14 @@ export default async function ShellLayout({ children }: { children: ReactNode })
         </aside>
         <main className="main">
           <div className="topbar">
+            <SearchButton />
             {admin.role === "owner" && <NotificationBell />}
             <LogoutButton />
           </div>
-          <ViewerRoleProvider role={admin.role}>{children}</ViewerRoleProvider>
+          <ViewerRoleProvider role={admin.role}>
+            {children}
+            <BookingOpener />
+          </ViewerRoleProvider>
         </main>
       </div>
     </AdminChrome>

@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOverlay } from "./useOverlay";
+import { apiGet } from "../client";
+import type { SearchResult } from "@/lib/admin/search";
 
 interface Command {
   id: string;
   label: string;
   hint: string;
+  /** Heading shown above the first command of a group. */
+  section?: string;
+  /** Visual nesting: a rental listed under its customer. */
+  nested?: boolean;
   /** Keywords broaden the fuzzy match without cluttering the label. */
   keywords?: string;
   run: () => void;
@@ -19,6 +25,19 @@ interface Command {
  * single keyboard surface; pages opt in without importing it.
  */
 const ACTION_EVENT = "fd:palette-action";
+
+/** Window event that opens the booking sheet from anywhere in the shell.
+ *  BookingOpener (mounted once in the shell layout) listens for it. */
+export const OPEN_BOOKING_EVENT = "fd:open-booking";
+
+export function openBooking(id: string) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(OPEN_BOOKING_EVENT, { detail: { id } }));
+  }
+}
+
+const SEARCH_MIN = 2;
+const SEARCH_DEBOUNCE_MS = 180;
 
 export interface PaletteAction {
   id: string;
@@ -78,6 +97,9 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [actions, setActions] = useState<PaletteAction[]>([]);
+  const [found, setFound] = useState<SearchResult["customers"]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { panelRef } = useOverlay(open, () => setOpen(false));
   const listId = useId();
@@ -103,13 +125,69 @@ export function CommandPalette() {
     return [...acts, ...nav];
   }, [router, actions]);
 
+  // Customers and their rentals, fetched as the desk types.
+  useEffect(() => {
+    const q = query.trim();
+    if (!open || q.length < SEARCH_MIN) {
+      setFound([]);
+      setSearching(false);
+      setSearchFailed(false);
+      return;
+    }
+    let live = true;
+    setSearching(true);
+    const t = setTimeout(() => {
+      apiGet<SearchResult>(`/api/admin/search?q=${encodeURIComponent(q)}`)
+        .then((r) => {
+          if (!live) return;
+          setFound(r.customers);
+          setSearchFailed(false);
+        })
+        .catch(() => {
+          if (!live) return;
+          setFound([]);
+          setSearchFailed(true);
+        })
+        .finally(() => {
+          if (live) setSearching(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [query, open]);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return commands;
-    return commands.filter((c) =>
+    const people: Command[] = [];
+    found.forEach((c, ci) => {
+      const contact = c.phone || c.email;
+      const first = c.bookings[0];
+      people.push({
+        id: `cust:${c.id}`,
+        label: c.name || c.email,
+        hint: `${contact}${c.rentals > 1 ? ` · ${c.rentals} rentals` : ""}`,
+        section: ci === 0 ? "Customers and rentals" : undefined,
+        run: () => { if (first) openBooking(first.id); },
+      });
+      for (const b of c.bookings) {
+        people.push({
+          id: `book:${b.id}`,
+          label: b.dates,
+          hint: `${b.plate} · ${b.statusLabel}`,
+          nested: true,
+          run: () => openBooking(b.id),
+        });
+      }
+    });
+    const nav = commands.filter((c) =>
       `${c.label} ${c.hint} ${c.keywords ?? ""}`.toLowerCase().includes(q),
     );
-  }, [commands, query]);
+    if (people.length && nav.length) nav[0] = { ...nav[0]!, section: "Go to" };
+    return [...people, ...nav];
+  }, [commands, query, found]);
 
   // Global Cmd/Ctrl+K toggles; programmatic open event also toggles on.
   useEffect(() => {
@@ -220,7 +298,7 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder="Search actions and sections"
+            placeholder="Search customers, phone, plate or section"
             role="combobox"
             aria-expanded="true"
             aria-controls={listId}
@@ -240,16 +318,23 @@ export function CommandPalette() {
               aria-selected={false}
               aria-disabled="true"
             >
-              No matches
+              {searching ? "Searching…" : searchFailed ? "Search did not load. Try again." : "No matches"}
             </li>
           ) : (
-            results.map((c, i) => (
+            results.flatMap((c, i) => [
+              ...(c.section
+                ? [
+                    <li key={`h:${c.id}`} className="ui-palette__section" role="presentation">
+                      {c.section}
+                    </li>,
+                  ]
+                : []),
               <li
                 key={c.id}
                 id={`${listId}-${i}`}
                 role="option"
                 aria-selected={i === active}
-                className={`ui-palette__item${i === active ? " is-active" : ""}`}
+                className={`ui-palette__item${c.nested ? " ui-palette__item--nested" : ""}${i === active ? " is-active" : ""}`}
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -258,8 +343,8 @@ export function CommandPalette() {
               >
                 <span className="ui-palette__label">{c.label}</span>
                 <span className="ui-palette__hint">{c.hint}</span>
-              </li>
-            ))
+              </li>,
+            ])
           )}
         </ul>
         <div className="ui-palette__foot" aria-hidden="true">

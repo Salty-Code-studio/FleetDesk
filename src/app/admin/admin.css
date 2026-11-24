@@ -320,6 +320,11 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 
 /* ---------- notification bell ---------- */
 .topbar { display: flex; align-items: center; justify-content: flex-end; gap: .8rem; }
+.topbar-search { margin-right: auto; display: inline-flex; align-items: center; gap: .6rem; min-height: 40px; min-width: min(320px, 100%); padding: .42rem .7rem; border: 1px solid var(--line); background: var(--panel); border-radius: 10px; color: var(--ink-mute); font: inherit; font-size: .88rem; cursor: pointer; text-align: left; transition: border-color .15s var(--ease); }
+.topbar-search:hover, .topbar-search:focus-visible { border-color: var(--teal); }
+.topbar-search__text { flex: 1; }
+.topbar-search kbd { font-family: var(--font-mono); font-size: .64rem; color: var(--ink-soft); background: var(--fill); border: 1px solid var(--line); border-radius: 6px; padding: .12rem .4rem; }
+@media (hover: none) { .topbar-search kbd { display: none; } }
 .nbell { position: relative; }
 .nbell__btn { position: relative; border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: .42rem .58rem; font-size: 1rem; cursor: pointer; line-height: 1; transition: border-color .15s var(--ease), transform .15s var(--ease); }
 .nbell__btn:hover { border-color: var(--teal); transform: translateY(-1px); }
@@ -512,6 +517,9 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .ui-palette__item.is-active .ui-palette__label { color: var(--teal); }
 .ui-palette__label { font-weight: 600; font-size: .94rem; color: var(--ink); }
 .ui-palette__hint { font-family: var(--font-mono); font-size: .72rem; color: var(--ink-mute); white-space: nowrap; }
+.ui-palette__section { padding: .7rem .7rem .3rem; font-size: .78rem; font-weight: 600; color: var(--ink-soft); }
+.ui-palette__item--nested { padding-left: 1.6rem; }
+.ui-palette__item--nested .ui-palette__label { font-weight: 500; font-size: .88rem; }
 .ui-palette__empty { padding: 1.4rem .7rem; text-align: center; color: var(--ink-soft); font-size: .9rem; }
 .ui-palette__foot {
   display: flex; gap: 1.1rem; padding: .6rem 1rem; border-top: 1px solid var(--line-soft);
